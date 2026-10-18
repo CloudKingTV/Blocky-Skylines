@@ -10,6 +10,7 @@ import com.cloudkingtv.townstead.city.Stock;
 import com.cloudkingtv.townstead.client.ClientRoads;
 import com.cloudkingtv.townstead.network.BuildRoadPayload;
 import com.cloudkingtv.townstead.network.BulldozeRoadPayload;
+import com.cloudkingtv.townstead.network.HistoryPayload;
 import com.cloudkingtv.townstead.network.RenameTownPayload;
 import com.cloudkingtv.townstead.road.Material;
 import com.cloudkingtv.townstead.road.RoadCurve;
@@ -121,6 +122,13 @@ public class PlannerScreen extends Screen {
             return super.keyPressed(event); // typing goes to the box, never to the camera
         }
         if (key == InputConstants.KEY_LCONTROL || key == InputConstants.KEY_RCONTROL) ctrlHeld = true;
+        // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z): undo and redo, checked before Z's zoom.
+        if (ctrlHeld && (key == InputConstants.KEY_Z || key == InputConstants.KEY_Y)) {
+            boolean redo = key == InputConstants.KEY_Y || PlannerClient.CAMERA.fast;
+            PlannerClient.city().ifPresent(c -> ClientPacketDistributor.sendToServer(new HistoryPayload(c.id(), redo)));
+            click(redo ? 1.2f : 0.9f);
+            return true;
+        }
         if (TownsteadKeys.PLANNER.matches(event)) { PlannerClient.requestExit(); return true; }
         if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
@@ -538,7 +546,8 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.pan"), Component.translatable("help.townstead.rotate"),
                     Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
-                    Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.cancel"),
+                    Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.undo"),
+                    Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
             int h = lines.size() * (font.lineHeight + 2) + 12;

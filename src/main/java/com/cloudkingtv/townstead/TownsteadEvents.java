@@ -13,6 +13,8 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.block.BreakBlockEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import com.cloudkingtv.townstead.history.EditHistory;
 
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadEvents {
@@ -54,6 +56,12 @@ public final class TownsteadEvents {
     @SubscribeEvent
     static void noAttack(AttackEntityEvent event) {
         if (event.getEntity() instanceof ServerPlayer p && PlannerService.isPlanning(p)) event.setCanceled(true);
+    }
+
+    /** Undo history is per session; an integrated server can restart inside the same JVM. */
+    @SubscribeEvent
+    static void onServerStopped(ServerStoppedEvent event) {
+        EditHistory.clear();
     }
 
     private TownsteadEvents() {}

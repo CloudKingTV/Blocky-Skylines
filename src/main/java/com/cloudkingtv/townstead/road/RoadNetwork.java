@@ -230,6 +230,26 @@ public final class RoadNetwork extends SavedData {
         setDirty();
     }
 
+    /** Puts back a node exactly as it was (undo/redo). */
+    public void putNode(RoadNode n) {
+        nodes.put(n.id(), n);
+        nextId = Math.max(nextId, n.id() + 1);
+        setDirty();
+    }
+
+    public void removeNode(int id) {
+        nodes.remove(id);
+        setDirty();
+    }
+
+    /** Puts back a segment exactly as it was, keeping its id (undo/redo). */
+    public void putSegment(RoadSegment s) {
+        segments.put(s.id(), s);
+        rasterCache.remove(s.id());
+        nextId = Math.max(nextId, s.id() + 1);
+        setDirty();
+    }
+
     public void removeSegment(int id) {
         segments.remove(id);
         rasterCache.remove(id);

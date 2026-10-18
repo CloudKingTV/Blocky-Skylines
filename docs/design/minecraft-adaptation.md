@@ -344,4 +344,7 @@ replacing it.
   any storehouse of the town reaches it and it works with the storehouse chunk unloaded. Bills are
   per material group (item tags `townstead:materials/*`), and digging returns dirt, cobblestone
   and logs. Bulldozing refunds 100% within 5 minutes of building, 50% after.
-- **Not yet:** undo, road upgrade tool, freeform (multi-bend) roads, bridges and tunnels.
+- **Undo/redo:** every edit journals the blocks it changed (before/after), its road-graph diff and
+  its stock delta. Undo restores all three; blocks changed by hand since are skipped and reported.
+  32 entries per town, in memory for the session. Every later planner tool records the same way.
+- **Not yet:** road upgrade tool, freeform (multi-bend) roads, bridges and tunnels.

@@ -81,7 +81,7 @@
   "road.townstead.hint_end": "Click to finish",
   "road.townstead.cost_line": "%s: %s (have %s)",
   "road.townstead.free": "Free (creative)",
-  "road.townstead.built": "Built a %s, %s blocks",
+  "road.townstead.built": "Built: %s, %s blocks",
   "road.townstead.missing": "Not enough in the storehouse: %s",
   "road.townstead.bulldoze_hint": "Point at a road to bulldoze it",
   "road.townstead.bulldoze_target": "Bulldoze this %s",
@@ -104,5 +104,13 @@
   "screen.townstead.storehouse.take": "Click to take a stack",
   "screen.townstead.storehouse.empty": "Empty",
   "screen.townstead.storehouse.deposit_all": "Store all building materials",
-  "road.townstead.issue.obstructed": "Something's in the way (a town block or a container)"
+  "road.townstead.issue.obstructed": "Something's in the way (a town block or a container)",
+  "help.townstead.undo": "Ctrl+Z: undo · Ctrl+Y or Ctrl+Shift+Z: redo",
+  "history.townstead.nothing_to_undo": "Nothing to undo",
+  "history.townstead.nothing_to_redo": "Nothing to redo",
+  "history.townstead.undone": "Undone: %s",
+  "history.townstead.redone": "Redone: %s",
+  "history.townstead.skipped": "%s (kept %s of your own changes)",
+  "history.townstead.redo_short": "Can't redo: not enough %s in the storehouse",
+  "road.townstead.bulldozed_label": "Bulldozed: %s"
 }

@@ -5,6 +5,8 @@ import com.cloudkingtv.townstead.city.City;
 import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.Stock;
 import com.cloudkingtv.townstead.city.TilePos;
+import com.cloudkingtv.townstead.history.BlockRecorder;
+import com.cloudkingtv.townstead.history.EditHistory;
 import com.cloudkingtv.townstead.network.PlannerMessagePayload;
 import com.cloudkingtv.townstead.network.RoadSnapshotPayload;
 import java.util.ArrayList;
@@ -19,6 +21,7 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -109,16 +112,21 @@ public final class RoadEditor {
             }
         }
         CityManager cities = CityManager.get(level.getServer());
+        Map<Identifier, Integer> stockBefore = Map.copyOf(city.stock());
         cities.editStock(level.getServer(), city, stock -> {
             if (!free) {
                 Stock.consume(stock, plan.cost);
                 plan.yield.forEach((item, n) -> Stock.add(stock, item, n));
             }
         });
+        EditHistory.GraphDiff diff = EditHistory.GraphDiff.between(network, planned);
         network.adopt(planned);
-        apply(level, plan);
+        BlockRecorder rec = new BlockRecorder(level);
+        apply(rec, plan);
+        Component label = Component.translatable("road.townstead.built", type.displayName(), Math.round(length));
+        EditHistory.record(city, new EditHistory.Entry(label, rec.changes(), diff, EditHistory.delta(stockBefore, city.stock())));
         sync(level);
-        notify(player, Component.translatable("road.townstead.built", type.displayName(), Math.round(length)), true);
+        notify(player, label, true);
     }
 
     private static @Nullable Integer attach(RoadNetwork planned, double x, double z) {
@@ -219,7 +227,8 @@ public final class RoadEditor {
 
     // ---------------------------------------------------------------- world changes
 
-    static void apply(ServerLevel level, RoadPlan plan) {
+    static void apply(BlockRecorder rec, RoadPlan plan) {
+        ServerLevel level = rec.level();
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         int i = 0;
         for (RoadPlan.Column col : plan.columns.values()) {
@@ -229,42 +238,42 @@ public final class RoadEditor {
                 pos.set(cell.x(), y, cell.z());
                 if (level.getBlockState(pos).isAir()) { air++; continue; }
                 air = 0;
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+                rec.set(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
             }
             BlockState surface = RoadType.surface(cell.part());
             pos.set(cell.x(), cell.y(), cell.z());
-            if (col.resurface()) level.setBlock(pos, surface, Block.UPDATE_ALL);
+            if (col.resurface()) rec.set(pos, surface, Block.UPDATE_ALL);
             BlockState fill = col.fillStone() ? Blocks.COBBLESTONE.defaultBlockState() : Blocks.DIRT.defaultBlockState();
-            for (int k = 1; k <= col.fill(); k++) level.setBlock(pos.set(cell.x(), cell.y() - k, cell.z()), fill, Block.UPDATE_ALL);
+            for (int k = 1; k <= col.fill(); k++) rec.set(pos.set(cell.x(), cell.y() - k, cell.z()), fill, Block.UPDATE_ALL);
             if (i++ % 6 == 0) {
                 level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, surface), cell.x() + 0.5, cell.y() + 1.1, cell.z() + 0.5,
                         3, 0.3, 0.1, 0.3, 0.05);
             }
         }
-        plan.decorations.values().forEach(list -> list.forEach(d -> place(level, d)));
+        plan.decorations.values().forEach(list -> list.forEach(d -> place(rec, d)));
         plan.columns.values().stream().skip(plan.columns.size() / 2).findFirst().ifPresent(c ->
                 level.playSound(null, c.cell().x(), c.cell().y() + 1, c.cell().z(), SoundEvents.ROOTED_DIRT_PLACE, SoundSource.BLOCKS, 1.0f, 0.8f));
     }
 
-    static void place(ServerLevel level, RoadSegment.Decoration d) {
+    static void place(BlockRecorder rec, RoadSegment.Decoration d) {
         switch (d.kind()) {
             case LAMP -> {
-                level.setBlock(d.pos(), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
-                level.setBlock(d.pos().above(), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
-                level.setBlock(d.pos().above(2), Blocks.LANTERN.defaultBlockState(), Block.UPDATE_ALL);
+                rec.set(d.pos(), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+                rec.set(d.pos().above(), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+                rec.set(d.pos().above(2), Blocks.LANTERN.defaultBlockState(), Block.UPDATE_ALL);
             }
-            case HEDGE -> level.setBlock(d.pos(), Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true), Block.UPDATE_ALL);
+            case HEDGE -> rec.set(d.pos(), Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.PERSISTENT, true), Block.UPDATE_ALL);
         }
     }
 
     /** Removes lamp/hedge blocks in the three blocks above a road surface. */
-    static void clearDecoration(ServerLevel level, int x, int y, int z) {
+    static void clearDecoration(BlockRecorder rec, int x, int y, int z) {
         for (int k = 1; k <= 3; k++) {
             BlockPos p = new BlockPos(x, y + k, z);
-            BlockState s = level.getBlockState(p);
+            BlockState s = rec.get(p);
             boolean ours = s.is(BlockTags.WOODEN_FENCES) || s.is(Blocks.LANTERN)
                     || (s.getBlock() instanceof LeavesBlock && s.getValue(LeavesBlock.PERSISTENT));
-            if (ours) level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            if (ours) rec.set(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
         }
     }
 
@@ -286,43 +295,48 @@ public final class RoadEditor {
         Map<Long, RoadRaster.Cell> after = planned.winners(columns);
 
         Map<Material, Integer> refund = new EnumMap<>(Material.class);
+        BlockRecorder rec = new BlockRecorder(level);
         for (long key : columns) {
             RoadRaster.Cell old = before.get(key);
             if (old == null) continue;
             RoadRaster.Cell now = after.get(key);
             int x = RoadRaster.keyX(key), z = RoadRaster.keyZ(key);
-            clearDecoration(level, x, old.y(), z);
+            clearDecoration(rec, x, old.y(), z);
             BlockPos pos = new BlockPos(x, old.y(), z);
             if (now == null) {
                 BlockState here = level.getBlockState(pos);
                 if (here.is(Blocks.DIRT_PATH) || here.is(Blocks.STONE_BRICKS)) {
-                    level.setBlock(pos, Blocks.GRASS_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
+                    rec.set(pos, Blocks.GRASS_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
                     // Paths go back to grass (the soil stays); only bought materials come back.
                     if (RoadType.material(old.part()) != Material.DIRT) refund.merge(RoadType.material(old.part()), 1, Integer::sum);
                 }
             } else if (now.part() != old.part()) {
-                level.setBlock(new BlockPos(x, now.y(), z), RoadType.surface(now.part()), Block.UPDATE_ALL);
+                rec.set(new BlockPos(x, now.y(), z), RoadType.surface(now.part()), Block.UPDATE_ALL);
             }
         }
         for (RoadSegment.Decoration d : seg.decorations()) {
-            clearDecoration(level, d.pos().getX(), d.pos().getY() - 1, d.pos().getZ());
+            clearDecoration(rec, d.pos().getX(), d.pos().getY() - 1, d.pos().getZ());
             if (d.kind() == RoadSegment.DecorationKind.LAMP) { refund.merge(Material.FENCES, 2, Integer::sum); refund.merge(Material.LANTERNS, 1, Integer::sum); }
             else refund.merge(Material.LEAVES, 1, Integer::sum);
         }
         // Lamps of roads that remain, whose columns this road had covered, come back.
         for (RoadSegment s : planned.segments()) {
             for (RoadSegment.Decoration d : s.decorations()) {
-                if (columns.contains(RoadRaster.key(d.pos().getX(), d.pos().getZ()))) place(level, d);
+                if (columns.contains(RoadRaster.key(d.pos().getX(), d.pos().getZ()))) place(rec, d);
             }
         }
         boolean recent = level.getGameTime() - seg.placedAt() < FULL_REFUND_TICKS;
         boolean free = isFree(player);
         CityManager cities = CityManager.get(level.getServer());
+        Map<Identifier, Integer> stockBefore = Map.copyOf(city.stock());
         cities.editStock(level.getServer(), city, stock -> {
             if (free) return;
             refund.forEach((m, n) -> Stock.add(stock, m.icon().getItem(), recent ? n : n / 2));
         });
+        EditHistory.GraphDiff diff = EditHistory.GraphDiff.between(network, planned);
         network.adopt(planned);
+        EditHistory.record(city, new EditHistory.Entry(Component.translatable("road.townstead.bulldozed_label", seg.type().displayName()),
+                rec.changes(), diff, EditHistory.delta(stockBefore, city.stock())));
         sync(level);
         level.playSound(null, seg.curve().x(0.5), seg.heightAt(0.5) + 1, seg.curve().z(0.5), SoundEvents.GRAVEL_BREAK, SoundSource.BLOCKS, 1.0f, 0.8f);
         notify(player, Component.translatable(recent ? "road.townstead.bulldozed_full" : "road.townstead.bulldozed",

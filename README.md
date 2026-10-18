@@ -26,6 +26,7 @@ you designed.
    | Bulldoze | **B** |
    | Rename the town | click its name in the top bar, type, **Enter** |
    | Show all controls | **H** |
+   | Undo / redo | **Ctrl+Z** / **Ctrl+Y** (or **Ctrl+Shift+Z**) |
    | Leave the planner | **M**, or **Esc** with nothing selected |
 
    Green lines mark your town's land. The cursor highlights 8×8-block zone cells. Edge scrolling
@@ -52,6 +53,10 @@ you designed.
    lists the materials it needs against what you have.
 6. **Bulldoze** (B, or the last toolbar button) removes a road piece. Materials come back in
    full if you built it in the last five minutes, half after that.
+7. **Undo / redo**: **Ctrl+Z** undoes the last planner edit (build or bulldoze) and puts back
+   every block, the road network and the storehouse stock exactly as they were. **Ctrl+Y** or
+   **Ctrl+Shift+Z** redoes it. Blocks you've changed by hand since are left alone. The last 32
+   edits per town are kept until the world is closed.
 
 Costs: one dirt per dirt-path or grass block, one stone brick per walk block, dirt or
 cobblestone (in water) for fill, two fences and a lantern per lamp post, one leaves block per

@@ -4,6 +4,7 @@ import com.cloudkingtv.townstead.Townstead;
 import com.cloudkingtv.townstead.city.City;
 import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.StorehouseService;
+import com.cloudkingtv.townstead.history.EditHistory;
 import com.cloudkingtv.townstead.road.RoadEditor;
 import java.util.Optional;
 import java.util.UUID;
@@ -18,7 +19,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -40,6 +41,13 @@ public final class TownsteadNetwork {
         r.playToServer(BulldozeRoadPayload.TYPE, BulldozeRoadPayload.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
                     .ifPresent(city -> RoadEditor.bulldoze(player, city, msg.segmentId()));
+        });
+        r.playToServer(HistoryPayload.TYPE, HistoryPayload.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            plannerCity(player, msg.cityId()).ifPresent(city -> {
+                if (msg.redo()) EditHistory.redo(player, city);
+                else EditHistory.undo(player, city);
+            });
         });
         r.playToServer(StorehousePayloads.DepositAll.TYPE, StorehousePayloads.DepositAll.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) StorehouseService.access(player, msg.pos())
