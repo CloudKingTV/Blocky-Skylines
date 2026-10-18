@@ -122,6 +122,19 @@ public final class CityManager extends SavedData {
         changed(server);
     }
 
+    private boolean pendingSync;
+
+    /** Like {@link #editStock} but syncs on the next {@link #flush} (construction spends a block at a time). */
+    public void editStockQuiet(City city, java.util.function.Consumer<Map<net.minecraft.resources.Identifier, Integer>> edit) {
+        edit.accept(city.stock);
+        setDirty();
+        pendingSync = true;
+    }
+
+    public void flush(MinecraftServer server) {
+        if (pendingSync) changed(server);
+    }
+
     public void addStorehouse(MinecraftServer server, City city, BlockPos pos) {
         if (city.storehouses.add(pos.immutable())) changed(server);
     }
@@ -143,6 +156,7 @@ public final class CityManager extends SavedData {
     }
 
     private void changed(MinecraftServer server) {
+        pendingSync = false;
         setDirty();
         PacketDistributor.sendToAllPlayers(snapshot());
     }

@@ -5,6 +5,8 @@ import com.cloudkingtv.townstead.planner.PlannerReturn;
 import com.cloudkingtv.townstead.planner.PlannerService;
 import com.cloudkingtv.townstead.registry.TownsteadRegistry;
 import com.cloudkingtv.townstead.road.RoadEditor;
+import com.cloudkingtv.townstead.network.LandSnapshotPayload;
+import com.cloudkingtv.townstead.zone.LandData;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -26,6 +28,7 @@ public final class TownsteadEvents {
         if (back.active()) PlannerService.restore(player, back);
         PacketDistributor.sendToPlayer(player, CityManager.get(player.level().getServer()).snapshot());
         RoadEditor.syncTo(player);
+        PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
     }
 
     @SubscribeEvent
@@ -40,6 +43,8 @@ public final class TownsteadEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         PlannerService.exit(player);
         RoadEditor.syncTo(player);
+        PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
+        PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
     }
 
     // The planner body is a camera: it must not touch the world.

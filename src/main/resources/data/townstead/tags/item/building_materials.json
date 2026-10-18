@@ -7,6 +7,10 @@
     "#townstead:materials/logs",
     "#townstead:materials/fences",
     "#townstead:materials/lanterns",
-    "#townstead:materials/leaves"
+    "#townstead:materials/leaves",
+    "#townstead:materials/glass",
+    "#townstead:materials/wool",
+    "#townstead:materials/workstations",
+    "#townstead:materials/hay"
   ]
 }

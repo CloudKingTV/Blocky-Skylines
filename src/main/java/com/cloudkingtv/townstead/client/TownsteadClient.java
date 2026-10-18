@@ -5,6 +5,7 @@ import com.cloudkingtv.townstead.client.planner.PlannerClient;
 import com.cloudkingtv.townstead.client.planner.PlannerRenderTypes;
 import com.cloudkingtv.townstead.client.planner.PlannerWorldRenderer;
 import com.cloudkingtv.townstead.network.CitySnapshotPayload;
+import com.cloudkingtv.townstead.network.LandSnapshotPayload;
 import com.cloudkingtv.townstead.network.PlannerMessagePayload;
 import com.cloudkingtv.townstead.network.PlannerStatePayload;
 import com.cloudkingtv.townstead.network.RoadSnapshotPayload;
@@ -52,6 +53,7 @@ public final class TownsteadClient {
         event.register(PlannerStatePayload.TYPE, (msg, ctx) -> PlannerClient.onState(msg));
         event.register(PlannerMessagePayload.TYPE, (msg, ctx) -> PlannerClient.onMessage(msg));
         event.register(RoadSnapshotPayload.TYPE, (msg, ctx) -> ClientRoads.set(msg.network()));
+        event.register(LandSnapshotPayload.TYPE, (msg, ctx) -> ClientLand.set(msg.land()));
         event.register(StorehousePayloads.Open.TYPE, (msg, ctx) -> Minecraft.getInstance().gui.setScreen(new StorehouseScreen(msg.cityId(), msg.pos())));
     }
 
@@ -91,5 +93,6 @@ public final class TownsteadClient {
         PlannerClient.reset();
         ClientCityCache.clear();
         ClientRoads.clear();
+        ClientLand.clear();
     }
 }

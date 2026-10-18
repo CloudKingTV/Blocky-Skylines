@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 1 (roads)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 2 (zoning and growth)**
 
 ## Playing (current build)
 
@@ -26,6 +26,7 @@ you designed.
    | Bulldoze | **B** |
    | Rename the town | click its name in the top bar, type, **Enter** |
    | Show all controls | **H** |
+   | Zone lots | Zoning tool, then drag; **1–3** zone type, **4** clear |
    | Undo / redo | **Ctrl+Z** / **Ctrl+Y** (or **Ctrl+Shift+Z**) |
    | Leave the planner | **M**, or **Esc** with nothing selected |
 
@@ -63,10 +64,40 @@ cobblestone (in water) for fill, two fences and a lantern per lamp post, one lea
 hedge. Digging returns dirt, cobblestone and logs to the storehouse. Creative-mode players build
 for free, and the server config option `freeBuild` turns materials off for everyone.
 
-Breaking the Town Hall disbands the town. Zoning, growth, services and citizens come next. See
-the roadmap.
+8. **Zoning** (toolbar, third button). Pick a zone and drag over lots: **1** Residential (green),
+   **2** Commercial (blue), **3** Industrial (yellow), **4** clears. Lots are the 8×8 cells along a
+   road: a lot needs a road along one side, within 4 blocks of its edge. Outlined lots are
+   zonable.
+9. **The town grows itself.** The RCI bars in the top bar show what the town wants (hover for the
+   reasons). Homes follow jobs, shops follow population, and workshops follow population too.
+   When a zone has demand, a construction site opens on the free lot of that zone nearest the
+   Town Hall. The building goes up **one block at a time** from the Town Storehouse, about five
+   blocks a second, with scaffolding while it rises. If a material runs out, the site pauses and
+   tells you what it needs, then carries on when you restock.
 
-## Screenshots (Phase 1, from the headless playtest)
+   | Zone | Builds | Village look |
+   |---|---|---|
+   | Residential | cottages, 1–2 storeys | cobblestone footing, log corner posts, plank walls, glass panes, gable roof, door torch, flowers and a path to the road |
+   | Commercial | shops | a workstation behind a glass shop front, a striped wool awning |
+   | Industrial | workshops | cobblestone and stone-brick walls, a flat roof, a smoking chimney, hay and barrels in the yard |
+
+   Everything is real blocks: leave the planner and walk in. Inspect (hover) shows a building's
+   progress, residents or jobs. Bulldoze removes a building (full refund if unfinished, half
+   once finished). Zoning and bulldozing are undoable like roads.
+
+Breaking the Town Hall disbands the town. Services, utilities and citizens come next. See the
+roadmap.
+
+## Screenshots (from the headless playtests)
+
+Phase 2: zoned lots grew into a village street, built block by block from the storehouse.
+
+| | |
+|---|---|
+| ![A grown street: shop, workshop, cottages](docs/screenshots/phase2-street.png) | ![A cottage](docs/screenshots/phase2-cottage.png) |
+| ![A workshop with a smoking chimney](docs/screenshots/phase2-workshop.png) | ![Zoned lots and two construction sites from the planner](docs/screenshots/phase2-sites.png) |
+
+Phase 1: roads.
 
 | | |
 |---|---|

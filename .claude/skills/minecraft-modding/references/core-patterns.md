@@ -254,6 +254,28 @@ Limits: clientbound up to 1 MiB, serverbound under 32 KiB. **Validate every serv
 payload**: entity exists, `player.distanceToSqr(entity) < 64`, the option is legal for the
 node the server thinks the player is on, rate-limit spam.
 
+## Changing the world in bulk (structures, roads, construction)
+
+Verified while building Townstead's roads and growing houses on 26.3:
+
+- **Plan first, then place.** Compute the full list of `(pos, state)` changes plus their cost before touching the
+  world, so the client can preview it and the server can refuse it whole (out of bounds, chunk not loaded,
+  something protected in the way). Check `level.hasChunk(x >> 4, z >> 4)` per column.
+- **Journal every write** (`pos`, state before, state after) through one recorder. That gives exact undo/redo for
+  free. On undo, only restore positions whose current state still equals the recorded "after", so hand-made
+  changes since are kept.
+- **Compare blocks, not states, when checking your own placements.** Glass panes, fences, walls and stairs update
+  their shape properties as neighbours arrive, so `state.equals(planned)` fails on a block you placed yourself;
+  use `state.is(planned.getBlock())`.
+- **Doors are two blocks.** Place the upper half first with `Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE`, then the
+  lower half with `UPDATE_ALL`; a lone lower half breaks itself on the next shape update.
+- **Temporary scaffolding:** place and remove `Blocks.SCAFFOLDING` with `UPDATE_CLIENTS | UPDATE_KNOWN_SHAPE`, top
+  down when removing, and never where the structure itself will put a block. An unsupported scaffold column
+  breaks and drops items.
+- Never let bulk edits cut through block entities (chests, furnaces) or your own blocks; treat them as obstacles.
+- Spread placement over ticks (one block every few ticks reads as "being built" and keeps tick time flat) and
+  persist only a progress counter if the plan is deterministic from a seed.
+
 ## Commands (debug and designer tools)
 
 Add `/<modid> cutscene play <id> [targets]`, `/<modid> quest set ...` and similar commands early.

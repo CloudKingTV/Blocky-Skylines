@@ -3,6 +3,10 @@ package com.cloudkingtv.townstead.client.planner;
 import com.cloudkingtv.townstead.city.CitySummary;
 import com.cloudkingtv.townstead.city.TilePos;
 import com.cloudkingtv.townstead.client.ClientRoads;
+import com.cloudkingtv.townstead.client.ClientLand;
+import com.cloudkingtv.townstead.building.Building;
+import com.cloudkingtv.townstead.zone.ZoneRules;
+import com.cloudkingtv.townstead.zone.ZoneType;
 import com.cloudkingtv.townstead.road.RoadCurve;
 import com.cloudkingtv.townstead.road.RoadNode;
 import com.cloudkingtv.townstead.road.RoadPlan;
@@ -53,8 +57,101 @@ public final class PlannerWorldRenderer {
             if (selected != null) cell(p, buf, level, cam, selected, scale(SELECTED, pulse), width * 2.5f);
             if (hover != null && !hover.equals(selected)) cell(p, buf, level, cam, hover, CURSOR, width * 2f);
             roadLines(p, buf, cam, city, width);
+            landLines(p, buf, level, cam, city, width, pulse);
         });
-        event.getSubmitNodeCollector().submitCustomGeometry(pose, PlannerRenderTypes.OVERLAY_QUADS, (p, buf) -> roadQuads(p, buf, cam, city, pulse));
+        event.getSubmitNodeCollector().submitCustomGeometry(pose, PlannerRenderTypes.OVERLAY_QUADS, (p, buf) -> {
+            roadQuads(p, buf, cam, city, pulse);
+            landQuads(p, buf, level, cam, city, pulse);
+        });
+    }
+
+    // ---------------------------------------------------------------- zoning and buildings
+
+    private static final java.util.Map<Long, Integer> CELL_Y = new java.util.HashMap<>();
+    private static java.util.List<Long> candidates = java.util.List.of();
+    private static @org.jspecify.annotations.Nullable Object candidateKey;
+    private static long cellYAt;
+
+    /** Typical ground height of a cell (cached; refreshed every few seconds as the town changes). */
+    private static int cellY(ClientLevel level, long key) {
+        if (Util.getMillis() - cellYAt > 3000) { CELL_Y.clear(); cellYAt = Util.getMillis(); }
+        return CELL_Y.computeIfAbsent(key, k -> {
+            int x0 = RoadRaster.keyX(k) * TilePos.CELL, z0 = RoadRaster.keyZ(k) * TilePos.CELL;
+            int[] h = new int[16];
+            int i = 0;
+            for (int x = x0 + 1; x < x0 + 8; x += 2) for (int z = z0 + 1; z < z0 + 8; z += 2) h[i++] = ground(level, x, z);
+            java.util.Arrays.sort(h);
+            return h[8];
+        });
+    }
+
+    /** Cells of the town that can be zoned (cached per road/land update). */
+    private static java.util.List<Long> candidates(CitySummary city) {
+        Object key = java.util.List.of(ClientRoads.version(), ClientLand.version(), city.id(), city.tiles().size());
+        if (!key.equals(candidateKey)) {
+            candidateKey = key;
+            java.util.List<Long> out = new java.util.ArrayList<>();
+            for (TilePos t : city.tiles()) {
+                for (int cx = t.minBlockX() / TilePos.CELL; cx < (t.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
+                    for (int cz = t.minBlockZ() / TilePos.CELL; cz < (t.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
+                        if (PlannerClient.frontage(cx, cz) != null) out.add(ZoneRules.cellKey(cx, cz));
+                    }
+                }
+            }
+            candidates = out;
+        }
+        return candidates;
+    }
+
+    private static void landQuads(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city, float pulse) {
+        boolean zoning = PlannerScreen.zoningActive();
+        var land = ClientLand.get();
+        for (var e : land.zones().entrySet()) {
+            if (!e.getValue().city().equals(city.id()) || land.buildingAt(e.getKey()) != null) continue;
+            if (PlannerClient.STROKE.contains(e.getKey())) continue;
+            cellQuad(p, buf, cam, e.getKey(), cellY(level, e.getKey()), ARGB.color(zoning ? 0x66 : 0x38, e.getValue().type().rgb), 0.5);
+        }
+        int brush = PlannerClient.zoneBrush;
+        int strokeColor = brush < ZoneType.values().length ? ARGB.color(0x99, ZoneType.values()[brush].rgb) : 0x70FF5050;
+        for (long key : PlannerClient.STROKE) cellQuad(p, buf, cam, key, cellY(level, key), strokeColor, 0.3);
+        Building doomed = PlannerScreen.bulldozing() ? PlannerClient.hoveredBuilding() : null;
+        if (doomed != null) {
+            cellQuad(p, buf, cam, doomed.cellKey(), doomed.baseY - 1, ARGB.color(Math.round(0x50 + 0x40 * pulse), 255, 70, 60), 0);
+        }
+    }
+
+    private static void landLines(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city, float w, float pulse) {
+        if (PlannerScreen.zoningActive()) {
+            var land = ClientLand.get();
+            for (long key : candidates(city)) {
+                if (land.zone(key) != null || land.buildingAt(key) != null) continue;
+                cellOutline(p, buf, cam, key, cellY(level, key) + 1.04, 0x90FFFFFF, w * 1.2f, 0.6);
+            }
+        }
+        for (Building b : ClientLand.get().buildingsOf(city.id())) {
+            if (b.state == Building.State.ACTIVE) continue;
+            int color = b.state == Building.State.PAUSED ? scale(0xFFFF6B5B, pulse) : 0xFFFFD36B;
+            cellOutline(p, buf, cam, b.cellKey(), b.baseY + 0.05, color, w * 2.5f, 0.2);
+        }
+    }
+
+    private static void cellQuad(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, long key, int y, int color, double inset) {
+        double x0 = RoadRaster.keyX(key) * TilePos.CELL + inset, z0 = RoadRaster.keyZ(key) * TilePos.CELL + inset;
+        double x1 = x0 + TilePos.CELL - 2 * inset, z1 = z0 + TilePos.CELL - 2 * inset;
+        float fy = (float) (y + 1.03 - cam.y);
+        buf.addVertex(p, (float) (x0 - cam.x), fy, (float) (z0 - cam.z)).setColor(color);
+        buf.addVertex(p, (float) (x0 - cam.x), fy, (float) (z1 - cam.z)).setColor(color);
+        buf.addVertex(p, (float) (x1 - cam.x), fy, (float) (z1 - cam.z)).setColor(color);
+        buf.addVertex(p, (float) (x1 - cam.x), fy, (float) (z0 - cam.z)).setColor(color);
+    }
+
+    private static void cellOutline(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, long key, double y, int color, float w, double inset) {
+        double x0 = RoadRaster.keyX(key) * TilePos.CELL + inset, z0 = RoadRaster.keyZ(key) * TilePos.CELL + inset;
+        double x1 = x0 + TilePos.CELL - 2 * inset, z1 = z0 + TilePos.CELL - 2 * inset;
+        line(p, buf, cam, x0, y, z0, x1, y, z0, color, w);
+        line(p, buf, cam, x1, y, z0, x1, y, z1, color, w);
+        line(p, buf, cam, x1, y, z1, x0, y, z1, color, w);
+        line(p, buf, cam, x0, y, z1, x0, y, z0, color, w);
     }
 
     // ---------------------------------------------------------------- roads

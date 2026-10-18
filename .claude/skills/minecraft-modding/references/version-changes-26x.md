@@ -110,7 +110,8 @@ full, authoritative lists are ChampionAsh5357's primers (CC-BY 4.0):
   `key.category.<namespace>.<path>`.
 - Some `Items` fields are now **collections**, e.g. `Items.LIGHTNING_ROD` is a
   `WeatheringCopperCollection<Item>`. `Items.WHITE_BANNER` isn't a plain field either. Check before
-  using an item as an icon.
+  using an item as an icon. The 16-colour families are `ColorCollection`s: `Blocks.WOOL.pick(DyeColor.RED)`,
+  `Items.WOOL.pick(DyeColor.WHITE)` (no `Blocks.RED_WOOL`).
 - `GameProfile` is a record: `profile.name()`, `profile.id()`.
 - `ModConfig.Type` (FML 12) is `LOCAL`, `CLIENT`, `SYNCED`, `STARTUP`: no `COMMON`, and the old
   `SERVER` (per-world, synced to clients) is now `SYNCED`.

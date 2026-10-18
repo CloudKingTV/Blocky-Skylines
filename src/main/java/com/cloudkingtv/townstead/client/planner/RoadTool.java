@@ -39,7 +39,7 @@ public final class RoadTool {
         public boolean buildable() { return plan.ok() && missing.isEmpty(); }
     }
 
-    private static final double GRID = 8, GRID_SNAP = 1.5, ANGLE_STEP = 15, ANGLE_SNAP = 4;
+    private static final double GRID = 8, ANGLE_STEP = 15, ANGLE_SNAP = 4;
 
     public RoadType type = RoadType.STREET;
     public Mode mode = Mode.STRAIGHT;
@@ -92,9 +92,10 @@ public final class RoadTool {
                 return new Snap(from.x() + Math.cos(r) * len, from.z() + Math.sin(r) * len, null, SnapKind.ANGLE);
             }
         } else {
-            double gx = Math.round((x - 0.5) / GRID) * GRID + 0.5, gz = Math.round((z - 0.5) / GRID) * GRID + 0.5;
-            boolean nx = Math.abs(gx - x) <= GRID_SNAP, nz = Math.abs(gz - z) <= GRID_SNAP;
-            if (nx || nz) return new Snap(nx ? gx : Math.floor(x) + 0.5, nz ? gz : Math.floor(z) + 0.5, null, SnapKind.GRID);
+            // Grid lines run down the middle of zone cells, so a road fills one cell row and leaves the rows on
+            // either side free to zone.
+            double gx = Math.round((x - 4.5) / GRID) * GRID + 4.5, gz = Math.round((z - 4.5) / GRID) * GRID + 4.5;
+            return new Snap(gx, gz, null, SnapKind.GRID);
         }
         return new Snap(Math.floor(x) + 0.5, Math.floor(z) + 0.5, null, SnapKind.FREE);
     }

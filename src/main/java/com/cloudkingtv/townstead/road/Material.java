@@ -20,7 +20,11 @@ public enum Material {
     LOGS("logs", Items.OAK_LOG),
     FENCES("fences", Items.OAK_FENCE),
     LANTERNS("lanterns", Items.LANTERN),
-    LEAVES("leaves", Items.OAK_LEAVES);
+    LEAVES("leaves", Items.OAK_LEAVES),
+    GLASS("glass", Items.GLASS_PANE),
+    WOOL("wool", Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)),
+    WORKSTATIONS("workstations", Items.BARREL),
+    HAY("hay", Items.HAY_BLOCK);
 
     /** Everything the Town Storehouse accepts. */
     public static final TagKey<Item> BUILDING_MATERIALS = ItemTags.create(Townstead.id("building_materials"));

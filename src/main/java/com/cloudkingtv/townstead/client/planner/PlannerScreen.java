@@ -8,7 +8,14 @@ import com.cloudkingtv.townstead.city.TilePos;
 import com.cloudkingtv.townstead.client.TownsteadKeys;
 import com.cloudkingtv.townstead.city.Stock;
 import com.cloudkingtv.townstead.client.ClientRoads;
+import com.cloudkingtv.townstead.building.Building;
+import com.cloudkingtv.townstead.building.BuildingGenerator;
+import com.cloudkingtv.townstead.building.Demand;
+import com.cloudkingtv.townstead.client.ClientLand;
 import com.cloudkingtv.townstead.network.BuildRoadPayload;
+import com.cloudkingtv.townstead.network.LandEditPayloads;
+import com.cloudkingtv.townstead.zone.ZoneRules;
+import com.cloudkingtv.townstead.zone.ZoneType;
 import com.cloudkingtv.townstead.network.BulldozeRoadPayload;
 import com.cloudkingtv.townstead.network.HistoryPayload;
 import com.cloudkingtv.townstead.network.RenameTownPayload;
@@ -66,16 +73,16 @@ public class PlannerScreen extends Screen {
     private static final List<Tool> TOOLS = List.of(
             new Tool("inspect", new ItemStack(Items.SPYGLASS), true),
             new Tool("roads", new ItemStack(Items.DIRT_PATH), true),
-            new Tool("zoning", new ItemStack(Items.OAK_SIGN), false),
+            new Tool("zoning", new ItemStack(Items.OAK_SIGN), true),
             new Tool("utilities", new ItemStack(Items.REDSTONE_TORCH), false),
             new Tool("services", new ItemStack(Items.BELL), false),
             new Tool("transport", new ItemStack(Items.MINECART), false),
             new Tool("parks", new ItemStack(Items.OAK_SAPLING), false),
             new Tool("districts", new ItemStack(Items.MAP), false),
             new Tool("bulldoze", new ItemStack(Items.IRON_SHOVEL), true));
-    private static final int INSPECT = 0, ROADS = 1, BULLDOZE = 8;
-    /** Road sub-panel: three sizes, a gap, then the two modes. */
-    private static final int SUB_BUTTONS = RoadType.values().length + RoadTool.Mode.values().length, SUB_GAP = 6;
+    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, BULLDOZE = 8;
+    /** Tool sub-panels: roads (three sizes, gap, two modes), zoning (three zones, gap, clear). */
+    private static final int SUB_GAP = 6;
     private static final List<ItemStack> MODE_ICONS = List.of(new ItemStack(Items.RAIL), new ItemStack(Items.POWERED_RAIL));
 
     private final long openedAt = Util.getMillis();
@@ -83,9 +90,20 @@ public class PlannerScreen extends Screen {
     private static int selectedTool = INSPECT;
     private boolean orbiting, showHelp, ctrlHeld;
     private boolean flashOk = true;
+    private boolean painting;
+    private long strokeSentAt;
     private @Nullable EditBox renameBox;
     private @Nullable Component flash;
     private long flashAt;
+
+    /** Whether the zoning tool is out (the world renderer shows zonable lots then). */
+    public static boolean zoningActive() {
+        return selectedTool == ZONING;
+    }
+
+    public static boolean bulldozing() {
+        return selectedTool == BULLDOZE;
+    }
 
     public PlannerScreen() {
         super(Component.translatable("screen.townstead.planner"));
@@ -133,6 +151,11 @@ public class PlannerScreen extends Screen {
         if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
         if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
+        if (selectedTool == ZONING && key >= InputConstants.KEY_1 && key <= InputConstants.KEY_1 + PlannerClient.CLEAR_BRUSH) {
+            PlannerClient.zoneBrush = key - InputConstants.KEY_1;
+            click(1.1f);
+            return true;
+        }
         if (selectedTool == ROADS) {
             RoadTool roads = PlannerClient.ROADS;
             if (key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + RoadType.values().length) {
@@ -180,6 +203,10 @@ public class PlannerScreen extends Screen {
     private void cancelOrExit() {
         if (selectedTool == ROADS && PlannerClient.ROADS.cancel()) {
             click(0.8f);
+        } else if (painting) {
+            painting = false;
+            PlannerClient.STROKE.clear();
+            click(0.8f);
         } else if (PlannerClient.selectedCell != null) {
             PlannerClient.selectedCell = null;
             click(0.8f);
@@ -222,6 +249,12 @@ public class PlannerScreen extends Screen {
         }
         if (selectedTool == ROADS) { roadClick(); return true; }
         if (selectedTool == BULLDOZE) { bulldozeClick(); return true; }
+        if (selectedTool == ZONING) {
+            painting = true;
+            PlannerClient.STROKE.clear();
+            strokeAdd();
+            return true;
+        }
         if (PlannerClient.hoverCell != null) {
             PlannerClient.selectedCell = PlannerClient.hoverCell;
             click(1.2f);
@@ -233,6 +266,17 @@ public class PlannerScreen extends Screen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         if (event.button() == InputConstants.MOUSE_BUTTON_MIDDLE) orbiting = false;
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && painting) {
+            painting = false;
+            if (!PlannerClient.STROKE.isEmpty()) {
+                int zone = PlannerClient.zoneBrush == PlannerClient.CLEAR_BRUSH ? -1 : PlannerClient.zoneBrush;
+                PlannerClient.city().ifPresent(c -> ClientPacketDistributor.sendToServer(
+                        new LandEditPayloads.Paint(c.id(), zone, new ArrayList<>(PlannerClient.STROKE))));
+                click(1.2f);
+            }
+            // Keep the stroke drawn until the server's answer replaces it.
+            strokeSentAt = Util.getMillis();
+        }
         return super.mouseReleased(event);
     }
 
@@ -241,6 +285,11 @@ public class PlannerScreen extends Screen {
         if (orbiting) {
             PlannerClient.CAMERA.rotate((float) dx * 0.45f);
             PlannerClient.CAMERA.tilt((float) dy * 0.3f);
+            return true;
+        }
+        if (painting) {
+            updateHover((int) event.x(), (int) event.y());
+            strokeAdd();
             return true;
         }
         return super.mouseDragged(event, dx, dy);
@@ -274,11 +323,25 @@ public class PlannerScreen extends Screen {
 
     private void bulldozeClick() {
         RoadSegment seg = PlannerClient.hoveredSegment();
+        Building building = PlannerClient.hoveredBuilding();
         PlannerClient.city().ifPresent(city -> {
-            if (seg == null) return;
-            ClientPacketDistributor.sendToServer(new BulldozeRoadPayload(city.id(), seg.id()));
+            if (building != null) ClientPacketDistributor.sendToServer(new LandEditPayloads.BulldozeBuilding(city.id(), building.id));
+            else if (seg != null) ClientPacketDistributor.sendToServer(new BulldozeRoadPayload(city.id(), seg.id()));
+            else return;
             click(0.7f);
         });
+    }
+
+    /** Adds the hovered cell to the brush stroke when it can take the zone (any cell can be cleared). */
+    private void strokeAdd() {
+        BlockPos cell = PlannerClient.hoverCell;
+        if (cell == null) return;
+        int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
+        boolean clearing = PlannerClient.zoneBrush == PlannerClient.CLEAR_BRUSH;
+        if (!clearing && PlannerClient.frontage(cx, cz) == null) return;
+        if (PlannerClient.STROKE.add(ZoneRules.cellKey(cx, cz)) && PlannerClient.STROKE.size() % 2 == 1) {
+            minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.6f, 0.15f));
+        }
     }
 
     private static Component problem(RoadTool.Preview preview) {
@@ -298,6 +361,11 @@ public class PlannerScreen extends Screen {
     }
 
     private void pickSub(int i) {
+        if (selectedTool == ZONING) {
+            PlannerClient.zoneBrush = i;
+            click(1.1f);
+            return;
+        }
         RoadTool roads = PlannerClient.ROADS;
         int types = RoadType.values().length;
         if (i < types) roads.type = RoadType.values()[i];
@@ -376,6 +444,7 @@ public class PlannerScreen extends Screen {
 
     private void updateHover(int mouseX, int mouseY) {
         PlannerClient.hoveredSegmentId = -1;
+        PlannerClient.hoveredBuildingId = -1;
         if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || minecraft.level == null) {
             PlannerClient.hoverCell = null;
             return;
@@ -397,8 +466,14 @@ public class PlannerScreen extends Screen {
             PlannerClient.ROADS.hover(at.x, at.z, ctrlHeld);
             return;
         }
+        // Buildings first: the cell under the cursor (inspect and bulldoze pick them out).
+        BlockPos hp = hit.getBlockPos();
+        Building b = ClientLand.get().buildingAt(ZoneRules.cellKey(Math.floorDiv(hp.getX(), TilePos.CELL), Math.floorDiv(hp.getZ(), TilePos.CELL)));
+        boolean ours = b != null && PlannerClient.city().map(c -> c.id().equals(b.city)).orElse(false);
+        if (ours && (selectedTool == BULLDOZE || selectedTool == INSPECT)) PlannerClient.hoveredBuildingId = b.id;
         if (selectedTool == BULLDOZE) {
             PlannerClient.hoverCell = null;
+            if (ours) return;
             PlannerClient.hoveredSegmentId = ClientRoads.network().nearestSegment(at.x, at.z, 0.5)
                     .filter(h -> PlannerClient.city().map(c -> c.id().equals(h.segment().city())).orElse(false))
                     .map(h -> h.segment().id()).orElse(-1);
@@ -441,13 +516,17 @@ public class PlannerScreen extends Screen {
         g.pose().pushMatrix();
         g.pose().translate(0, (1f - slide) * (SLOT + 16));
         drawToolbar(g, barX, barY, barW, mouseX, mouseY);
-        if (selectedTool == ROADS) drawRoadPanel(g, mouseX, mouseY);
+        if (subCount() > 0) drawSubPanel(g, mouseX, mouseY);
         g.pose().popMatrix();
 
+        if (!painting && strokeSentAt > 0 && Util.getMillis() - strokeSentAt > 1500) { PlannerClient.STROKE.clear(); strokeSentAt = 0; }
+        Building hovered = PlannerClient.hoveredBuilding();
         if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
         else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
+        else if (selectedTool == ZONING) drawZoningInfo(g, city, mouseX, mouseY);
+        else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
         else drawCursorInfo(g, city);
-        drawFlash(g, selectedTool == ROADS ? subY() : barY);
+        drawFlash(g, subCount() > 0 ? subY() : barY);
         drawHints(g);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
@@ -480,8 +559,10 @@ public class PlannerScreen extends Screen {
             g.setTooltipForNextFrame(font, lines.stream().map(Component::getVisualOrderText).toList(), mouseX, TOP_BAR_H + 14);
         }
         x = rightStat(g, x, y, new ItemStack(Items.FILLED_MAP), Component.translatable("hud.townstead.tiles", city.tiles().size()));
-        x = rightStat(g, x, y, new ItemStack(Items.VILLAGER_SPAWN_EGG), Component.translatable("hud.townstead.population", 0));
-        rightStat(g, x, y, new ItemStack(Items.EMERALD), Component.literal(String.valueOf(city.treasury())));
+        Demand demand = Demand.of(ClientLand.get().buildingsOf(city.id()));
+        x = rightStat(g, x, y, new ItemStack(Items.VILLAGER_SPAWN_EGG), Component.translatable("hud.townstead.population", demand.population()));
+        x = rightStat(g, x, y, new ItemStack(Items.EMERALD), Component.literal(String.valueOf(city.treasury())));
+        drawDemand(g, x - 4, demand, mouseX, mouseY);
     }
 
     private int rightStat(GuiGraphicsExtractor g, int right, int y, ItemStack icon, Component text) {
@@ -546,7 +627,8 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.pan"), Component.translatable("help.townstead.rotate"),
                     Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
-                    Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.undo"),
+                    Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.zoning"),
+                    Component.translatable("help.townstead.undo"),
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
@@ -568,44 +650,136 @@ public class PlannerScreen extends Screen {
         return height - SLOT - TOOLBAR_PAD * 2 - 4 - SLOT - TOOLBAR_PAD * 2 - 4;
     }
 
+    private int subCount() {
+        return switch (selectedTool) {
+            case ROADS -> RoadType.values().length + RoadTool.Mode.values().length;
+            case ZONING -> PlannerClient.CLEAR_BRUSH + 1;
+            default -> 0;
+        };
+    }
+
+    /** Index of the first button after the panel's gap. */
+    private int subGapAt() {
+        return selectedTool == ROADS ? RoadType.values().length : PlannerClient.CLEAR_BRUSH;
+    }
+
     private int subX() {
-        return (width - (SUB_BUTTONS * SLOT + SUB_GAP + TOOLBAR_PAD * 2)) / 2;
+        return (width - (subCount() * SLOT + SUB_GAP + TOOLBAR_PAD * 2)) / 2;
     }
 
     private int subButtonX(int i) {
-        return subX() + TOOLBAR_PAD + i * SLOT + (i >= RoadType.values().length ? SUB_GAP : 0);
+        return subX() + TOOLBAR_PAD + i * SLOT + (i >= subGapAt() ? SUB_GAP : 0);
     }
 
     private int subButtonAt(double mouseX, double mouseY) {
-        if (selectedTool != ROADS) return -1;
+        int n = subCount();
+        if (n == 0) return -1;
         int y = subY() + TOOLBAR_PAD;
         if (mouseY < y || mouseY >= y + SLOT) return -1;
-        for (int i = 0; i < SUB_BUTTONS; i++) {
+        for (int i = 0; i < n; i++) {
             int x = subButtonX(i);
             if (mouseX >= x && mouseX < x + SLOT) return i;
         }
         return -1;
     }
 
-    private void drawRoadPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
-        RoadTool roads = PlannerClient.ROADS;
-        int x = subX(), y = subY(), w = SUB_BUTTONS * SLOT + SUB_GAP + TOOLBAR_PAD * 2;
+    private void drawSubPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+        int n = subCount();
+        int x = subX(), y = subY(), w = n * SLOT + SUB_GAP + TOOLBAR_PAD * 2;
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, SLOT + TOOLBAR_PAD * 2);
         int hovered = subButtonAt(mouseX, mouseY);
+        boolean roads = selectedTool == ROADS;
+        RoadTool tool = PlannerClient.ROADS;
         int types = RoadType.values().length;
-        for (int i = 0; i < SUB_BUTTONS; i++) {
-            boolean on = i < types ? roads.type.ordinal() == i : roads.mode.ordinal() == i - types;
+        for (int i = 0; i < n; i++) {
+            boolean on;
+            ItemStack icon;
+            if (roads) {
+                on = i < types ? tool.type.ordinal() == i : tool.mode.ordinal() == i - types;
+                icon = i < types ? RoadType.values()[i].icon() : MODE_ICONS.get(i - types);
+            } else {
+                on = PlannerClient.zoneBrush == i;
+                icon = i < ZoneType.values().length ? ZoneType.values()[i].icon() : new ItemStack(Items.BRUSH);
+            }
             int bx = subButtonX(i), by = y + TOOLBAR_PAD;
             g.blitSprite(RenderPipelines.GUI_TEXTURED, on ? BUTTON_SELECTED : i == hovered ? BUTTON_HOVER : BUTTON, bx + 1, by + 1, SLOT - 2, SLOT - 2);
-            g.item(i < types ? RoadType.values()[i].icon() : MODE_ICONS.get(i - types), bx + 4, by + 4);
-            if (i < types) g.text(font, String.valueOf(i + 1), bx + SLOT - 7, by + SLOT - 10, 0xFFFFFFFF, true);
+            if (!roads && i < ZoneType.values().length) g.fill(bx + 3, by + SLOT - 5, bx + SLOT - 3, by + SLOT - 3, 0xFF000000 | ZoneType.values()[i].rgb);
+            g.item(icon, bx + 4, by + 4);
+            if (!roads || i < types) g.text(font, String.valueOf(i + 1), bx + SLOT - 7, by + SLOT - 10, 0xFFFFFFFF, true);
         }
         if (hovered >= 0) {
-            Component name = hovered < types ? Component.translatable("road.townstead.type_tip", RoadType.values()[hovered].displayName(),
-                    RoadType.values()[hovered].width())
-                    : Component.translatable("road.townstead.mode." + RoadTool.Mode.values()[hovered - types].name().toLowerCase(java.util.Locale.ROOT));
+            Component name;
+            if (roads) {
+                name = hovered < types ? Component.translatable("road.townstead.type_tip", RoadType.values()[hovered].displayName(),
+                        RoadType.values()[hovered].width())
+                        : Component.translatable("road.townstead.mode." + RoadTool.Mode.values()[hovered - types].name().toLowerCase(java.util.Locale.ROOT));
+            } else {
+                name = hovered < ZoneType.values().length ? ZoneType.values()[hovered].displayName() : Component.translatable("zone.townstead.clear");
+            }
             g.setTooltipForNextFrame(font, name, mouseX, mouseY);
         }
+    }
+
+    /** Cities: Skylines demand bars: how much the town wants homes, shops and workshops, with the reasons. */
+    private void drawDemand(GuiGraphicsExtractor g, int right, Demand demand, int mouseX, int mouseY) {
+        int barW = 5, gap = 3, h = TOP_BAR_H - 8, x0 = right - 3 * (barW + gap) - 10;
+        g.text(font, "RCI", x0 - font.width("RCI") - 3, (TOP_BAR_H - font.lineHeight) / 2, 0xFFB8B8B8, true);
+        for (int i = 0; i < 3; i++) {
+            ZoneType z = ZoneType.values()[i];
+            int bx = x0 + i * (barW + gap), top = 4;
+            g.fill(bx, top, bx + barW, top + h, 0x80101010);
+            int fill = Math.round(h * demand.of(z) / 100f);
+            g.fill(bx, top + h - fill, bx + barW, top + h, 0xFF000000 | z.rgb);
+        }
+        if (renameBox == null && mouseY < TOP_BAR_H && mouseX >= x0 - 22 && mouseX < x0 + 3 * (barW + gap)) {
+            List<Component> lines = List.of(Component.translatable("demand.townstead.title"),
+                    Component.translatable("demand.townstead.residential", demand.residential(), demand.shopJobs() + demand.workshopJobs(), demand.workers()),
+                    Component.translatable("demand.townstead.commercial", demand.commercial(), demand.households() * Demand.PEOPLE_PER_HOUSEHOLD, demand.shopJobs()),
+                    Component.translatable("demand.townstead.industrial", demand.industrial(), demand.workshopJobs()),
+                    Component.translatable("demand.townstead.hint"));
+            g.setTooltipForNextFrame(font, lines.stream().map(Component::getVisualOrderText).toList(), mouseX, TOP_BAR_H + 14);
+        }
+    }
+
+    private void drawZoningInfo(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
+        int brush = PlannerClient.zoneBrush;
+        Component tool = brush < ZoneType.values().length ? ZoneType.values()[brush].displayName() : Component.translatable("zone.townstead.clear");
+        List<Component> lines = new ArrayList<>(List.of(Component.translatable("zone.townstead.brush", tool)));
+        List<Integer> colors = new ArrayList<>(List.of(brush < ZoneType.values().length ? 0xFF000000 | ZoneType.values()[brush].rgb : 0xFFFFFFFF));
+        BlockPos cell = PlannerClient.hoverCell;
+        if (cell != null) {
+            int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
+            var zoned = ClientLand.get().zone(ZoneRules.cellKey(cx, cz));
+            if (zoned != null) { lines.add(Component.translatable("zone.townstead.cell_zoned", zoned.type().displayName())); colors.add(0xFFDDDDDD); }
+            if (PlannerClient.frontage(cx, cz) == null) { lines.add(Component.translatable("zone.townstead.no_frontage")); colors.add(0xFFFF9A7A); }
+        }
+        lines.add(Component.translatable("zone.townstead.drag_hint"));
+        colors.add(0xFFB8B8B8);
+        cursorPanel(g, lines, colors, mouseX, mouseY);
+    }
+
+    private void drawBuildingInfo(GuiGraphicsExtractor g, Building b, int mouseX, int mouseY) {
+        BuildingGenerator.Plan plan = BuildingGenerator.plan(b);
+        List<Component> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+        lines.add(Component.translatable("building.townstead.kind." + plan.kind()));
+        colors.add(0xFF000000 | b.zone.rgb);
+        switch (b.state) {
+            case CONSTRUCTING -> {
+                lines.add(Component.translatable("building.townstead.progress", Math.round(100f * b.progress / plan.steps().size())));
+                colors.add(0xFFFFD36B);
+            }
+            case PAUSED -> {
+                lines.add(Component.translatable("building.townstead.waiting", b.needs == null ? Component.empty() : b.needs.displayName()));
+                colors.add(0xFFFF7A6A);
+            }
+            case ACTIVE -> {
+                lines.add(b.zone == ZoneType.RESIDENTIAL ? Component.translatable("building.townstead.residents", b.households * Demand.PEOPLE_PER_HOUSEHOLD)
+                        : Component.translatable("building.townstead.jobs", b.jobs));
+                colors.add(0xFF9EE37D);
+            }
+        }
+        cursorPanel(g, lines, colors, mouseX, mouseY);
     }
 
     /** Cities: Skylines-style readout by the cursor: road, length, and the bill against what's in the storehouse. */
@@ -649,6 +823,15 @@ public class PlannerScreen extends Screen {
     }
 
     private void drawBulldozeInfo(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
+        Building building = PlannerClient.hoveredBuilding();
+        if (building != null) {
+            boolean unfinished = building.state != Building.State.ACTIVE;
+            cursorPanel(g, List.of(Component.translatable("road.townstead.bulldoze_target",
+                            Component.translatable("building.townstead.kind." + BuildingGenerator.plan(building).kind())),
+                            Component.translatable(unfinished ? "road.townstead.refund_full" : "road.townstead.refund_half")),
+                    List.of(0xFFFFFFFF, unfinished ? 0xFF9EE37D : 0xFFDDDDDD), mouseX, mouseY);
+            return;
+        }
         RoadSegment seg = PlannerClient.hoveredSegment();
         if (seg == null) {
             cursorPanel(g, List.of(Component.translatable("road.townstead.bulldoze_hint")), List.of(0xFFB8B8B8), mouseX, mouseY);

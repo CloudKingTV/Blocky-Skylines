@@ -348,3 +348,25 @@ replacing it.
   its stock delta. Undo restores all three; blocks changed by hand since are skipped and reported.
   32 entries per town, in memory for the session. Every later planner tool records the same way.
 - **Not yet:** road upgrade tool, freeform (multi-bend) roads, bridges and tunnels.
+
+## 12. Phase 2 as built (zoning and growth)
+
+- **Lots:** the fixed 8×8 world cells. A cell is zonable when a road runs along one edge, either
+  within 4 blocks outside it (a grass verge, crossed by a path from the door) or through its first
+  two rows (the building is set back and kept shallower). Road deeper inside the cell rules it
+  out. The road grid snap puts centrelines down the middle of cell rows, so a straight road
+  consumes one row and leaves both sides zonable.
+- **Demand (legible, per town):** households H (3 people each), shop jobs Jc, workshop jobs Ji,
+  workers W = people/2. R = 40 + 3·(Jc+Ji−W), C = 6·(people/6 − Jc), I = 5·(people/5 − Ji) + 10,
+  clamped 0–100. Sites under construction count, so the town doesn't overbuild. A zone needs 15 to
+  grow; at most 2 sites per town at once; the free lot nearest the Town Hall goes first.
+- **Buildings:** procedural from a seed (no stored block lists): cottages 5–6 × 5–6, 1–2 storeys;
+  shops 6 wide with a workstation, shop window and striped awning; workshops 6 × 6 with a chimney
+  campfire, hay and barrels. Plains-village palette (oak, spruce, birch). One block every 4 ticks,
+  each costing one unit of its material group; doors place both halves; scaffolding rises beside
+  the walls and comes down at the end. Lots are levelled first (felled logs go to the storehouse).
+- **Simulation records:** `LandData` (per dimension) holds zones and buildings (zone, cell,
+  frontage, floor height, seed, setback, progress, households/jobs, what a paused site needs).
+- **Undo:** zoning strokes and building demolition go through the same history as roads.
+- **Not yet:** levels and upgrades, abandonment, high density, offices, biome palettes, building
+  panel with residents, construction completing while the chunk is unloaded.

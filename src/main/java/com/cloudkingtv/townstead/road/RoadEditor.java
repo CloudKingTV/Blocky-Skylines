@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.LongPredicate;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
@@ -275,6 +276,37 @@ public final class RoadEditor {
                     || (s.getBlock() instanceof LeavesBlock && s.getValue(LeavesBlock.PERSISTENT));
             if (ours) rec.set(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
         }
+    }
+
+    /**
+     * Moves a lamp post or hedge standing on the road column (x, z) two blocks along the road, so a front path
+     * can meet the walk. Returns true if anything was moved.
+     */
+    public static boolean clearDecorationFor(ServerLevel level, int x, int z, Direction along) {
+        RoadNetwork net = RoadNetwork.get(level);
+        for (RoadSegment s : List.copyOf(net.segments())) {
+            for (RoadSegment.Decoration d : s.decorations()) {
+                if (d.pos().getX() != x || d.pos().getZ() != z) continue;
+                BlockRecorder rec = new BlockRecorder(level);
+                clearDecoration(rec, x, d.pos().getY() - 1, z);
+                List<RoadSegment.Decoration> kept = new ArrayList<>(s.decorations());
+                kept.remove(d);
+                Map<Long, RoadRaster.Cell> cells = net.raster(s);
+                for (int step : new int[] {2, -2, 3, -3}) {
+                    BlockPos to = d.pos().relative(along, step);
+                    RoadRaster.Cell c = cells.get(RoadRaster.key(to.getX(), to.getZ()));
+                    if (c == null || c.part() == RoadType.Part.CARRIAGEWAY || !level.getBlockState(to).isAir()) continue;
+                    RoadSegment.Decoration moved = new RoadSegment.Decoration(new BlockPos(to.getX(), c.y() + 1, to.getZ()), d.kind());
+                    place(rec, moved);
+                    kept.add(moved);
+                    break;
+                }
+                net.replaceSegment(s.withDecorations(kept));
+                sync(level);
+                return true;
+            }
+        }
+        return false;
     }
 
     // ---------------------------------------------------------------- bulldoze

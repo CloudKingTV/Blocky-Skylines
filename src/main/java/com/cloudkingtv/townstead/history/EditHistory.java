@@ -52,12 +52,22 @@ public final class EditHistory {
         }
     }
 
-    public record Entry(Component label, List<BlockRecorder.Change> blocks, GraphDiff graph, Map<Identifier, Integer> stockDelta) {}
+    /**
+     * One undoable edit. {@code undoExtra}/{@code redoExtra} restore state that isn't blocks, roads or stock (zones,
+     * building records); they run after the blocks are put back.
+     */
+    public record Entry(Component label, List<BlockRecorder.Change> blocks, GraphDiff graph, Map<Identifier, Integer> stockDelta,
+                        Runnable undoExtra, Runnable redoExtra) {
+        public Entry(Component label, List<BlockRecorder.Change> blocks, GraphDiff graph, Map<Identifier, Integer> stockDelta) {
+            this(label, blocks, graph, stockDelta, () -> {}, () -> {});
+        }
+    }
+
+    public static final GraphDiff NO_GRAPH = new GraphDiff(List.of(), List.of(), List.of(), List.of());
 
     private static final Map<UUID, Deque<Entry>> UNDO = new HashMap<>(), REDO = new HashMap<>();
 
     public static void record(City city, Entry entry) {
-        if (entry.blocks().isEmpty() && entry.graph().segmentsAdded().isEmpty() && entry.graph().segmentsRemoved().isEmpty()) return;
         Deque<Entry> undo = UNDO.computeIfAbsent(city.id(), k -> new ArrayDeque<>());
         undo.push(entry);
         while (undo.size() > DEPTH) undo.removeLast();
@@ -110,6 +120,7 @@ public final class EditHistory {
         }
         RoadNetwork net = RoadNetwork.get(level);
         e.graph().apply(net, redo);
+        (redo ? e.redoExtra() : e.undoExtra()).run();
         cities.editStock(level.getServer(), city, stock -> e.stockDelta().forEach((id, n) -> {
             int change = redo ? n : -n;
             if (change > 0) Stock.add(stock, Stock.item(id), change);
