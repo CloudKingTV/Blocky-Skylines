@@ -5,7 +5,10 @@ import com.cloudkingtv.townstead.client.planner.PlannerClient;
 import com.cloudkingtv.townstead.client.planner.PlannerRenderTypes;
 import com.cloudkingtv.townstead.client.planner.PlannerWorldRenderer;
 import com.cloudkingtv.townstead.network.CitySnapshotPayload;
+import com.cloudkingtv.townstead.network.PlannerMessagePayload;
 import com.cloudkingtv.townstead.network.PlannerStatePayload;
+import com.cloudkingtv.townstead.network.RoadSnapshotPayload;
+import com.cloudkingtv.townstead.network.StorehousePayloads;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -40,12 +43,16 @@ public final class TownsteadClient {
     @SubscribeEvent
     static void pipelines(RegisterRenderPipelinesEvent event) {
         event.registerPipeline(PlannerRenderTypes.OVERLAY_LINES_PIPELINE);
+        event.registerPipeline(PlannerRenderTypes.OVERLAY_QUADS_PIPELINE);
     }
 
     @SubscribeEvent
     static void payloads(RegisterClientPayloadHandlersEvent event) {
         event.register(CitySnapshotPayload.TYPE, (msg, ctx) -> ClientCityCache.set(msg.cities()));
         event.register(PlannerStatePayload.TYPE, (msg, ctx) -> PlannerClient.onState(msg));
+        event.register(PlannerMessagePayload.TYPE, (msg, ctx) -> PlannerClient.onMessage(msg));
+        event.register(RoadSnapshotPayload.TYPE, (msg, ctx) -> ClientRoads.set(msg.network()));
+        event.register(StorehousePayloads.Open.TYPE, (msg, ctx) -> Minecraft.getInstance().gui.setScreen(new StorehouseScreen(msg.cityId(), msg.pos())));
     }
 
     @SubscribeEvent
@@ -83,5 +90,6 @@ public final class TownsteadClient {
     static void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         PlannerClient.reset();
         ClientCityCache.clear();
+        ClientRoads.clear();
     }
 }

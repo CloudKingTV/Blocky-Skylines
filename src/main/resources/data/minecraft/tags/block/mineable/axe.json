@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "townstead:town_hall"
+    "townstead:town_hall",
+    "townstead:town_storehouse"
   ]
 }

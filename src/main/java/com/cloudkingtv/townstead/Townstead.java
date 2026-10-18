@@ -17,6 +17,7 @@ public final class Townstead {
     public Townstead(IEventBus modBus, ModContainer container) {
         TownsteadRegistry.register(modBus);
         container.registerConfig(ModConfig.Type.CLIENT, TownsteadConfig.CLIENT_SPEC);
+        container.registerConfig(ModConfig.Type.SYNCED, TownsteadConfig.SERVER_SPEC);
     }
 
     public static Identifier id(String path) {

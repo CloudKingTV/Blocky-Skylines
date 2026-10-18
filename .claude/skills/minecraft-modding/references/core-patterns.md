@@ -273,7 +273,7 @@ and the 26.3 primer covers "Command Responses".)
 
 ## Configs
 
-NeoForge `ModConfigSpec` (`LOCAL`/`CLIENT`/`SERVER` types; `SERVER` syncs to clients). Fabric
+NeoForge `ModConfigSpec` (`LOCAL`/`CLIENT`/`SYNCED`/`STARTUP` types in FML 12; `SYNCED`, formerly `SERVER`, is per-world and syncs to clients). Fabric
 has no built-in config: use a small codec-backed JSON file in `FabricLoader.getInstance().getConfigDir()`
 or a library (owo-config, Cloth Config, YetAnotherConfigLib). Put comfort settings
 (screen shake, cutscene skip, subtitle size) in client configs.

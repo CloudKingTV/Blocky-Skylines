@@ -21,5 +21,14 @@ public final class TownsteadConfig {
 
     public static final ModConfigSpec CLIENT_SPEC = CLIENT.build();
 
+    private static final ModConfigSpec.Builder SERVER = new ModConfigSpec.Builder();
+
+    public static final ModConfigSpec.BooleanValue FREE_BUILD = SERVER
+            .comment("Build roads and buildings without materials from the Town Storehouse (creative-mode players always build free)")
+            .translation("townstead.configuration.freeBuild")
+            .define("freeBuild", false);
+
+    public static final ModConfigSpec SERVER_SPEC = SERVER.build();
+
     private TownsteadConfig() {}
 }

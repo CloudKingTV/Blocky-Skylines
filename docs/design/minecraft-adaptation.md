@@ -314,3 +314,27 @@ replacing it.
   plans return 100%).
 - **Creative/peaceful option:** a world setting `townstead:freeBuild` skips materials, for
   builders and for testing.
+
+## 11. Phase 1 as built (roads)
+
+- **Graph:** `RoadNetwork` (SavedData per dimension, `data/townstead/roads.dat`): nodes and segments.
+  A segment is a quadratic Bezier centreline plus its graded heights (sampled once per block), so
+  its blocks can be recomputed without reading the world. The client gets the whole graph for its
+  dimension for snapping and previews.
+- **Cross-sections:** lane `CCC` (3), street `SCCCS` (5), avenue `SCCCMCCCS` (9). C is dirt path,
+  S stone bricks, M grass. Streets get lamp posts every 16 blocks on alternating walks; avenues
+  get hedges every 4 and lamps every 16 in the median. Plains palette only for now; biome palettes
+  come with growables.
+- **Junctions:** a new road that crosses, starts on, or ends on an existing one splits it at that
+  point. Where two columns overlap, carriageway beats median beats sidewalk, then the nearer
+  centreline. Junctions of three or more roads, or of two at an angle, get a round paved cap so
+  corners fill in.
+- **Grading:** median ground height across the road width (ignores trunks and posts), smoothed,
+  with a 1-in-2 grade limit; ends joining a road are pinned to it. Up to 12 blocks of fill (dirt,
+  or cobblestone in water) and 16 of cut. Deeper dips and higher hills wait for bridges and
+  tunnels.
+- **Supply:** the Town Storehouse holds a virtual stock on the town (not a block inventory), so
+  any storehouse of the town reaches it and it works with the storehouse chunk unloaded. Bills are
+  per material group (item tags `townstead:materials/*`), and digging returns dirt, cobblestone
+  and logs. Bulldozing refunds 100% within 5 minutes of building, 50% after.
+- **Not yet:** undo, road upgrade tool, freeform (multi-bend) roads, bridges and tunnels.

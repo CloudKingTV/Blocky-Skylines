@@ -91,7 +91,7 @@ public final class CityManager extends SavedData {
     public City found(ServerLevel level, BlockPos pos, ServerPlayer founder) {
         String name = founder.getGameProfile().name() + "'s Town";
         City city = new City(UUID.randomUUID(), name, founder.getUUID(), founder.getGameProfile().name(),
-                level.dimension(), pos.immutable(), startingClaim(pos), 0L, level.getGameTime());
+                level.dimension(), pos.immutable(), startingClaim(pos), 0L, level.getGameTime(), Map.of(), List.of());
         cities.put(city.id, city);
         changed(level.getServer());
         Townstead.LOGGER.info("Founded town '{}' at {} for {}", name, pos, founder.getGameProfile().name());
@@ -114,6 +114,20 @@ public final class CityManager extends SavedData {
     public void rename(MinecraftServer server, City city, String name) {
         city.name = name;
         changed(server);
+    }
+
+    /** Applies a change to a town's stock (and storehouse list) then saves and syncs. */
+    public void editStock(MinecraftServer server, City city, java.util.function.Consumer<Map<net.minecraft.resources.Identifier, Integer>> edit) {
+        edit.accept(city.stock);
+        changed(server);
+    }
+
+    public void addStorehouse(MinecraftServer server, City city, BlockPos pos) {
+        if (city.storehouses.add(pos.immutable())) changed(server);
+    }
+
+    public void removeStorehouse(MinecraftServer server, BlockPos pos) {
+        for (City c : cities.values()) if (c.storehouses.remove(pos)) changed(server);
     }
 
     public void disband(MinecraftServer server, City city) {

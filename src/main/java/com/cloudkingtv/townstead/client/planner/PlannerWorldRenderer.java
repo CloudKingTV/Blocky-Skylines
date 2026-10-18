@@ -2,6 +2,12 @@ package com.cloudkingtv.townstead.client.planner;
 
 import com.cloudkingtv.townstead.city.CitySummary;
 import com.cloudkingtv.townstead.city.TilePos;
+import com.cloudkingtv.townstead.client.ClientRoads;
+import com.cloudkingtv.townstead.road.RoadCurve;
+import com.cloudkingtv.townstead.road.RoadNode;
+import com.cloudkingtv.townstead.road.RoadPlan;
+import com.cloudkingtv.townstead.road.RoadRaster;
+import com.cloudkingtv.townstead.road.RoadSegment;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.HashSet;
@@ -9,13 +15,14 @@ import java.util.Set;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
+import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.util.Util;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.SubmitCustomGeometryEvent;
 
-/** Draws the town's tile borders and the zone-cell cursor on top of the terrain while planning. */
+/** Draws the town's tile borders, the zone-cell cursor and the road tools' ghosts on top of the terrain while planning. */
 public final class PlannerWorldRenderer {
     private static final int BORDER = 0xFF7CE07C, CURSOR = 0xFFFFFFFF, SELECTED = 0xFFFFC94A;
     private static final double LIFT = 0.06;
@@ -45,7 +52,101 @@ public final class PlannerWorldRenderer {
             }
             if (selected != null) cell(p, buf, level, cam, selected, scale(SELECTED, pulse), width * 2.5f);
             if (hover != null && !hover.equals(selected)) cell(p, buf, level, cam, hover, CURSOR, width * 2f);
+            roadLines(p, buf, cam, city, width);
         });
+        event.getSubmitNodeCollector().submitCustomGeometry(pose, PlannerRenderTypes.OVERLAY_QUADS, (p, buf) -> roadQuads(p, buf, cam, city, pulse));
+    }
+
+    // ---------------------------------------------------------------- roads
+
+    private static final int GHOST_ROAD = 0x7050B4FF, GHOST_WALK = 0x7090D4FF, GHOST_MEDIAN = 0x7070E070,
+            GHOST_BAD = 0x70FF5050, GHOST_SHORT = 0x70FFAA40, NODE = 0xFF9BE7FF, LAMP = 0xFFFFD36B;
+
+    private static void roadQuads(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, CitySummary city, float pulse) {
+        RoadTool.Preview preview = PlannerClient.ROADS.drawing() ? PlannerClient.ROADS.preview(city) : null;
+        if (preview != null) {
+            boolean ok = preview.plan().ok();
+            for (RoadPlan.Column col : preview.plan().columns.values()) {
+                RoadRaster.Cell c = col.cell();
+                int color = !ok ? GHOST_BAD : !preview.missing().isEmpty() ? GHOST_SHORT : switch (c.part()) {
+                    case CARRIAGEWAY -> GHOST_ROAD;
+                    case SIDEWALK -> GHOST_WALK;
+                    case MEDIAN -> GHOST_MEDIAN;
+                };
+                top(p, buf, cam, c.x(), c.y() + 1.03, c.z(), color);
+            }
+        }
+        RoadSegment doomed = PlannerClient.hoveredSegment();
+        if (doomed != null) {
+            int red = ARGB.color(Math.round(0x50 + 0x40 * pulse), 255, 70, 60);
+            for (RoadRaster.Cell c : ClientRoads.network().raster(doomed).values()) top(p, buf, cam, c.x(), c.y() + 1.03, c.z(), red);
+        }
+    }
+
+    private static void top(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, int x, double y, int z, int color) {
+        float fy = (float) (y - cam.y);
+        float x0 = (float) (x - cam.x), x1 = x0 + 1, z0 = (float) (z - cam.z), z1 = z0 + 1;
+        buf.addVertex(p, x0, fy, z0).setColor(color);
+        buf.addVertex(p, x0, fy, z1).setColor(color);
+        buf.addVertex(p, x1, fy, z1).setColor(color);
+        buf.addVertex(p, x1, fy, z0).setColor(color);
+    }
+
+    private static void roadLines(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, CitySummary city, float width) {
+        RoadTool roads = PlannerClient.ROADS;
+        if (!roads.drawing() && roads.cursor == null) return;
+        // Nodes you can join, as small diamonds.
+        for (RoadNode n : ClientRoads.network().nodes()) {
+            if (Math.abs(n.x() - cam.x) > 160 || Math.abs(n.z() - cam.z) > 160) continue;
+            diamond(p, buf, cam, n.x(), n.y() + 1.05, n.z(), 1.2, NODE, width * 1.5f);
+        }
+        RoadTool.Preview preview = roads.drawing() ? roads.preview(city) : null;
+        if (preview != null) {
+            RoadCurve c = preview.curve();
+            int steps = Math.max(4, (int) Math.ceil(c.length()));
+            int color = preview.buildable() ? 0xFFFFFFFF : 0xFFFF8070;
+            double px = c.x(0), pz = c.z(0), py = preview.piece().heightAt(0) + 1.1;
+            for (int i = 1; i <= steps; i++) {
+                double t = (double) i / steps, x = c.x(t), z = c.z(t), y = preview.piece().heightAt(t) + 1.1;
+                line(p, buf, cam, px, py, pz, x, y, z, color, width * 2f);
+                px = x; py = y; pz = z;
+            }
+            for (var list : preview.plan().decorations.values()) {
+                for (RoadSegment.Decoration d : list) {
+                    double x = d.pos().getX() + 0.5, z = d.pos().getZ() + 0.5, y = d.pos().getY();
+                    double top = d.kind() == RoadSegment.DecorationKind.LAMP ? y + 3 : y + 1;
+                    line(p, buf, cam, x, y, z, x, top, z, d.kind() == RoadSegment.DecorationKind.LAMP ? LAMP : GHOST_MEDIAN | 0xFF000000, width * 2f);
+                }
+            }
+        }
+        if (roads.mode == RoadTool.Mode.CURVE && roads.start != null && roads.control != null && roads.cursor != null) {
+            double y = preview != null ? preview.piece().heightAt(0.5) + 1.1 : roads.start.y() != null ? roads.start.y() + 1.1 : cam.y - 20;
+            line(p, buf, cam, roads.start.x(), y, roads.start.z(), roads.control.x(), y, roads.control.z(), 0x88FFFFFF, width);
+            line(p, buf, cam, roads.control.x(), y, roads.control.z(), roads.cursor.x(), y, roads.cursor.z(), 0x88FFFFFF, width);
+        }
+        if (roads.cursor != null) {
+            RoadTool.Snap s = roads.cursor;
+            double y = s.y() != null ? s.y() + 1.05 : groundY(s.x(), s.z()) + 0.05;
+            int color = switch (s.kind()) {
+                case NODE -> NODE;
+                case ROAD -> 0xFF9EE37D;
+                case GRID, ANGLE -> 0xFFFFFFFF;
+                case FREE -> 0xFFB0B0B0;
+            };
+            diamond(p, buf, cam, s.x(), y, s.z(), s.kind() == RoadTool.SnapKind.NODE ? 1.8 : 1.0, color, width * 2.5f);
+        }
+    }
+
+    private static double groundY(double x, double z) {
+        ClientLevel level = Minecraft.getInstance().level;
+        return level == null ? 64 : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
+    }
+
+    private static void diamond(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, double x, double y, double z, double r, int color, float w) {
+        line(p, buf, cam, x - r, y, z, x, y, z - r, color, w);
+        line(p, buf, cam, x, y, z - r, x + r, y, z, color, w);
+        line(p, buf, cam, x + r, y, z, x, y, z + r, color, w);
+        line(p, buf, cam, x, y, z + r, x - r, y, z, color, w);
     }
 
     /** A flat square at the cell's typical ground height, so trunks and boulders don't distort it. */

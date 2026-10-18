@@ -84,6 +84,11 @@ mc.mouseHandler.onScroll(h, 0, -4);                               // 4 notches t
   **milliseconds** (toasts, flashes, fades) can expire between two ticks. Screenshot the tick
   right after the input, or drive UI timers from ticks in tests.
 - `Runtime.getRuntime().halt(0)` at the end skips the shutdown crash entirely.
+- Scripted clicks right after a move catch a real bug class: hover/raycast state that only updates
+  while a frame draws. In `mouseClicked`, re-aim from the event's own x/y before acting.
+- Make scripted worlds deterministic: the spawn point moves between runs, so level a test plot
+  (`setBlock` with flags `2 | 16`) and place the setup relative to it, or strokes land on lakes and
+  buildings.
 
 Software rendering is slow (single-digit to low-tens FPS), so leave 2–3 s of ticks between
 opening something and screenshotting it.

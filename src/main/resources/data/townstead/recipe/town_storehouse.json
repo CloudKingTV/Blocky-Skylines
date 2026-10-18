@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "PPP",
+    "CBC",
+    "LLL"
+  ],
+  "key": {
+    "P": "#minecraft:planks",
+    "C": "minecraft:chest",
+    "B": "minecraft:barrel",
+    "L": "#minecraft:logs"
+  },
+  "result": {
+    "id": "townstead:town_storehouse",
+    "count": 1
+  }
+}

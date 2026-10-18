@@ -2,6 +2,7 @@ package com.cloudkingtv.townstead.registry;
 
 import com.cloudkingtv.townstead.Townstead;
 import com.cloudkingtv.townstead.city.TownHallBlock;
+import com.cloudkingtv.townstead.city.TownStorehouseBlock;
 import com.cloudkingtv.townstead.planner.PlannerReturn;
 import java.util.function.Supplier;
 import net.minecraft.core.registries.Registries;
@@ -31,10 +32,17 @@ public final class TownsteadRegistry {
     public static final DeferredItem<BlockItem> TOWN_HALL_ITEM = ITEMS.registerSimpleBlockItem("town_hall", TOWN_HALL,
             p -> p.rarity(Rarity.UNCOMMON).stacksTo(1));
 
+    public static final DeferredBlock<TownStorehouseBlock> TOWN_STOREHOUSE = BLOCKS.registerBlock("town_storehouse", TownStorehouseBlock::new,
+            p -> p.mapColor(MapColor.WOOD).strength(2.5f).sound(SoundType.WOOD));
+    public static final DeferredItem<BlockItem> TOWN_STOREHOUSE_ITEM = ITEMS.registerSimpleBlockItem("town_storehouse", TOWN_STOREHOUSE);
+
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.townstead"))
             .icon(() -> TOWN_HALL_ITEM.get().getDefaultInstance())
-            .displayItems((params, out) -> out.accept(TOWN_HALL_ITEM.get()))
+            .displayItems((params, out) -> {
+                out.accept(TOWN_HALL_ITEM.get());
+                out.accept(TOWN_STOREHOUSE_ITEM.get());
+            })
             .build());
 
     /** Where to put a player back when they leave the planner (persisted in case they log out mid-plan). */

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "townstead:block/town_storehouse"
+    },
+    "facing=east": {
+      "model": "townstead:block/town_storehouse",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "townstead:block/town_storehouse",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "townstead:block/town_storehouse",
+      "y": 270
+    }
+  }
+}

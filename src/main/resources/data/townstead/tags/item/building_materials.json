@@ -1,0 +1,12 @@
+{
+  "values": [
+    "#townstead:materials/dirt",
+    "#townstead:materials/cobblestone",
+    "#townstead:materials/stone_bricks",
+    "#townstead:materials/planks",
+    "#townstead:materials/logs",
+    "#townstead:materials/fences",
+    "#townstead:materials/lanterns",
+    "#townstead:materials/leaves"
+  ]
+}

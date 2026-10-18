@@ -25,5 +25,15 @@ public final class PlannerRenderTypes {
             RenderSetup.builder(OVERLAY_LINES_PIPELINE).setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING)
                     .createRenderSetup());
 
+    /** Translucent quads, also on top: the ghost of a road being drawn and the bulldozer's red highlight. */
+    public static final RenderPipeline OVERLAY_QUADS_PIPELINE = RenderPipeline.builder(RenderPipelines.DEBUG_FILLED_SNIPPET)
+            .withLocation(Townstead.id("pipeline/planner_overlay_quads"))
+            .withCull(false)
+            .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))
+            .build();
+
+    public static final RenderType OVERLAY_QUADS = RenderType.create("townstead_planner_overlay_quads",
+            RenderSetup.builder(OVERLAY_QUADS_PIPELINE).sortOnUpload().createRenderSetup());
+
     private PlannerRenderTypes() {}
 }

@@ -112,12 +112,17 @@ full, authoritative lists are ChampionAsh5357's primers (CC-BY 4.0):
   `WeatheringCopperCollection<Item>`. `Items.WHITE_BANNER` isn't a plain field either. Check before
   using an item as an icon.
 - `GameProfile` is a record: `profile.name()`, `profile.id()`.
-- `ModConfig.Type` has `LOCAL`, `CLIENT`, `SERVER`, `STARTUP` (no `COMMON`).
+- `ModConfig.Type` (FML 12) is `LOCAL`, `CLIENT`, `SYNCED`, `STARTUP`: no `COMMON`, and the old
+  `SERVER` (per-world, synced to clients) is now `SYNCED`.
 - **`EditBox` reads `KeyEvent#keycode()` (via `shortcutKey()`), screens usually read `key()`.**
   Compare your own bindings with `event.key()` against `InputConstants.KEY_*` (scancodes, layout
   independent, right for WASD). Text editing uses keycodes, so synthetic events need both.
 - `EditBox#setHighlightPos(0)` after `moveCursorToEnd(false)` selects all text: open a rename field
   with the old name selected so typing replaces it.
+- **Don't build `ItemStack`s in static initializers of classes that payloads or registration touch**
+  (enums used in a `StreamCodec`, for example). `RegisterPayloadHandlersEvent` runs before item
+  components are bound, so `new ItemStack(...)` there throws `NullPointerException: Components not
+  bound yet` and the whole mod fails to load. Keep the `Item` and make the stack on demand.
 - `GuiGraphicsExtractor#setTooltipForNextFrame(font, component, x, y)`: the tooltip is placed relative
   to the point you pass, not the real mouse, so anchor it below a top bar to keep it off the label.
 
