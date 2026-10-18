@@ -69,7 +69,7 @@ public class JournalScreen extends Screen {
 // open from client code: Minecraft.getInstance().gui.setScreen(new JournalScreen());
 ```
 
-`ARGB.white(alpha)` may not exist in your version. If not, use `ARGB.color(Math.round(t * 255), 255, 255, 255)`.
+`ARGB.white(float alpha)` and `ARGB.white(int alpha)` both exist in 26.3.
 
 Input handlers since 1.21.9 take event records: `keyPressed(KeyEvent)`,
 `mouseClicked(MouseButtonEvent, boolean doubleClick)`, `mouseReleased(MouseButtonEvent)`,
@@ -105,8 +105,8 @@ public class ChoiceButton extends AbstractWidget {
 }
 ```
 
-If a vanilla signature like `onClick` doesn't match your version, check `AbstractWidget` in the
-decompiled sources.
+The screen and widget above compile against 26.3 (`onClick(MouseButtonEvent, boolean)`,
+`keyPressed(KeyEvent)`, `blitSprite(..., int color)`, `guiWidth()`/`guiHeight()`).
 
 Layouts: vanilla has `LinearLayout`, `GridLayout`, `FrameLayout` and `HeaderAndFooterLayout`
 (`layout.addChild(widget)`, `layout.arrangeElements()`, `layout.visitWidgets(this::addRenderableWidget)`).

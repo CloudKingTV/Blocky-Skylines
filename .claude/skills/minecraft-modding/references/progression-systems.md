@@ -37,8 +37,8 @@ public class TalkedToNpcTrigger extends SimpleCriterionTrigger<TalkedToNpcTrigge
     public record Instance(Optional<Holder<LootItemCondition>> player, Optional<Identifier> npc)
             implements SimpleCriterionTrigger.SimpleInstance {
         public static final Codec<Instance> CODEC = RecordCodecBuilder.create(i -> i.group(
-                // Holder codec (reference or inline). 26.3 renamed TYPED_CODEC -> DIRECT_CODEC (inline-only);
-                // check LootItemCondition in the sources for the holder codec's exact name.
+                // 26.3: LootItemCondition.CODEC is Codec<Holder<LootItemCondition>> (registry ref or inline);
+                // DIRECT_CODEC is inline-only, LIST_CODEC is the HolderSet codec. (Verified in 26.3 sources.)
                 LootItemCondition.CODEC.optionalFieldOf("player").forGetter(Instance::player),
                 Identifier.CODEC.optionalFieldOf("npc").forGetter(Instance::npc)
         ).apply(i, Instance::new));

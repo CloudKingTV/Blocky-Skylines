@@ -23,8 +23,8 @@ public class ElderNpc extends PathfinderMob /* implements GeoEntity */ {
         goalSelector.addGoal(5, new RandomLookAroundGoal(this));
     }
 
-    // Right-click. Verify the signature in your version (26.1 merged interactAt into Entity#interact(Player, Hand, Vec3);
-    // Mob#mobInteract(Player, InteractionHand) is the usual override point).
+    // Right-click. Mob#mobInteract(Player, InteractionHand) is the override point (verified in 26.3;
+    // 26.1 merged interactAt into Entity#interact(Player, Hand, Vec3), which Mob routes here).
     @Override protected InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
         if (!level().isClientSide() && player instanceof ServerPlayer sp) {
@@ -36,7 +36,7 @@ public class ElderNpc extends PathfinderMob /* implements GeoEntity */ {
     @Override public boolean removeWhenFarAway(double dist) { return false; } // never despawn
     @Override public boolean isPushable() { return false; }
     @Override protected void doPush(Entity e) {}
-    @Override public boolean isInvulnerableTo(ServerLevel level, DamageSource src) { return !src.isCreativePlayer(); } // verify signature
+    @Override public boolean isInvulnerableTo(ServerLevel level, DamageSource src) { return !src.isCreativePlayer(); }
     public void setTalkingTo(@Nullable UUID id) { this.talkingTo = id; }
     public @Nullable UUID talkingTo() { return talkingTo; }
 }

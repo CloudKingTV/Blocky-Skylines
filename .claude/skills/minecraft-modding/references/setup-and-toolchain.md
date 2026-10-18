@@ -181,6 +181,27 @@ than `@Redirect`/`@Overwrite`, and an `@Unique` prefix on added members.
   `extend-enum` (and `transitive-` variants). Run `./gradlew validateAccessWidener`.
 - Accessor/invoker mixins (`@Accessor`, `@Invoker`) work on both loaders for private members.
 
+## Getting a Java 25 toolchain
+
+Both templates need Java 25, and **Fabric Loom 1.18 also requires Gradle itself to run on Java 25**
+("Dependency requires at least JVM runtime version 25. This build uses a Java 21 JVM"). If no
+JDK 25 is installed, Gradle tries to download one through the foojay resolver
+(`api.foojay.io`), which sandboxed environments often block. Fix for both loaders:
+
+```bash
+sudo apt-get install -y openjdk-25-jdk-headless       # Ubuntu 24.04 has it
+export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64   # Gradle runs on 25 and detects it as the toolchain
+./gradlew build
+```
+
+Verified on 2026-10-18: the NeoForge 26.3 MDK and the Fabric 26.3 example mod both build this
+way (Loom resolved to 1.18.4), and a NeoForge dedicated server boots with the mod loaded.
+
+The first NeoForge build decompiles and recompiles Minecraft (about 4 minutes; 7,300 source
+files). After that the patched sources jar is at
+`build/moddev/artifacts/minecraft-patched-<neo_version>-sources.jar`. Unzip it somewhere and
+`grep` it to check any vanilla or NeoForge signature.
+
 ## Everyday commands
 
 ```bash

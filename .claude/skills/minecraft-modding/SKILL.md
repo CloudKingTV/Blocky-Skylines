@@ -128,10 +128,18 @@ particles + HUD (boss bar) + networking.
 ## 6. Environment notes for this agent
 
 - Building needs network access to `maven.neoforged.net` (NeoForge), `maven.fabricmc.net`
-  (Fabric), `libraries.minecraft.net` / `piston-data.mojang.com` / `piston-meta.mojang.com`
-  (game jars and assets), `services.gradle.org`, and any library maven (GeckoLib uses
-  `dl.cloudsmith.io`). If the sandbox blocks them, say which host failed and still write the
-  code. Don't fake a successful build.
+  (Fabric), `libraries.minecraft.net`, `piston-meta.mojang.com`, `piston-data.mojang.com`,
+  `resources.download.minecraft.net` (game jars and assets), `services.gradle.org`, and any
+  library maven (GeckoLib uses `dl.cloudsmith.io`). If the sandbox blocks them, say which
+  host failed and still write the code. Don't fake a successful build.
+- Java 25: if it's missing (and foojay is blocked), `apt-get install openjdk-25-jdk-headless` and
+  `export JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64` before `./gradlew`. Fabric Loom needs
+  Gradle itself on Java 25. See setup-and-toolchain.md.
+- **Check APIs against the real code**: after one NeoForge build, unzip
+  `build/moddev/artifacts/minecraft-patched-*-sources.jar` and grep it. Faster and more reliable
+  than any doc. The skill's main snippets (entity, model, keyframes, renderer, particle,
+  screen, widget, HUD layers, payloads, attachment, SavedData, command, camera/input mixins)
+  were compiled against NeoForge 26.3.0.90 on 2026-10-18.
 - GitHub is usually reachable: clone MDKs (`NeoForgeMDKs/MDK-<mc>-ModDevGradle`), the Fabric
   example mod (`FabricMC/fabric-example-mod`), docs and primers to check APIs.
 - `scripts/scaffold.sh <neoforge|fabric> <modid> <package> [mc] [dir] ["Name"]` creates a new

@@ -40,8 +40,8 @@ public final class ModRegistries {
 }
 ```
 
-`registerEntityType(name, factory, category, builderOp)` exists in the 26.x docs; if your
-build lacks the builder-op overload, use
+`registerEntityType(name, factory, category, UnaryOperator<Builder>)` exists in 26.3 (verified). The
+long form, if you need it:
 `ENTITIES.register(name, () -> EntityType.Builder.of(ElderNpc::new, MobCategory.MISC).sized(..).build(ResourceKey.create(Registries.ENTITY_TYPE, id(name))))`.
 
 Default attributes for living entities go on the mod bus:
@@ -264,7 +264,7 @@ They speed up iteration a lot.
 dispatcher.register(Commands.literal(MODID)
         // 26.x permission API (from Fabric's compiled 26.2 reference code):
         .requires(src -> src.permissions().hasPermission(Permissions.COMMANDS_MODERATOR))
-        .then(Commands.literal("cutscene").then(Commands.argument("id", IdentifierArgument.id()) // verify name (was ResourceLocationArgument)
+        .then(Commands.literal("cutscene").then(Commands.argument("id", IdentifierArgument.id()) // net.minecraft.commands.arguments.IdentifierArgument
                 .executes(ctx -> { /* start for ctx.getSource().getPlayerOrException() */ return 1; }))));
 ```
 

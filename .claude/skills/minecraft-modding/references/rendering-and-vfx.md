@@ -14,7 +14,8 @@ Hard rule for 26.2+: **never issue raw OpenGL calls.** The game may run on Vulka
    `{"textures": ["<ns>:rune_spark_0", "<ns>:rune_spark_1", "<ns>:rune_spark_2"]}`, with PNGs
    in `textures/particle/`.
 3. Client provider. NeoForge: `RegisterParticleProvidersEvent` (mod bus) →
-   `event.registerSpriteSet(TYPE.get(), RuneSparkProvider::new)`. Fabric:
+   `event.registerSpriteSet(TYPE.get(), sprites -> (type, level, x, y, z, vx, vy, vz, random) -> new RuneSparkParticle(level, x, y, z, vx, vy, vz, sprites))`.
+   In 26.3, `ParticleProvider#createParticle` also takes a trailing `RandomSource`. Fabric:
    `ParticleProviderRegistry.getInstance().register(TYPE, RuneSparkProvider::new)` (check the
    class name in your Fabric API version; older ones call it `ParticleFactoryRegistry`).
 4. Particle class: extend `SingleQuadParticle` (or `SimpleAnimatedParticle`). Set `lifetime`,
@@ -23,7 +24,7 @@ Hard rule for 26.2+: **never issue raw OpenGL calls.** The game may run on Vulka
    `tick()` with `setSpriteFromAge(spriteSet)`, alpha fade-out, and size curves.
 
 ```java
-public class RuneSparkParticle extends SingleQuadParticle {   // verify constructor shape against SingleQuadParticle in your sources
+public class RuneSparkParticle extends SingleQuadParticle {   // compiles against 26.3
     private final SpriteSet sprites;
     protected RuneSparkParticle(ClientLevel level, double x, double y, double z, double vx, double vy, double vz, SpriteSet sprites) {
         super(level, x, y, z, vx, vy, vz, sprites.first());

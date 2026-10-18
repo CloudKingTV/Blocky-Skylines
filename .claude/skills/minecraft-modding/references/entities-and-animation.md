@@ -150,7 +150,7 @@ public class ElderRenderer extends MobRenderer<ElderNpc, ElderRenderState, Elder
 
 Registration:
 - NeoForge (mod bus, client): `EntityRenderersEvent.RegisterLayerDefinitions` →
-  `event.add(ElderModel.LAYER, ElderModel::createBodyLayer)`. `EntityRenderersEvent.RegisterRenderers` →
+  `event.registerLayerDefinition(ElderModel.LAYER, ElderModel::createBodyLayer)` (the 26.x docs say `add`; the 26.3 code says `registerLayerDefinition`). `EntityRenderersEvent.RegisterRenderers` →
   `event.registerEntityRenderer(ELDER.get(), ElderRenderer::new)`.
 - Fabric (client initializer): `ModelLayerRegistry.registerModelLayer(ElderModel.LAYER, ElderModel::createBodyLayer)`
   and `EntityRenderers.register(ELDER, ElderRenderer::new)`.

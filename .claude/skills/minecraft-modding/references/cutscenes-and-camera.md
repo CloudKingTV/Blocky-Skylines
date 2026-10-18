@@ -107,7 +107,8 @@ public record CutsceneDef(float duration, boolean letterbox, boolean skippable, 
 }
 
 public record PlayCutscene(Identifier id, CutsceneDef def, Vec3 anchor, float anchorYaw) implements CustomPacketPayload {
-    public static final Type<PlayCutscene> TYPE = new Type<>(id("play_cutscene"));
+    // The record component `id` shadows a static id("...") helper, so build the Identifier explicitly.
+    public static final Type<PlayCutscene> TYPE = new Type<>(Identifier.fromNamespaceAndPath(MODID, "play_cutscene"));
     public static final StreamCodec<RegistryFriendlyByteBuf, PlayCutscene> STREAM_CODEC = StreamCodec.composite(
             Identifier.STREAM_CODEC, PlayCutscene::id, CutsceneDef.STREAM_CODEC, PlayCutscene::def,
             Vec3.STREAM_CODEC, PlayCutscene::anchor, ByteBufCodecs.FLOAT, PlayCutscene::anchorYaw, PlayCutscene::new);
@@ -257,12 +258,11 @@ public abstract class CameraMixin {
     // Fabric/vanilla: @Shadow protected abstract void setRotation(float yRot, float xRot);
     @Shadow private boolean detached;
 
-    // Handler takes only CallbackInfo, so it doesn't depend on update()'s parameter list.
-    // If 'update' doesn't resolve, open Camera in the decompiled sources and target the method that calls setPosition.
+    // 26.3: Camera#update(DeltaTracker) (verified against the 26.3 sources; compiles).
     @Inject(method = "update", at = @At("TAIL"))
-    private void mymod$applyCutscene(CallbackInfo ci) {
+    private void mymod$applyCutscene(DeltaTracker deltaTracker, CallbackInfo ci) {
         if (!CutscenePlayer.isActive()) return;
-        float pt = Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false);
+        float pt = deltaTracker.getGameTimeDeltaPartialTick(false);
         CameraPose pose = CutscenePlayer.pose(pt);
         this.setRotation(pose.yaw(), pose.pitch(), pose.roll());
         this.setPosition(pose.pos());
@@ -327,9 +327,22 @@ or set `minecraft.options.hideGui` temporarily (and restore it).
 ## Input lock
 
 - **Movement**: cancel `KeyboardInput#tick` at HEAD when active, after setting
-  `keyPresses = Input.EMPTY` and zeroing the protected `moveVector` via `@Shadow`. (NeoForge's
-  `MovementInputUpdateEvent` fires after `moveVector` is computed, so it isn't enough by itself.)
-- **Mouse look**: cancel `MouseHandler#turnPlayer` at HEAD when active, or NeoForge
+  `keyPresses = Input.EMPTY` and `moveVector = Vec2.ZERO`. `moveVector` is a protected field
+  declared on the superclass `ClientInput`, so `@Shadow` in a `KeyboardInput` mixin can't see it.
+  Make the mixin class `extends ClientInput` instead (verified to compile on 26.3). NeoForge's
+  `MovementInputUpdateEvent` fires after `moveVector` is computed, so it isn't enough by itself.
+
+  ```java
+  @Mixin(KeyboardInput.class)
+  public abstract class KeyboardInputMixin extends ClientInput {
+      @Inject(method = "tick", at = @At("HEAD"), cancellable = true)
+      private void mymod$lock(CallbackInfo ci) {
+          if (!CutscenePlayer.isActive()) return;
+          this.keyPresses = Input.EMPTY; this.moveVector = Vec2.ZERO; ci.cancel();
+      }
+  }
+  ```
+- **Mouse look**: cancel `MouseHandler#turnPlayer(double)` at HEAD when active, or NeoForge
   `CalculatePlayerTurnEvent` → `setMouseSensitivity(...)` to dampen.
 - **Attacks/use/hotbar**: NeoForge `InputEvent.InteractionKeyMappingTriggered` → cancel +
   `setSwingHand(false)`. Fabric: mixin on `Minecraft#handleKeybinds`.
