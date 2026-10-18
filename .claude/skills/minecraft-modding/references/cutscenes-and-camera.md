@@ -408,6 +408,34 @@ Practical rules:
 - **Comfort**: a config to skip all cutscenes, reduce shake, and disable FOV/roll. Never
   roll more than about 5° and keep FOV changes slow (≥ 1 s).
 
+## RTS / planner camera (top-down management view)
+
+Verified in Townstead on 26.3. For a city-builder or strategy view, **use the player's body as
+the camera** rather than detaching it:
+
+- **Server:** on enter, save position, rotation and abilities (persist them in an attachment in
+  case of logout), then set `mayfly`, `flying`, `invulnerable`, `onUpdateAbilities()`,
+  `setInvisible(true)` and `teleportTo(...)` above the target. Cancel `BreakBlockEvent`,
+  `RightClickBlock` and `AttackEntityEvent` for planning players. On exit (and on login if the
+  state is still active), restore everything. The server keeps streaming chunks around the view
+  for free.
+- **Client:** open a non-pausing `Screen` (free mouse cursor; vanilla movement and mouse-look stop
+  automatically). Track WASD/QE as held keys in `keyPressed`/`keyReleased`, zoom on
+  `mouseScrolled`, and rotate on right/middle-drag. In `ClientTickEvent.Post`, compute an orbit eye
+  position (focus point on the ground, yaw, distance, with pitch steepening as you zoom out), then
+  `player.setPos(eye - eyeHeight)`, `setYRot/setXRot/setYHeadRot` and `setDeltaMovement(ZERO)`.
+  Setting it **after** the tick keeps `xo`/`yRotO` at the previous values, so vanilla interpolation
+  smooths the motion.
+- **Limits:** cap eye movement at about 8 blocks per tick (the server kicks for "moved too quickly"
+  above roughly 10) and keep the eye at least 4 blocks above `WORLD_SURFACE` so the server's
+  movement collision check never rejects the camera.
+- **Cursor ray:** `Camera cam = mc.gameRenderer.mainCamera();`, then
+  `Vec3 dir = cam.getNearPlane(cam.getFov()).getPointOnPlane(ndcX, ndcY).normalize();` with
+  `ndcX = mouseX / width * 2 - 1` and `ndcY = 1 - mouseY / height * 2`, and
+  `level.clip(new ClipContext(cam.position(), cam.position().add(dir.scale(400)), OUTLINE, ANY, player))`.
+- **HUD:** cancel `RenderGuiLayerEvent.Pre` and `RenderHandEvent` while planning, draw your own
+  bars in the screen, and fix the FOV via `ViewportEvent.ComputeFov` (about 55°).
+
 ## Shot-craft cheat sheet
 
 - **Establishing shot** (wide, slow push-in, 3–5 s) → **medium** on the speaker → **close-up**

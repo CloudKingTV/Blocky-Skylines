@@ -96,6 +96,24 @@ full, authoritative lists are ChampionAsh5357's primers (CC-BY 4.0):
   materials.
 - Mojang ships Java 25 to players.
 
+## Found while building Townstead on 26.3 (verified by compiling)
+
+- **Blocks no longer declare a codec.** Drop `MapCodec CODEC = simpleCodec(...)` and the `codec()`
+  override (e.g. `HorizontalDirectionalBlock` has no abstract `codec()` any more).
+- **`BlockEvent.BreakEvent` → `net.neoforged.neoforge.event.level.block.BreakBlockEvent`**
+  (cancellable, `getPlayer()`).
+- **Loot table JSON:** a pool takes a single `"condition": {"type": "minecraft:survives_explosion"}`
+  object (not the old `"conditions": [{"condition": ...}]` list) and tables carry `"random_sequence"`.
+  Copy the shape from a vanilla file in the sources jar's `data/` folder.
+- **Key categories:** create `new KeyMapping.Category(id)` and register it with
+  `RegisterKeyMappingsEvent#registerCategory`. `Category.register` is deprecated. The label key is
+  `key.category.<namespace>.<path>`.
+- Some `Items` fields are now **collections**, e.g. `Items.LIGHTNING_ROD` is a
+  `WeatheringCopperCollection<Item>`. `Items.WHITE_BANNER` isn't a plain field either. Check before
+  using an item as an icon.
+- `GameProfile` is a record: `profile.name()`, `profile.id()`.
+- `ModConfig.Type` has `LOCAL`, `CLIENT`, `SERVER`, `STARTUP` (no `COMMON`).
+
 ## Porting procedure
 
 1. Bump `gradle.properties` to the target and update the Gradle wrapper

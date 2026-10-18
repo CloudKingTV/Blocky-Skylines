@@ -80,6 +80,42 @@ Spawning:
 - Billboards (icons over NPCs): rotate the pose by the camera orientation
   (`poseStack.mulPose(cameraState.orientation)`, field name to verify) before emitting the quad.
 
+### World-space lines (verified on 26.3)
+
+```java
+@SubscribeEvent // game bus, client
+static void world(SubmitCustomGeometryEvent event) {
+    Vec3 cam = event.getLevelRenderState().cameraRenderState.pos;           // subtract in double, then cast
+    float w = Minecraft.getInstance().gameRenderer.gameRenderState().windowRenderState.appropriateLineWidth;
+    event.getSubmitNodeCollector().submitCustomGeometry(event.getPoseStack(), RenderTypes.lines(), (pose, buf) -> {
+        // per segment: two vertices, normal = segment direction
+        buf.addVertex(pose, (float) (ax - cam.x), (float) (ay - cam.y), (float) (az - cam.z))
+           .setColor(0xFF7CE07C).setNormal(pose, nx, ny, nz).setLineWidth(w * 2);
+        buf.addVertex(pose, (float) (bx - cam.x), (float) (by - cam.y), (float) (bz - cam.z))
+           .setColor(0xFF7CE07C).setNormal(pose, nx, ny, nz).setLineWidth(w * 2);
+    });
+}
+```
+
+Boxes: `collector.submitShapeOutline(pose, Shapes.create(aabb), RenderTypes.lines(), argb, width, false)`.
+
+**Always-on-top lines** (map annotations that show through trees and hills): vanilla has no such
+type, so build one from the lines snippet with the depth test off, and register the pipeline:
+
+```java
+public static final RenderPipeline OVERLAY_LINES_PIPELINE = RenderPipeline.builder(RenderPipelines.LINES_SNIPPET)
+        .withLocation(id("pipeline/overlay_lines"))
+        .withColorTargetState(ColorTargetState.DEFAULT)
+        .withDepthStencilState(new DepthStencilState(CompareOp.ALWAYS_PASS, false))   // 26.x uses reversed-Z; DEFAULT is GREATER_THAN_OR_EQUAL
+        .build();
+public static final RenderType OVERLAY_LINES = RenderType.create("mymod_overlay_lines",
+        RenderSetup.builder(OVERLAY_LINES_PIPELINE).setLayeringTransform(LayeringTransform.VIEW_OFFSET_Z_LAYERING).createRenderSetup());
+// mod bus, client: RegisterRenderPipelinesEvent -> event.registerPipeline(OVERLAY_LINES_PIPELINE)
+```
+
+Surface-following lines: sample `Heightmap.Types.MOTION_BLOCKING_NO_LEAVES` (`WORLD_SURFACE`
+includes canopies), and flatten one-column spikes (tree trunks count as ground).
+
 ## Custom render pipelines and shaders
 
 - Define `RenderPipeline`s with the builder (`withLocation`, `withVertexShader`,

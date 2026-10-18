@@ -1,10 +1,13 @@
-# Blocky Skylines: Bringing Cities: Skylines to Minecraft
+# Townstead: Bringing Cities: Skylines to Minecraft
+
+*Working title was "Blocky Skylines". The mod is **Townstead** (mod id `townstead`),
+tagline "From hamlet to metropolis." The repository keeps its old name.*
 
 This document turns the research in [`../research/cities-skylines.md`](../research/cities-skylines.md)
 into a Minecraft design. It covers what to keep, what has to change, how each system maps onto
 Minecraft's engine, and a phased plan. Technical notes assume NeoForge 26.3 and the
-`minecraft-modding` skill in this repo. Choices that need your decision are marked
-**[Decision]** and collected in §9.
+`minecraft-modding` skill in this repo. Settled decisions are in §9, and the survival
+supply design is in §10.
 
 ---
 
@@ -50,7 +53,7 @@ camera in Minecraft. That loop is the identity of Cities: Skylines, and it's the
 | **Terrain is rugged and editable** | CS zones flat lots. Minecraft land is hills, caves, trees, water | Lots **auto-grade** (foundations and fill, cut slopes). Roads grade terrain along their path. Provide a terraform brush in the planner. Zoning is invalid on steep or watery cells |
 | **Building art volume**: CS ships hundreds of models | Hand-building hundreds of structures is a huge content cost | **Hybrid buildings**: procedural generation from style palettes and rules for most growables, plus hand-made NBT templates for services, unique buildings and monuments. All data-driven so packs can add more (§6.4) |
 | **Multiplayer server** | Many players, permissions, griefing | Cities have owners/co-mayors/residents. Planner tools respect claims. Abstract simulation runs once on the server |
-| **Survival vs creative** | Where do buildings' blocks come from? | **[Decision]** a *Mayor Mode* (city treasury pays, blocks appear) and/or a *Survival Supply* mode (construction consumes materials from a city warehouse fed by players or industry) |
+| **Survival vs creative** | Where do buildings' blocks come from? | **Decided: survival materials.** Construction consumes items from the Town Storehouse; industry later supplies it (§10). A `freeBuild` world option skips materials |
 
 ---
 
@@ -61,7 +64,7 @@ Difficulty: ★ easy · ★★ moderate · ★★★ hard. Phase refers to the r
 | CS system | Blocky Skylines version | Diff. | Phase |
 |---|---|---|---|
 | **RTS camera & tool palette** | **Planner view**: a toggle key. The player becomes a flying, invisible camera at altitude; a mouse cursor raycasts into the world; a bottom toolbar screen with categories; WASD pan, scroll zoom, Q/E rotate, with eased motion. Built on the verified camera hook (`Camera#update` mixin), the `ComputeFov` event and custom GUI layers | ★★★ | 0 |
-| **City founding & tiles** | Place a **City Hall** to found a city and claim the center tile. Buy adjacent 64×64 tiles with milestone permits plus money. Tile borders are drawn in planner view | ★★ | 0 |
+| **City founding & tiles** | Place a **Town Hall** to found a city and claim the center tile. Buy adjacent 64×64 tiles with milestone permits plus money. Tile borders are drawn in planner view | ★★ | 0 |
 | **Roads** | Road **graph** (nodes, segments, lanes, type) in SavedData. Straight, curve and freeform tools with snapping and a guideline preview (ghost blocks). Each road type is a **cross-section profile** (asphalt, lines, sidewalks, trees, lamps) rasterized to blocks along the curve. Junctions are auto-generated. Grading through terrain, bridges, tunnels. Upgrade tool | ★★★ | 1 |
 | **Zoning grid** | Cells auto-generated 4 deep beside zonable roads (8×8-block cells). Paint/fill/erase brushes. Zones R (low/high), C (low/high), I, O. Shown as colored translucent overlays only in planner view | ★★ | 2 |
 | **Demand** | RCIO bars computed from jobs vs workers, consumer demand, goods and education (§5). Simple and legible, with visible reasons | ★★ | 2 |
@@ -193,6 +196,16 @@ Congestion feeds commute satisfaction and service response times, and drives vis
   services, unique buildings, monuments and signature growables. The data JSON declares
   footprint, entrance/road side, capacity and coverage.
 - **Lot fitting:** foundations, grading and road-facing rotation.
+- **Look (decided):** everything must look like it belongs in vanilla Minecraft, using the
+  block vocabulary and shapes of **village structures**, even for high-density towers.
+  Style palettes follow the five vanilla village biomes (plains oak, desert sandstone, savanna
+  acacia, taiga spruce, snowy spruce/stone), picked from the district's biome. Shapes: log
+  frames and corner posts, cobblestone/stone-brick bases, plank or terracotta walls, glass
+  panes, stair-and-slab roofs, flower boxes, lanterns and bells. Taller buildings are stacked
+  villager houses: a stone podium, timber-framed floors with jettied overhangs, stair-roofed
+  setbacks and a lantern-lit crown. Commercial takes village workstations as storefronts
+  (smithing tables, barrels, lecterns). Industry uses composters, blast furnaces, hay bales and
+  mud-brick yards. Levels add height and detail, not a modern look.
 
 ### 6.5 Life on the streets
 - **Ambient citizens:** a custom `CitizenNpc` entity that is non-persistent (despawns away from
@@ -243,7 +256,7 @@ skill).
 
 | Phase | Deliverable | "Done" looks like |
 |---|---|---|
-| **0. Foundation** | Project scaffold, City Hall block, CityData, tiles, **Planner view** camera + cursor + empty toolbar, undo framework | Found a city, fly the planner camera smoothly, see tile borders |
+| **0. Foundation** | Project scaffold, Town Hall block, CityData, tiles, **Planner view** camera + cursor + empty toolbar, undo framework | Found a city, fly the planner camera smoothly, see tile borders |
 | **1. Roads** | Road graph, 3 road types (small, medium, large), straight and curve tools, snapping, junction generation, terrain grading, bulldoze | Build a road grid and a curved avenue that look good in blocks |
 | **2. Zoning & growth** | Zone grid, paint tools, RCIO demand v1, procedural houses/shops/factories (1–2 styles), construction animation | Zone a block, watch houses rise one by one |
 | **3. Utilities & services** | Power and water (road-borne), 6 core services with coverage, status icons, info views (power, water, coverage), building panel | A building shows "no power", you place a plant, the icon clears |
@@ -257,22 +270,47 @@ Village"). That's the smallest thing that *feels* like Cities: Skylines in Minec
 
 ---
 
-## 9. Decisions for you
+## 9. Decisions (settled 2026-10-18)
 
-1. **Mode:** Mayor Mode (treasury-funded, creative-like), Survival Supply (materials come from
-   a warehouse), or both as a world option? *Recommendation: Mayor Mode first; Survival Supply
-   as a Phase 7 option.*
-2. **Building generation:** procedural-first (infinite variety, less art control),
-   template-first (beautiful, but needs lots of builds), or hybrid? *Recommendation: hybrid,
-   with procedural growables and templates for services, unique buildings and monuments.*
-3. **Scale:** 8-block zone cells (1:1 with CS) and 64-block tiles? *Recommendation: yes.*
-4. **Loader:** NeoForge 26.3. *Recommendation: yes. Its camera, GUI-layer and render-state
-   events fit this mod best. A Fabric port can come later via a common module.*
-5. **Multiplayer ambitions:** single-player first, or server co-op from the start (affects
-   permissions and sync design)? *Recommendation: design the data model for multiple cities and
-   co-mayors from day one, but test single-player first.*
-6. **Tone and style:** vanilla-plus look (Minecraft textures and palettes) or a distinct
-   art style for road and UI elements? Any theme you want for the default style palette?
-7. **Name and branding:** "Blocky Skylines" is a fine working title. Avoid using Paradox or
-   Cities: Skylines trademarks and assets in the release (inspired-by is fine; their names,
-   logos and art are not).
+1. **Mode: survival materials.** Construction consumes real items. See §10.
+2. **Buildings: hybrid.** Procedural growables plus hand-made templates for services, unique
+   buildings and monuments. All are generated by Claude in-repo.
+3. **Scale: 8-block zone cells and 64-block tiles.**
+4. **Loader: NeoForge 26.3.**
+5. **Multiplayer: test single-player first.** The data model still allows several cities and
+   co-mayors.
+6. **Style: vanilla village look**, even for skyscrapers (§6.4).
+7. **Name: Townstead** (mod id `townstead`). Avoid Paradox/Cities: Skylines names, logos and
+   art in releases.
+
+## 10. Survival supply design
+
+The city is built from real items, so the mod plugs into normal Minecraft play instead of
+replacing it.
+
+- **Town Storehouse.** A block placed in the city (crafted early, near the Town Hall).
+  Players deposit items. Linked **supply crates** (any chest with a crate upgrade) extend
+  capacity. The storehouse inventory is the city's material stock, shown in the planner's top
+  bar and in a storehouse screen.
+- **Treasury in emeralds.** The treasury is a number backed by emeralds: deposit or withdraw
+  at the Town Hall. Taxes accrue to it, and upkeep and tile purchases spend it. Emeralds are
+  Minecraft's currency (villager trading), so this fits without a new coin.
+- **Bill of materials.** Every plan (road segment, growable building, service) produces a
+  material list from its block list, with similar blocks grouped (any planks, any logs, any
+  stone bricks).
+  - **Roads** reserve and consume materials when placed. If stock is short, the tool shows
+    exactly what's missing in red and refuses.
+  - **Growables** start building when demand exists. Construction pulls from the storehouse
+    layer by layer. If something runs out, the site **pauses** with a floating "needs 12 oak
+    planks" icon and a Chirp, then resumes when stock arrives.
+  - **Services and unique buildings** show their full cost up front and wait for materials
+    before breaking ground.
+- **Closing the loop.** Early on, the player gathers materials by hand. Later, **industry
+  zones and resource districts produce materials into the storehouse** (forestry yields logs,
+  quarries yield stone, farms yield crops for food demand). Mid-game the city feeds itself,
+  and the player's job shifts from gathering to planning, which mirrors Cities: Skylines'
+  industry loop.
+- **Deconstruction refunds** a share of materials (bulldozing returns about 50%; recently placed
+  plans return 100%).
+- **Creative/peaceful option:** a world setting `townstead:freeBuild` skips materials, for
+  builders and for testing.

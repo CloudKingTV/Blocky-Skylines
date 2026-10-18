@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " E ",
+    "PBP",
+    "LLL"
+  ],
+  "key": {
+    "E": "minecraft:emerald",
+    "B": "minecraft:bell",
+    "P": "#minecraft:planks",
+    "L": "#minecraft:logs"
+  },
+  "result": {
+    "id": "townstead:town_hall",
+    "count": 1
+  }
+}
