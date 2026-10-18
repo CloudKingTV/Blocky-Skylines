@@ -16,6 +16,50 @@
 If the sandbox can't reach the mavens or Mojang's servers, say so plainly and list exactly
 which steps the user needs to run locally.
 
+## Running the real client headless (and taking screenshots)
+
+A sandbox has no display, but the 26.3 client runs on Mesa's software OpenGL through SDL's
+**offscreen** driver (verified 2026-10-18: "Using graphics backend OpenGL ... Mesa", client mixins
+applied, world loaded). Xvfb does **not** work: Minecraft requests an sRGB-capable framebuffer
+(`SDL_GL_FRAMEBUFFER_SRGB_CAPABLE`) and Xvfb's GLX visuals have none ("Couldn't find matching GLX
+visual"). The installed Vulkan also lacks `VK_KHR_surface`, so the game falls back to OpenGL.
+
+```bash
+sudo apt-get install -y libegl1 libgl1-mesa-dri mesa-utils     # Mesa EGL + llvmpipe
+# NeoForge: turn off the early loading window (it needs a real display)
+sed -i 's/^earlyWindowControl = true/earlyWindowControl = false/' run/config/fml.toml   # exists after the first launch
+mkdir -p /tmp/xdg && chmod 700 /tmp/xdg
+SDL_VIDEODRIVER=offscreen EGL_PLATFORM=surfaceless XDG_RUNTIME_DIR=/tmp/xdg \
+  JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew runClient
+```
+
+There's no audio device ("Failed to open OpenAL device" is expected), and the
+`discovery.minecraftservices.com` lookup fails harmlessly.
+
+To get into a world without clicking:
+- Quick play only opens **existing** worlds: run `runServer` once (accept `run/eula.txt`), copy
+  `run/world` to `run/saves/testworld`, and add `programArguments.addAll '--quickPlaySingleplayer', 'testworld'`
+  to the client run.
+- Script the session with a dev-only `ClientTickEvent.Post` handler gated on a system property
+  (`-D<modid>.autotest=true`). Count ticks after `mc.player != null`. Run setup on the integrated
+  server (`mc.getSingleplayerServer().execute(...)`: commands via
+  `server.getCommands().performPrefixedCommand(server.createCommandSourceStack(), "time set noon")`,
+  spawning via `TYPE.create(level, EntitySpawnReason.COMMAND)` + `snapTo` + `addFreshEntity`). Open
+  screens with `mc.gui.setScreen(...)`.
+- Screenshot: `Screenshot.grab(mc.gameDirectory, "name.png", mc.gameRenderer.mainRenderTarget(), 1, msg -> {})`
+  writes to `run/screenshots/`. **Look at them with the Read tool.** That's how you check textures,
+  UI layout and cutscene framing. Finish with `mc.stop()`.
+- **First launch stalls on the accessibility onboarding screen**, and quick play waits behind it.
+  After the first launch, set `onboardAccessibility:false` and `tutorialStep:none` in `run/options.txt`.
+  Have the driver log `mc.gui.screen()` while `mc.player == null` so stalls are diagnosable.
+- Calling `mc.stop()` from inside a tick handler ends the run but then crashes during shutdown
+  ("Cannot close a surface while it is acquired"), and chunk saves get rejected. It's harmless
+  for a throwaway test world. Don't mistake it for a mod bug.
+- Never commit the autotest hook or the quick-play args. Keep them in a scratch copy of the project.
+
+Software rendering is slow (single-digit to low-tens FPS), so leave 2–3 s of ticks between
+opening something and screenshotting it.
+
 ## GameTests
 
 NeoForge 26.x: tests are **data-driven instances** at `data/<ns>/test_instance/<name>.json`,

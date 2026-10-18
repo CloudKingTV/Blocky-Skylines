@@ -139,7 +139,12 @@ particles + HUD (boss bar) + networking.
   `build/moddev/artifacts/minecraft-patched-*-sources.jar` and grep it. Faster and more reliable
   than any doc. The skill's main snippets (entity, model, keyframes, renderer, particle,
   screen, widget, HUD layers, payloads, attachment, SavedData, command, camera/input mixins)
-  were compiled against NeoForge 26.3.0.90 on 2026-10-18.
+  were compiled against NeoForge 26.3.0.90 on 2026-10-18, then run in a headless 26.3 client
+  (Elder NPC rendered and facing the player, journal screen with a nine-slice panel, cutscene
+  camera with letterbox and subtitle; all screenshot-checked).
+- **See your work**: the client runs headless via SDL's offscreen driver + Mesa, and you can script
+  it to take screenshots, then view them with Read. Recipe in testing-debugging.md. Use it to check
+  textures, UI and cutscenes instead of guessing.
 - GitHub is usually reachable: clone MDKs (`NeoForgeMDKs/MDK-<mc>-ModDevGradle`), the Fabric
   example mod (`FabricMC/fabric-example-mod`), docs and primers to check APIs.
 - `scripts/scaffold.sh <neoforge|fabric> <modid> <package> [mc] [dir] ["Name"]` creates a new
