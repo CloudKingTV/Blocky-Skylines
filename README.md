@@ -12,10 +12,24 @@ you designed.
    and logs along the bottom. You found a town by bringing a village bell home.
 2. Place it. Your town claims the 3×3 land tiles around it (64×64 blocks each). Towns need
    a little space between them.
-3. Press **M** to open the **Town Planner**: an overhead view of your land.
-   - **WASD** pan · **Q/E** or right-drag to rotate · **scroll** to zoom · **left-click** to
-     select a zone cell · **Esc** or **M** to return to where you were standing.
-   - Green lines mark your town's land. The cursor highlights 8×8-block zone cells.
+3. Press **M** to open the **Town Planner**: an overhead view of your land. The controls follow
+   Cities: Skylines:
+
+   | Action | Keys / mouse |
+   |---|---|
+   | Pan | **WASD** or arrows (hold **Shift** to go faster) |
+   | Rotate | **Q / E**, or hold the **middle mouse button** and drag |
+   | Zoom | **scroll**, **Z / X** (or **R / F**) |
+   | Tilt | **Home / End** (or **T / G**), or middle-drag up/down |
+   | Select a zone cell | **left-click** |
+   | Cancel | **right-click** or **Esc** (selection first, then the tool) |
+   | Bulldoze | **B** (unlocks with roads) |
+   | Rename the town | click its name in the top bar, type, **Enter** |
+   | Show all controls | **H** |
+   | Leave the planner | **M**, or **Esc** with nothing selected |
+
+   Green lines mark your town's land. The cursor highlights 8×8-block zone cells. Edge scrolling
+   can be turned on in the mod's config screen. `/townstead rename <name>` also works.
 4. Breaking the Town Hall disbands the town.
 
 Roads, zoning, construction from your Town Storehouse, services and citizens come in the next

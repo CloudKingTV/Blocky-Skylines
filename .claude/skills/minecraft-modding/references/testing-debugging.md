@@ -57,6 +57,34 @@ To get into a world without clicking:
   for a throwaway test world. Don't mistake it for a mod bug.
 - Never commit the autotest hook or the quick-play args. Keep them in a scratch copy of the project.
 
+### Playtesting with a simulated keyboard and mouse (verified on 26.3)
+
+To judge how controls *feel*, drive Minecraft's own input handlers rather than calling your
+screen methods. This exercises key mappings, screen dispatch, focus and text input exactly like a
+player would:
+
+```java
+long h = mc.getWindow().handle();
+mc.keyboardHandler.keyPress(h, InputConstants.PRESS, new KeyEvent(InputConstants.KEY_W, 'w', 0)); // (scancode, SDL keycode, mods)
+mc.keyboardHandler.keyPress(h, InputConstants.RELEASE, new KeyEvent(InputConstants.KEY_W, 'w', 0));
+"Oakbrook".codePoints().forEach(cp -> mc.keyboardHandler.charTyped(h, new CharacterEvent(cp)));
+mc.mouseHandler.onMove(h, x, y, x - lastX, y - lastY);          // window pixels (GUI px × gui scale)
+mc.mouseHandler.onButton(h, new MouseButtonInfo(InputConstants.MOUSE_BUTTON_LEFT, 0), InputConstants.PRESS);
+mc.mouseHandler.onScroll(h, 0, -4);                               // 4 notches toward the player
+```
+
+- **Fill in the SDL keycode.** `EditBox` (and anything using `KeyEvent#shortcutKey`) reads the
+  *keycode*, not the scancode: with keycode 0, Backspace/Ctrl+A/Enter silently do nothing. Letters
+  are their lowercase ASCII, Backspace 8, Enter 13, Esc 27; navigation keys are
+  `0x40000000 | scancode` (Home = 1073741898, End = 1073741901, LShift = 1073742049).
+- Log the numbers that matter each tick (camera position, yaw, zoom) as CSV lines and read them
+  back: "reaches 90% speed in 4 ticks, stops within 3" is a far better feel check than a
+  screenshot.
+- Software rendering runs the game far slower than real time, so anything timed in
+  **milliseconds** (toasts, flashes, fades) can expire between two ticks. Screenshot the tick
+  right after the input, or drive UI timers from ticks in tests.
+- `Runtime.getRuntime().halt(0)` at the end skips the shutdown crash entirely.
+
 Software rendering is slow (single-digit to low-tens FPS), so leave 2–3 s of ticks between
 opening something and screenshotting it.
 

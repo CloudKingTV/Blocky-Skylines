@@ -98,6 +98,24 @@ public final class CityManager extends SavedData {
         return city;
     }
 
+    public static final int MAX_NAME_LENGTH = 32;
+
+    /** Trims, drops formatting codes and control characters; empty or over-long names are rejected. */
+    public static Optional<String> sanitizeName(String raw) {
+        StringBuilder out = new StringBuilder();
+        raw.codePoints()
+                .filter(cp -> cp != '\u00a7' && !Character.isISOControl(cp))
+                .forEach(cp -> out.appendCodePoint(Character.isWhitespace(cp) ? ' ' : cp));
+        String name = out.toString().trim().replaceAll(" {2,}", " ");
+        int length = name.codePointCount(0, name.length());
+        return length == 0 || length > MAX_NAME_LENGTH ? Optional.empty() : Optional.of(name);
+    }
+
+    public void rename(MinecraftServer server, City city, String name) {
+        city.name = name;
+        changed(server);
+    }
+
     public void disband(MinecraftServer server, City city) {
         if (cities.remove(city.id) != null) changed(server);
     }

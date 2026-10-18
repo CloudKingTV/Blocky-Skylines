@@ -113,6 +113,13 @@ full, authoritative lists are ChampionAsh5357's primers (CC-BY 4.0):
   using an item as an icon.
 - `GameProfile` is a record: `profile.name()`, `profile.id()`.
 - `ModConfig.Type` has `LOCAL`, `CLIENT`, `SERVER`, `STARTUP` (no `COMMON`).
+- **`EditBox` reads `KeyEvent#keycode()` (via `shortcutKey()`), screens usually read `key()`.**
+  Compare your own bindings with `event.key()` against `InputConstants.KEY_*` (scancodes, layout
+  independent, right for WASD). Text editing uses keycodes, so synthetic events need both.
+- `EditBox#setHighlightPos(0)` after `moveCursorToEnd(false)` selects all text: open a rename field
+  with the old name selected so typing replaces it.
+- `GuiGraphicsExtractor#setTooltipForNextFrame(font, component, x, y)`: the tooltip is placed relative
+  to the point you pass, not the real mouse, so anchor it below a top bar to keep it off the label.
 
 ## Porting procedure
 

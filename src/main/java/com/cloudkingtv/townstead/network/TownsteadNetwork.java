@@ -1,6 +1,8 @@
 package com.cloudkingtv.townstead.network;
 
 import com.cloudkingtv.townstead.Townstead;
+import com.cloudkingtv.townstead.city.CityManager;
+import com.cloudkingtv.townstead.city.TownActions;
 import com.cloudkingtv.townstead.planner.PlannerService;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -22,6 +24,11 @@ public final class TownsteadNetwork {
             if (!(ctx.player() instanceof ServerPlayer player)) return;
             if (msg.open()) PlannerService.enter(player);
             else PlannerService.exit(player);
+        });
+        r.playToServer(RenameTownPayload.TYPE, RenameTownPayload.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            CityManager.get(player.level().getServer()).byId(msg.cityId())
+                    .ifPresent(city -> TownActions.rename(player, city, msg.name()));
         });
     }
 

@@ -1,13 +1,17 @@
 package com.cloudkingtv.townstead.client.planner;
 
 import com.cloudkingtv.townstead.Townstead;
+import com.cloudkingtv.townstead.TownsteadConfig;
+import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.CitySummary;
 import com.cloudkingtv.townstead.city.TilePos;
 import com.cloudkingtv.townstead.client.TownsteadKeys;
+import com.cloudkingtv.townstead.network.RenameTownPayload;
 import com.mojang.blaze3d.platform.InputConstants;
 import java.util.List;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -27,17 +31,21 @@ import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.client.network.ClientPacketDistributor;
+import org.jspecify.annotations.Nullable;
 
 /**
- * The planner's input and UI layer. It never pauses the game, keeps the mouse free as a cursor, steers
- * {@link PlannerCamera} with WASD/QE/scroll, and draws the town bar and tool palette.
+ * The planner's input and UI layer. It never pauses the game and keeps the mouse free as a cursor.
+ * Controls follow Cities: Skylines: WASD pan (Shift faster), Q/E rotate, scroll or Z/X (R/F) zoom, Home/End (T/G)
+ * tilt, middle-drag orbit, right-click or Esc cancel, B bulldoze. M leaves the planner.
  */
 public class PlannerScreen extends Screen {
     private static final Identifier PANEL = Townstead.id("planner/panel");
     private static final Identifier BUTTON = Townstead.id("planner/button");
     private static final Identifier BUTTON_HOVER = Townstead.id("planner/button_hover");
     private static final Identifier BUTTON_SELECTED = Townstead.id("planner/button_selected");
-    private static final int TOP_BAR_H = 22, SLOT = 24, TOOLBAR_PAD = 5;
+    private static final int TOP_BAR_H = 22, SLOT = 24, TOOLBAR_PAD = 5, NAME_X = 26;
+    private static final long HINT_MILLIS = 10_000, FLASH_MILLIS = 2_500;
 
     private record Tool(String key, ItemStack icon, boolean available) {}
 
@@ -51,11 +59,15 @@ public class PlannerScreen extends Screen {
             new Tool("parks", new ItemStack(Items.OAK_SAPLING), false),
             new Tool("districts", new ItemStack(Items.MAP), false),
             new Tool("bulldoze", new ItemStack(Items.IRON_SHOVEL), false));
+    private static final int INSPECT = 0, BULLDOZE = 8;
 
     private final long openedAt = Util.getMillis();
     private final float[] hover = new float[TOOLS.size()];
-    private int selectedTool = 0;
-    private boolean rotating;
+    private int selectedTool = INSPECT;
+    private boolean orbiting, showHelp;
+    private @Nullable EditBox renameBox;
+    private @Nullable Component flash;
+    private long flashAt;
 
     public PlannerScreen() {
         super(Component.translatable("screen.townstead.planner"));
@@ -71,19 +83,36 @@ public class PlannerScreen extends Screen {
         // No dimming or blur: the world is the canvas.
     }
 
-    // ---------------------------------------------------------------- input
+    @Override
+    protected void init() {
+        // Re-created on resize; keep an open rename box at the new layout.
+        if (renameBox != null) {
+            String value = renameBox.getValue();
+            renameBox = null;
+            openRename(value);
+        }
+    }
+
+    // ---------------------------------------------------------------- keyboard
 
     @Override
     public boolean keyPressed(KeyEvent event) {
-        if (event.key() == InputConstants.KEY_ESCAPE || TownsteadKeys.PLANNER.matches(event)) {
-            PlannerClient.requestExit();
-            return true;
+        int key = event.key();
+        if (renameBox != null) {
+            if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) { submitRename(); return true; }
+            if (key == InputConstants.KEY_ESCAPE) { closeRename(); return true; }
+            return super.keyPressed(event); // typing goes to the box, never to the camera
         }
-        return setHeld(event.key(), true) || super.keyPressed(event);
+        if (TownsteadKeys.PLANNER.matches(event)) { PlannerClient.requestExit(); return true; }
+        if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
+        if (key == InputConstants.KEY_B) { pickTool(BULLDOZE); return true; }
+        if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
+        return setHeld(key, true) || super.keyPressed(event);
     }
 
     @Override
     public boolean keyReleased(KeyEvent event) {
+        // Always release, even while typing, so a key held when the box opened can't stick.
         return setHeld(event.key(), false) || super.keyReleased(event);
     }
 
@@ -96,10 +125,30 @@ public class PlannerScreen extends Screen {
             case InputConstants.KEY_D, InputConstants.KEY_RIGHT -> cam.right = down;
             case InputConstants.KEY_Q -> cam.rotateLeft = down;
             case InputConstants.KEY_E -> cam.rotateRight = down;
+            case InputConstants.KEY_Z, InputConstants.KEY_R -> cam.zoomIn = down;
+            case InputConstants.KEY_X, InputConstants.KEY_F -> cam.zoomOut = down;
+            case InputConstants.KEY_HOME, InputConstants.KEY_T -> cam.tiltDown = down;
+            case InputConstants.KEY_END, InputConstants.KEY_G -> cam.tiltUp = down;
+            case InputConstants.KEY_LSHIFT, InputConstants.KEY_RSHIFT -> cam.fast = down;
             default -> { return false; }
         }
         return true;
     }
+
+    /** Esc / right-click: drop the selection, then the tool, and only then leave the planner (like CS). */
+    private void cancelOrExit() {
+        if (PlannerClient.selectedCell != null) {
+            PlannerClient.selectedCell = null;
+            click(0.8f);
+        } else if (selectedTool != INSPECT) {
+            selectedTool = INSPECT;
+            click(0.8f);
+        } else {
+            PlannerClient.requestExit();
+        }
+    }
+
+    // ---------------------------------------------------------------- mouse
 
     @Override
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
@@ -109,21 +158,23 @@ public class PlannerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        if (renameBox != null) {
+            if (renameBox.isMouseOver(event.x(), event.y())) return super.mouseClicked(event, doubleClick);
+            submitRename(); // clicking away keeps what you typed, like most name fields
+        }
+        int button = event.button();
+        if (button == InputConstants.MOUSE_BUTTON_MIDDLE) { orbiting = true; return true; }
+        if (button == InputConstants.MOUSE_BUTTON_RIGHT) { cancelOrExit(); return true; }
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(event, doubleClick);
+
         int tool = toolAt(event.x(), event.y());
-        if (tool >= 0) {
-            if (TOOLS.get(tool).available()) {
-                selectedTool = tool;
-                click(1.0f);
-            } else {
-                click(0.6f);
-            }
+        if (tool >= 0) { pickTool(tool); return true; }
+        if (overName(event.x(), event.y())) {
+            PlannerClient.city().ifPresent(c -> openRename(c.name()));
+            click(1.0f);
             return true;
         }
-        if (event.button() == InputConstants.MOUSE_BUTTON_MIDDLE || event.button() == InputConstants.MOUSE_BUTTON_RIGHT) {
-            rotating = true;
-            return true;
-        }
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && PlannerClient.hoverCell != null) {
+        if (PlannerClient.hoverCell != null) {
             PlannerClient.selectedCell = PlannerClient.hoverCell;
             click(1.2f);
             return true;
@@ -133,14 +184,15 @@ public class PlannerScreen extends Screen {
 
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
-        rotating = false;
+        if (event.button() == InputConstants.MOUSE_BUTTON_MIDDLE) orbiting = false;
         return super.mouseReleased(event);
     }
 
     @Override
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (rotating) {
-            PlannerClient.CAMERA.rotate((float) dx * 0.5f);
+        if (orbiting) {
+            PlannerClient.CAMERA.rotate((float) dx * 0.45f);
+            PlannerClient.CAMERA.tilt((float) dy * 0.3f);
             return true;
         }
         return super.mouseDragged(event, dx, dy);
@@ -148,13 +200,64 @@ public class PlannerScreen extends Screen {
 
     @Override
     public void removed() {
-        PlannerCamera cam = PlannerClient.CAMERA;
-        cam.forward = cam.back = cam.left = cam.right = cam.rotateLeft = cam.rotateRight = false;
+        PlannerClient.CAMERA.releaseAll();
         super.removed();
+    }
+
+    private void pickTool(int tool) {
+        if (TOOLS.get(tool).available()) {
+            selectedTool = tool;
+            click(1.0f);
+        } else {
+            flash(Component.translatable("tool.townstead.locked_named", Component.translatable("tool.townstead." + TOOLS.get(tool).key())));
+            click(0.6f);
+        }
+    }
+
+    private void flash(Component message) {
+        flash = message;
+        flashAt = Util.getMillis();
     }
 
     private void click(float pitch) {
         minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), pitch, 0.4f));
+    }
+
+    // ---------------------------------------------------------------- rename
+
+    private boolean overName(double x, double y) {
+        return PlannerClient.city().map(c -> y < TOP_BAR_H && x >= NAME_X - 20 && x <= NAME_X + font.width(c.name()) + 16)
+                .orElse(false);
+    }
+
+    private void openRename(String initial) {
+        if (renameBox != null) return;
+        renameBox = new EditBox(font, NAME_X - 2, 4, 170, TOP_BAR_H - 8, Component.translatable("hud.townstead.rename"));
+        renameBox.setMaxLength(CityManager.MAX_NAME_LENGTH);
+        renameBox.setValue(initial);
+        // Select the whole name so typing replaces it: click, type, Enter.
+        renameBox.moveCursorToEnd(false);
+        renameBox.setHighlightPos(0);
+        addRenderableWidget(renameBox);
+        setInitialFocus(renameBox);
+        PlannerClient.CAMERA.releaseAll();
+    }
+
+    private void submitRename() {
+        if (renameBox == null) return;
+        String value = renameBox.getValue();
+        PlannerClient.city().ifPresent(c -> {
+            if (!value.isBlank() && !value.equals(c.name())) {
+                ClientPacketDistributor.sendToServer(new RenameTownPayload(c.id(), value));
+            }
+        });
+        closeRename();
+    }
+
+    private void closeRename() {
+        if (renameBox == null) return;
+        removeWidget(renameBox);
+        renameBox = null;
     }
 
     // ---------------------------------------------------------------- cursor
@@ -182,19 +285,29 @@ public class PlannerScreen extends Screen {
         PlannerClient.hoverCell = new BlockPos(cx, y, cz);
     }
 
+    /** Optional Cities: Skylines-style edge scrolling (off by default: easy to trigger by accident in a window). */
+    private void edgeScroll(int mouseX, int mouseY) {
+        PlannerCamera cam = PlannerClient.CAMERA;
+        boolean on = TownsteadConfig.EDGE_SCROLL.get() && renameBox == null;
+        cam.edgeLeft = on && mouseX <= 1;
+        cam.edgeRight = on && mouseX >= width - 2;
+        cam.edgeForward = on && mouseY <= 1;
+        cam.edgeBack = on && mouseY >= height - 2;
+    }
+
     // ---------------------------------------------------------------- drawing
 
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         updateHover(mouseX, mouseY);
+        edgeScroll(mouseX, mouseY);
         float open = Mth.clamp((Util.getMillis() - openedAt) / 220f, 0f, 1f);
         float slide = 1f - (1f - open) * (1f - open); // ease-out
         CitySummary city = PlannerClient.city().orElse(null);
 
-        // Top bar slides down, toolbar slides up.
         g.pose().pushMatrix();
         g.pose().translate(0, (slide - 1f) * TOP_BAR_H);
-        drawTopBar(g, city);
+        drawTopBar(g, city, mouseX, mouseY);
         g.pose().popMatrix();
 
         int barW = TOOLS.size() * SLOT + TOOLBAR_PAD * 2;
@@ -204,17 +317,25 @@ public class PlannerScreen extends Screen {
         drawToolbar(g, barX, barY, barW, mouseX, mouseY);
         g.pose().popMatrix();
 
-        drawCursorInfo(g, city, mouseX, mouseY);
+        drawCursorInfo(g, city);
+        drawFlash(g, barY);
         drawHints(g);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
-    private void drawTopBar(GuiGraphicsExtractor g, CitySummary city) {
+    private void drawTopBar(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, -4, -4, width + 8, TOP_BAR_H + 4);
         if (city == null) return;
         int y = (TOP_BAR_H - font.lineHeight) / 2;
         g.item(new ItemStack(Items.BELL), 6, 3);
-        g.text(font, Component.literal(city.name()), 26, y, 0xFFFFE9B0, true);
+        if (renameBox == null) {
+            boolean hot = overName(mouseX, mouseY);
+            g.text(font, Component.literal(city.name()), NAME_X, y, hot ? 0xFFFFFFFF : 0xFFFFE9B0, true);
+            // Pencil-ish quill marks the name as editable.
+            g.item(new ItemStack(Items.WRITABLE_BOOK), NAME_X + font.width(city.name()) + 3, 3);
+            // Anchor the tooltip under the bar so it never covers the name it describes.
+            if (hot) g.setTooltipForNextFrame(font, Component.translatable("hud.townstead.rename_hint"), mouseX, TOP_BAR_H + 14);
+        }
         int x = width - 8;
         x = rightStat(g, x, y, new ItemStack(Items.FILLED_MAP), Component.translatable("hud.townstead.tiles", city.tiles().size()));
         x = rightStat(g, x, y, new ItemStack(Items.VILLAGER_SPAWN_EGG), Component.translatable("hud.townstead.population", 0));
@@ -251,7 +372,7 @@ public class PlannerScreen extends Screen {
         }
     }
 
-    private void drawCursorInfo(GuiGraphicsExtractor g, CitySummary city, int mouseX, int mouseY) {
+    private void drawCursorInfo(GuiGraphicsExtractor g, @Nullable CitySummary city) {
         BlockPos cell = PlannerClient.selectedCell != null ? PlannerClient.selectedCell : PlannerClient.hoverCell;
         if (cell == null) return;
         TilePos tile = TilePos.ofBlock(cell.getX(), cell.getZ());
@@ -267,11 +388,33 @@ public class PlannerScreen extends Screen {
         g.text(font, line2, x + 6, y + 17, owned ? 0xFF9EE37D : 0xFFE0A060, true);
     }
 
+    private void drawFlash(GuiGraphicsExtractor g, int toolbarY) {
+        if (flash == null) return;
+        long age = Util.getMillis() - flashAt;
+        if (age > FLASH_MILLIS) { flash = null; return; }
+        float alpha = age < FLASH_MILLIS - 400 ? 1f : (FLASH_MILLIS - age) / 400f;
+        g.centeredText(font, flash, width / 2, toolbarY - font.lineHeight - 4, ARGB.color(Math.round(alpha * 255), 255, 214, 120));
+    }
+
+    /** One-line reminder that fades after a few seconds; H toggles the full control list. */
     private void drawHints(GuiGraphicsExtractor g) {
-        // Just under the top bar on the right, clear of the toolbar at any GUI scale.
+        if (showHelp) {
+            List<Component> lines = List.of(
+                    Component.translatable("help.townstead.pan"), Component.translatable("help.townstead.rotate"),
+                    Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
+                    Component.translatable("help.townstead.select"), Component.translatable("help.townstead.cancel"),
+                    Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
+            int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
+            int h = lines.size() * (font.lineHeight + 2) + 12;
+            int x = width - w - 6, y = TOP_BAR_H + 6;
+            g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
+            for (int i = 0; i < lines.size(); i++) g.text(font, lines.get(i), x + 7, y + 7 + i * (font.lineHeight + 2), 0xFFF2F2F2, true);
+            return;
+        }
+        long age = Util.getMillis() - openedAt;
+        float alpha = age < HINT_MILLIS ? 1f : Math.max(0.35f, 1f - (age - HINT_MILLIS) / 1500f);
         Component hint = Component.translatable("hud.townstead.planner_hint");
-        int w = font.width(hint);
-        g.text(font, hint, width - w - 6, TOP_BAR_H + 6, ARGB.color(190, 255, 255, 255), true);
+        g.text(font, hint, width - font.width(hint) - 6, TOP_BAR_H + 6, ARGB.color(Math.round(alpha * 200), 255, 255, 255), true);
     }
 
     private int toolAt(double mouseX, double mouseY) {
