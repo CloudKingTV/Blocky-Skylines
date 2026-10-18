@@ -282,6 +282,13 @@ Village"). That's the smallest thing that *feels* like Cities: Skylines in Minec
 6. **Style: vanilla village look**, even for skyscrapers (§6.4).
 7. **Name: Townstead** (mod id `townstead`). Avoid Paradox/Cities: Skylines names, logos and
    art in releases.
+8. **Everything is real blocks.** Whatever the planner builds (roads, houses, shops, services,
+   parks, utilities, transit) is placed in the world as ordinary Minecraft blocks, so after
+   leaving the planner you can walk, mine and build in the city like anywhere else. Planner
+   overlays (ghosts, borders, heat maps, icons) are view-only aids and never stand in for the
+   build. Simulated values (population, demand, traffic) live in data, but every building they
+   describe exists in the world. Building in unloaded chunks waits in the construction queue
+   (§6.3) and finishes when the chunk loads, never as an abstract stand-in.
 
 ## 10. Survival supply design
 
