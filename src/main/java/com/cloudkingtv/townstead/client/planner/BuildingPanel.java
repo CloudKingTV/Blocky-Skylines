@@ -86,7 +86,7 @@ public final class BuildingPanel {
             var city = PlannerClient.city().orElse(null);
             Component why = city == null ? null : Progression.trouble(b, town, ClientRoads.network(), Demand.of(town), java.util.Set.copyOf(city.tiles()), util);
             if (why != null) {
-                int left = (int) Math.max(0, (Progression.ABANDON_AFTER - b.trouble) / speed / 1200);
+                int left = (int) Math.max(1, Math.ceil((Progression.ABANDON_AFTER - b.trouble) / speed / 1200));
                 out.add(new Line(b.state == Building.State.ABANDONED ? Component.translatable("panel.townstead.because", why)
                         : Component.translatable("panel.townstead.trouble", why, left), BAD, 0));
             } else if (b.state == Building.State.ABANDONED) {

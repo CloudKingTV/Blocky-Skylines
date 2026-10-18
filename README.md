@@ -137,6 +137,23 @@ the roadmap.
 
 ## Screenshots (from the headless playtests)
 
+Phase 3: homes show they have no power or water; a windmill and a well go in and the icons
+clear, and the first cottage is rebuilt at level 2.
+
+| | |
+|---|---|
+| ![Status icons: no power, no water](docs/screenshots/phase3-no-power.png) | ![After the windmill and well: icons gone, a cottage levelling up](docs/screenshots/phase3-powered.png) |
+| ![Placing a clinic: ghost, coverage ring and bill of materials](docs/screenshots/phase3-place-clinic.png) | ![Clinic coverage info view](docs/screenshots/phase3-clinic-coverage.png) |
+| ![Building panel: level 3 needs, ticked](docs/screenshots/phase3-panel.png) | ![A park between cottages](docs/screenshots/phase3-park.png) |
+
+Levels, styles and abandonment: biome styles side by side (taiga, savanna, desert), shops and
+offices, and a workshop abandoned after its road was removed.
+
+| | |
+|---|---|
+| ![Taiga, savanna and desert homes](docs/screenshots/phase2-styles.png) | ![Market hall, guild hall and shops](docs/screenshots/phase2-styles-b.png) |
+| ![An abandoned workshop: door gone, cobwebs](docs/screenshots/phase2-abandoned.png) | |
+
 Phase 2: zoned lots grew into a village street, built block by block from the storehouse.
 
 | | |

@@ -1024,7 +1024,7 @@ public class PlannerScreen extends Screen {
             for (int i = 0; i < icons.size(); i++) g.item(icons.get(i), x0 + i * 18, sy - 9);
             if (mouseX >= x0 - 2 && mouseX < x0 + icons.size() * 18 && mouseY >= sy - 10 && mouseY < sy + 8) {
                 var line = Component.empty();
-                for (int i = 0; i < why.size(); i++) { if (i > 0) line.append(", "); line.append(why.get(i)); }
+                for (int i = 0; i < why.size(); i++) { if (i > 0) line.append(" · "); line.append(why.get(i)); }
                 tip = line;
             }
         }
