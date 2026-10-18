@@ -18,7 +18,7 @@ import org.jspecify.annotations.Nullable;
  */
 public final class Building {
     public enum State implements StringRepresentable {
-        CONSTRUCTING("constructing"), PAUSED("paused"), ACTIVE("active");
+        CONSTRUCTING("constructing"), PAUSED("paused"), ACTIVE("active"), ABANDONED("abandoned");
 
         public static final Codec<State> CODEC = StringRepresentable.fromEnum(State::values);
         private final String key;
@@ -44,9 +44,18 @@ public final class Building {
             Codec.INT.optionalFieldOf("jobs", 0).forGetter(b -> b.jobs),
             Codec.LONG.optionalFieldOf("started", 0L).forGetter(b -> b.started),
             Codec.STRING.optionalFieldOf("needs").forGetter(b -> Optional.ofNullable(b.needs).map(Material::name)),
-            Codec.INT.optionalFieldOf("setback", 0).forGetter(b -> b.setback)
-    ).apply(i, (id, city, zone, cx, cz, front, y, seed, state, progress, hh, jobs, started, needs, setback) -> {
+            Codec.INT.optionalFieldOf("setback", 0).forGetter(b -> b.setback),
+            Extra.CODEC.optionalFieldOf("extra", Extra.DEFAULT).forGetter(Building::extra)
+    ).apply(i, (id, city, zone, cx, cz, front, y, seed, state, progress, hh, jobs, started, needs, setback, extra) -> {
         Building b = new Building(id, city, zone, cx, cz, front, y, seed, started, setback);
+        b.level = extra.level();
+        b.style = extra.style();
+        b.activeSince = extra.activeSince();
+        b.trouble = extra.trouble();
+        b.owed = extra.owed();
+        b.upgrading = extra.upgrading();
+        b.repairing = extra.repairing();
+        b.service = extra.service();
         b.state = state;
         b.progress = progress;
         b.households = hh;
@@ -70,6 +79,43 @@ public final class Building {
     public int households, jobs;
     /** What a paused site is waiting for. */
     public @Nullable Material needs;
+    /** 1 to {@link #MAX_LEVEL}; higher levels rebuild bigger, house more people and employ more. */
+    public int level = 1;
+    /** Building style (biome palette key), chosen from the lot's biome when the site opens. */
+    public String style = "plains";
+    /** Game time the current level was finished (for level-up timing). */
+    public long activeSince;
+    /** Ticks of trouble (no road, no jobs, no customers) piled up; enough of it and the building is abandoned. */
+    public int trouble;
+    /** Construction steps owed while the site's chunks were unloaded; caught up when they load. */
+    public int owed;
+    /** True while a finished building is being rebuilt at its next level. */
+    public boolean upgrading;
+    /** True while an abandoned building is being repaired (an upgrade without a new level). */
+    public boolean repairing;
+    /** For civic buildings (zone CIVIC): which service or utility this is ({@link ServiceType} key), else empty. */
+    public String service = "";
+
+    public static final int MAX_LEVEL = 3;
+
+    /** Bookkeeping that grew after the first save format; saved as one compound. */
+    record Extra(int level, String style, long activeSince, int trouble, int owed, boolean upgrading, boolean repairing, String service) {
+        static final Extra DEFAULT = new Extra(1, "plains", 0L, 0, 0, false, false, "");
+        static final Codec<Extra> CODEC = RecordCodecBuilder.create(i -> i.group(
+                Codec.INT.optionalFieldOf("level", 1).forGetter(Extra::level),
+                Codec.STRING.optionalFieldOf("style", "plains").forGetter(Extra::style),
+                Codec.LONG.optionalFieldOf("active_since", 0L).forGetter(Extra::activeSince),
+                Codec.INT.optionalFieldOf("trouble", 0).forGetter(Extra::trouble),
+                Codec.INT.optionalFieldOf("owed", 0).forGetter(Extra::owed),
+                Codec.BOOL.optionalFieldOf("upgrading", false).forGetter(Extra::upgrading),
+                Codec.BOOL.optionalFieldOf("repairing", false).forGetter(Extra::repairing),
+                Codec.STRING.optionalFieldOf("service", "").forGetter(Extra::service)
+        ).apply(i, Extra::new));
+    }
+
+    Extra extra() {
+        return new Extra(level, style, activeSince, trouble, owed, upgrading, repairing, service);
+    }
 
     public Building(int id, UUID city, ZoneType zone, int cellX, int cellZ, Direction front, int baseY, long seed, long started, int setback) {
         this.id = id;
@@ -95,6 +141,27 @@ public final class Building {
         b.households = households;
         b.jobs = jobs;
         b.needs = needs;
+        b.level = level;
+        b.style = style;
+        b.activeSince = activeSince;
+        b.trouble = trouble;
+        b.owed = owed;
+        b.upgrading = upgrading;
+        b.repairing = repairing;
+        b.service = service;
         return b;
+    }
+
+    public boolean civic() {
+        return zone == ZoneType.CIVIC;
+    }
+
+    public com.cloudkingtv.townstead.service.ServiceType serviceType() {
+        return com.cloudkingtv.townstead.service.ServiceType.byKey(service);
+    }
+
+    /** Whether the building is lived in / open for business (counts toward population and jobs). */
+    public boolean working() {
+        return state == State.ACTIVE || (upgrading && state != State.ABANDONED);
     }
 }

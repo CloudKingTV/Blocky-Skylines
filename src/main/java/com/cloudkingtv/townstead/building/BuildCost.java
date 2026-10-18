@@ -17,7 +17,10 @@ public final class BuildCost {
             return Material.PLANKS;
         }
         if (s.is(Blocks.COBBLESTONE_STAIRS) || s.is(Blocks.COBBLESTONE_SLAB) || s.is(Blocks.COBBLESTONE_WALL)) return Material.COBBLESTONE;
-        if (s.is(Blocks.STONE_BRICK_STAIRS) || s.is(Blocks.STONE_BRICK_SLAB)) return Material.STONE_BRICKS;
+        if (s.is(Blocks.STONE_BRICK_STAIRS) || s.is(Blocks.STONE_BRICK_SLAB) || s.is(Blocks.STONE_BRICK_WALL)) return Material.STONE_BRICKS;
+        if (s.is(Blocks.SMOOTH_SANDSTONE_STAIRS) || s.is(Blocks.SMOOTH_SANDSTONE_SLAB) || s.is(Blocks.SANDSTONE_STAIRS)
+                || s.is(Blocks.SANDSTONE_SLAB) || s.is(Blocks.SANDSTONE_WALL)) return Material.SANDSTONE;
+        if (s.is(Blocks.BOOKSHELF)) return Material.PLANKS;
         if (s.is(Blocks.CAMPFIRE)) return Material.LOGS;
         if (s.is(Blocks.WALL_TORCH)) return Material.LANTERNS;
         for (Material m : Material.values()) if (m.matches(s.getBlock().asItem())) return m;

@@ -11,6 +11,8 @@
     "#townstead:materials/glass",
     "#townstead:materials/wool",
     "#townstead:materials/workstations",
-    "#townstead:materials/hay"
+    "#townstead:materials/hay",
+    "#townstead:materials/sandstone",
+    "#townstead:materials/terracotta"
   ]
 }

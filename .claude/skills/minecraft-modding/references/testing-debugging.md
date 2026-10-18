@@ -90,6 +90,14 @@ mc.mouseHandler.onScroll(h, 0, -4);                               // 4 notches t
   (`setBlock` with flags `2 | 16`) and place the setup relative to it, or strokes land on lakes and
   buildings.
 
+- **Keep a pristine copy of the test world** and restore it before every run (`mv` the used one
+  aside, `cp -r` the copy back). Run `save-off` in the test setup: the integrated server autosaves
+  every 6000 ticks, and a long playtest would otherwise persist its state (a dead player, half-built
+  sites) into the next run. Never run two clients on the same world at once: both write
+  `level.dat` and region files, and the world can be lost.
+- Don't delete a world's `dimensions` folder to "reset" it: 26.x keeps the overworld settings
+  there and the save stops loading ("Overworld settings missing").
+
 Software rendering is slow (single-digit to low-tens FPS), so leave 2–3 s of ticks between
 opening something and screenshotting it.
 

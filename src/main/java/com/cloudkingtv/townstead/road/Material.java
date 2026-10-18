@@ -24,7 +24,9 @@ public enum Material {
     GLASS("glass", Items.GLASS_PANE),
     WOOL("wool", Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)),
     WORKSTATIONS("workstations", Items.BARREL),
-    HAY("hay", Items.HAY_BLOCK);
+    HAY("hay", Items.HAY_BLOCK),
+    SANDSTONE("sandstone", Items.SANDSTONE),
+    TERRACOTTA("terracotta", Items.TERRACOTTA);
 
     /** Everything the Town Storehouse accepts. */
     public static final TagKey<Item> BUILDING_MATERIALS = ItemTags.create(Townstead.id("building_materials"));

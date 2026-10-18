@@ -34,5 +34,16 @@ public final class LandEditPayloads {
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Place a service or utility (ordinal of ServiceType) on a lot. */
+    public record PlaceService(UUID cityId, int service, long cell) implements CustomPacketPayload {
+        public static final Type<PlaceService> TYPE = new Type<>(Townstead.id("place_service"));
+        public static final StreamCodec<ByteBuf, PlaceService> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, PlaceService::cityId, ByteBufCodecs.VAR_INT, PlaceService::service, ByteBufCodecs.VAR_LONG, PlaceService::cell,
+                PlaceService::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     private LandEditPayloads() {}
 }

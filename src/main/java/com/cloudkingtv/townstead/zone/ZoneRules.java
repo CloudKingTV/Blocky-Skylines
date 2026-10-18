@@ -91,7 +91,7 @@ public final class ZoneRules {
     }
 
     /** Cell-local position i along the edge facing d, k blocks out from the edge row (k = 0 is the edge row). */
-    static int[] along(Direction d, int i, int k) {
+    public static int[] along(Direction d, int i, int k) {
         return switch (d) {
             case NORTH -> new int[] {i, -k};
             case SOUTH -> new int[] {i, CELL - 1 + k};

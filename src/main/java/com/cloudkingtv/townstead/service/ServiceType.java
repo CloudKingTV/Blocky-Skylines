@@ -1,0 +1,70 @@
+package com.cloudkingtv.townstead.service;
+
+import com.mojang.serialization.Codec;
+import java.util.Arrays;
+import java.util.List;
+import net.minecraft.network.chat.Component;
+import net.minecraft.util.StringRepresentable;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+
+/**
+ * Buildings the mayor places: utilities (power and water, carried along the roads) and services (which cover
+ * everything within their radius). Village-flavoured stand-ins for Cities: Skylines' power plants, water pumps,
+ * clinics, fire and police stations, schools, landfills and parks.
+ */
+public enum ServiceType implements StringRepresentable {
+    WINDMILL("windmill", Kind.POWER, Items.GRINDSTONE, 40, 0, 2),
+    WATERMILL("watermill", Kind.POWER, Items.OAK_TRAPDOOR, 80, 0, 3),
+    WELL("well", Kind.WATER, Items.WATER_BUCKET, 30, 0, 0),
+    WATER_TOWER("water_tower", Kind.WATER, Items.BARREL, 90, 0, 1),
+    CLINIC("clinic", Kind.SERVICE, Items.BREWING_STAND, 0, 48, 4),
+    FIRE_STATION("fire_station", Kind.SERVICE, Items.CAULDRON, 0, 56, 5),
+    GUARD_HOUSE("guard_house", Kind.SERVICE, Items.IRON_SWORD, 0, 56, 4),
+    SCHOOL("school", Kind.SERVICE, Items.BOOKSHELF, 0, 64, 5),
+    COMPOST_YARD("compost_yard", Kind.SERVICE, Items.COMPOSTER, 0, 80, 3),
+    PARK("park", Kind.SERVICE, Items.OAK_SAPLING, 0, 32, 1);
+
+    public enum Kind { POWER, WATER, SERVICE }
+
+    public static final Codec<ServiceType> CODEC = StringRepresentable.fromEnum(ServiceType::values);
+    public static final List<ServiceType> UTILITIES = Arrays.stream(values()).filter(s -> s.kind != Kind.SERVICE).toList();
+    public static final List<ServiceType> SERVICES = Arrays.stream(values()).filter(s -> s.kind == Kind.SERVICE).toList();
+
+    private final String key;
+    public final Kind kind;
+    private final Item icon;
+    /** Power or water units supplied (utilities). */
+    public final int capacity;
+    /** Coverage radius in blocks (services). */
+    public final int radius;
+    public final int jobs;
+
+    ServiceType(String key, Kind kind, Item icon, int capacity, int radius, int jobs) {
+        this.key = key;
+        this.kind = kind;
+        this.icon = icon;
+        this.capacity = capacity;
+        this.radius = radius;
+        this.jobs = jobs;
+    }
+
+    public ItemStack icon() { return new ItemStack(icon); }
+    public Component displayName() { return Component.translatable("service.townstead." + key); }
+    public String key() { return key; }
+
+    @Override
+    public String getSerializedName() { return key; }
+
+    /** The type with this key, or null. */
+    public static @org.jspecify.annotations.Nullable ServiceType find(String key) {
+        for (ServiceType s : values()) if (s.key.equals(key)) return s;
+        return null;
+    }
+
+    public static ServiceType byKey(String key) {
+        for (ServiceType s : values()) if (s.key.equals(key)) return s;
+        return PARK;
+    }
+}

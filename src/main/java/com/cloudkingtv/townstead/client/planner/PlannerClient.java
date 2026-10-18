@@ -29,7 +29,34 @@ public final class PlannerClient {
     public static int hoveredBuildingId = -1;
     /** Zoning brush: a zone ordinal, or {@link #CLEAR_BRUSH}. */
     public static int zoneBrush = 0;
-    public static final int CLEAR_BRUSH = ZoneType.values().length;
+    public static final int CLEAR_BRUSH = ZoneType.PAINTABLE.size();
+    /** Info view shown by the info tool: -1 none, else an index into {@link #INFO_VIEWS}. */
+    public static int infoView = 0;
+    /** Info views: power, water, each service's coverage, building levels. */
+    public static final java.util.List<String> INFO_VIEWS;
+    static {
+        java.util.List<String> views = new java.util.ArrayList<>(java.util.List.of("power", "water"));
+        for (com.cloudkingtv.townstead.service.ServiceType s : com.cloudkingtv.townstead.service.ServiceType.SERVICES) views.add(s.key());
+        views.add("level");
+        INFO_VIEWS = java.util.List.copyOf(views);
+    }
+    /** The service or utility the placing tools put down. */
+    public static com.cloudkingtv.townstead.service.ServiceType placing = com.cloudkingtv.townstead.service.ServiceType.WINDMILL;
+    private static @Nullable Object utilKey;
+    private static com.cloudkingtv.townstead.service.Utilities.@Nullable State util;
+
+    /** Power, water and networks for the town being planned (cached per land/road update). */
+    public static com.cloudkingtv.townstead.service.Utilities.State utilities() {
+        CitySummary city = city().orElse(null);
+        Object key = java.util.List.of(ClientLand.version(), ClientRoads.version(), city == null ? "" : city.id());
+        if (util == null || !key.equals(utilKey)) {
+            utilKey = key;
+            util = com.cloudkingtv.townstead.service.Utilities.compute(
+                    city == null ? java.util.List.of() : ClientLand.get().buildingsOf(city.id()), ClientRoads.network());
+        }
+        return util;
+    }
+
     /** Cells in the brush stroke being dragged (sent on release). */
     public static final java.util.LinkedHashSet<Long> STROKE = new java.util.LinkedHashSet<>();
     private static @Nullable Object frontageKey;
@@ -82,6 +109,19 @@ public final class PlannerClient {
             roadColumns = ZoneRules.roadColumns(ClientRoads.network(), city.id());
         }
         return ZoneRules.frontage(cellX, cellZ, roadColumns, java.util.Set.copyOf(city.tiles()));
+    }
+
+    /** A stand-in for the service the placing tool would put on a lot, to price it before the click. */
+    public static @Nullable Building previewCivic(CitySummary city, com.cloudkingtv.townstead.service.ServiceType service, int cx, int cz) {
+        net.minecraft.core.Direction front = frontage(cx, cz);
+        Minecraft mc = Minecraft.getInstance();
+        if (front == null || mc.level == null) return null;
+        int x = cx * ZoneRules.CELL + 4, z = cz * ZoneRules.CELL + 4;
+        int y = mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        Building b = new Building(-1, city.id(), ZoneType.CIVIC, cx, cz, front, y, 0L, 0L, ZoneRules.setback(cx, cz, front, roadColumns));
+        b.service = service.key();
+        b.style = com.cloudkingtv.townstead.building.Palette.styleAt(mc.level, new BlockPos(x, y, z));
+        return b;
     }
 
     public static void onMessage(PlannerMessagePayload msg) {

@@ -39,6 +39,8 @@ public final class LandEditor {
         for (long cell : cells.stream().distinct().limit(512).toList()) {
             LandData.Zoned old = land.zone(cell);
             if (old != null && !old.city().equals(city.id())) continue;
+            Building standing = land.buildingAt(cell);
+            if (standing != null && standing.civic()) continue; // services aren't zoned
             LandData.Zoned neu = null;
             if (zone != null) {
                 if (ZoneRules.frontage(RoadRaster.keyX(cell), RoadRaster.keyZ(cell), roads, city.tiles()) == null) continue;
@@ -60,6 +62,55 @@ public final class LandEditor {
         EditHistory.record(city, new EditHistory.Entry(label, List.of(), EditHistory.NO_GRAPH, Map.of(), revert, apply));
         level.playSound(null, player.blockPosition(), SoundEvents.BRUSH_GENERIC, SoundSource.PLAYERS, 0.7f, 1.2f);
         RoadEditor.notify(player, label, true);
+    }
+
+    /** Places a service or utility on a lot; undo takes it down again with a full refund. */
+    public static void placeService(ServerPlayer player, City city, com.cloudkingtv.townstead.service.ServiceType service, long cell) {
+        ServerLevel level = player.level();
+        Object result = TownGrowth.placeCivic(level, city, service, RoadRaster.keyX(cell), RoadRaster.keyZ(cell));
+        if (result instanceof String reason) {
+            RoadEditor.notify(player, Component.translatable(reason), false);
+            return;
+        }
+        Building placed = ((Building) result).copy();
+        LandData land = LandData.get(level);
+        Runnable remove = () -> {
+            Building b = land.building(placed.id);
+            if (b != null) takeDown(level, city, b, true, null);
+        };
+        Runnable restore = () -> TownGrowth.placeCivic(level, city, service, placed.cellX, placed.cellZ);
+        EditHistory.record(city, new EditHistory.Entry(Component.translatable("service.townstead.placed", service.displayName()),
+                List.of(), EditHistory.NO_GRAPH, Map.of(), remove, restore));
+        level.playSound(null, player.blockPosition(), SoundEvents.WOOD_PLACE, SoundSource.PLAYERS, 0.8f, 1.0f);
+    }
+
+    /** Removes a building's blocks (those still as built) and record, refunding materials. Optionally journals the blocks. */
+    static void takeDown(ServerLevel level, City city, Building b, boolean fullRefund, @Nullable BlockRecorder journal) {
+        BuildingGenerator.Plan plan = TownGrowth.plan(b);
+        BlockRecorder rec = journal != null ? journal : new BlockRecorder(level);
+        Map<Material, Integer> refund = new EnumMap<>(Material.class);
+        List<BuildingGenerator.Step> steps = plan.steps();
+        for (int i = Math.min(b.progress, steps.size()) - 1; i >= 0; i--) {
+            BuildingGenerator.Step s = steps.get(i);
+            if (!rec.get(s.pos()).is(s.state().getBlock())) continue;
+            Material m = BuildCost.of(s.state());
+            if (m != null) refund.merge(m, 1, Integer::sum);
+            if (s.state().getBlock() instanceof DoorBlock) rec.set(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+            rec.set(s.pos(), s.pos().getY() < b.baseY ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        for (BlockPos base : plan.scaffold()) {
+            for (int y = base.getY() + 26; y >= base.getY(); y--) {
+                BlockPos p = new BlockPos(base.getX(), y, base.getZ());
+                if (rec.get(p).is(Blocks.SCAFFOLDING)) rec.set(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+            }
+        }
+        if (!TownGrowth.isFree(level, city)) {
+            CityManager.get(level.getServer()).editStock(level.getServer(), city,
+                    stock -> refund.forEach((m, n) -> Stock.add(stock, m.icon().getItem(), fullRefund ? n : n / 2)));
+        }
+        LandData.get(level).removeBuilding(b.id);
+        TownGrowth.forget(b.id);
+        TownGrowth.markDirty();
     }
 
     /** Takes a building down to the grass. Materials come back in full for an unfinished site, half otherwise. */

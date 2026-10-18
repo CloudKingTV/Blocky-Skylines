@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 2 (zoning and growth)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 2 complete (zoning, growth, levels)**
 
 ## Playing (current build)
 
@@ -26,7 +26,10 @@ you designed.
    | Bulldoze | **B** |
    | Rename the town | click its name in the top bar, type, **Enter** |
    | Show all controls | **H** |
-   | Zone lots | Zoning tool, then drag; **1–3** zone type, **4** clear |
+   | Zone lots | Zoning tool, then drag; **1–6** zone type, **7** clear |
+   | Place a service | Utilities / Services / Parks tool, **1–5** pick, click a lot |
+   | Info views | Info tool, **1–9** pick a view |
+   | Building panel | Inspect tool, click a building (Esc closes) |
    | Undo / redo | **Ctrl+Z** / **Ctrl+Y** (or **Ctrl+Shift+Z**) |
    | Leave the planner | **M**, or **Esc** with nothing selected |
 
@@ -64,29 +67,73 @@ cobblestone (in water) for fill, two fences and a lantern per lamp post, one lea
 hedge. Digging returns dirt, cobblestone and logs to the storehouse. Creative-mode players build
 for free, and the server config option `freeBuild` turns materials off for everyone.
 
-8. **Zoning** (toolbar, third button). Pick a zone and drag over lots: **1** Residential (green),
-   **2** Commercial (blue), **3** Industrial (yellow), **4** clears. Lots are the 8×8 cells along a
-   road: a lot needs a road along one side, within 4 blocks of its edge. Outlined lots are
-   zonable.
-9. **The town grows itself.** The RCI bars in the top bar show what the town wants (hover for the
-   reasons). Homes follow jobs, shops follow population, and workshops follow population too.
-   When a zone has demand, a construction site opens on the free lot of that zone nearest the
-   Town Hall. The building goes up **one block at a time** from the Town Storehouse, about five
-   blocks a second, with scaffolding while it rises. If a material runs out, the site pauses and
-   tells you what it needs, then carries on when you restock.
+8. **Zoning** (toolbar, third button). Pick a zone and drag over lots: **1** low-density
+   homes, **2** high-density homes, **3** low-density shops, **4** high-density shops,
+   **5** industry, **6** offices, **7** clears. Lots are the 8×8 cells along a road: a lot
+   needs a road along one side, within 4 blocks of its edge. Outlined lots are zonable.
+   High density grows once the town has 30 people, offices from 40.
+9. **The town grows itself.** The RCIO bars in the top bar show what the town wants (hover for
+   the reasons): homes follow jobs, shops and workshops follow population, offices follow a
+   bigger population. When a zone has demand, a site opens on the free lot nearest the Town
+   Hall and the building goes up **one block at a time** from the Town Storehouse, with
+   scaffolding. If a material runs out, the site pauses and says what it needs.
 
-   | Zone | Builds | Village look |
+   | Zone | Builds | Look |
    |---|---|---|
-   | Residential | cottages, 1–2 storeys | cobblestone footing, log corner posts, plank walls, glass panes, gable roof, door torch, flowers and a path to the road |
-   | Commercial | shops | a workstation behind a glass shop front, a striped wool awning |
-   | Industrial | workshops | cobblestone and stone-brick walls, a flat roof, a smoking chimney, hay and barrels in the yard |
+   | Homes (low) | cottages | footing, corner posts, plank walls, glass panes, gable roof, door light, flowers, a path |
+   | Homes (high) | village towers | a stone podium, 3–5 timber storeys with front balconies, a lantern-lit crown |
+   | Shops (low) | shops | a workstation behind a glass shop front, a striped awning |
+   | Shops (high) | market halls | glass on three sides at street level, several stalls, 2–4 storeys |
+   | Industry | workshops | stone walls, flat roof, smoking chimneys, hay and barrels |
+   | Offices | guild halls | all stone, tall windows, lecterns and map tables, a railed roof terrace |
 
-   Everything is real blocks: leave the planner and walk in. Inspect (hover) shows a building's
-   progress, residents or jobs. Bulldoze removes a building (full refund if unfinished, half
-   once finished). Zoning and bulldozing are undoable like roads.
+   **Biome styles:** each building takes the village style of its lot's biome: plains (oak and
+   birch), desert (sandstone, flat roofs), savanna (acacia), taiga (spruce, mossy stone) or
+   snowy (spruce and stone bricks). A town that spreads across biomes changes style at the
+   border.
+10. **Levels.** Buildings have levels 1–3. When a building meets everything its next level
+    needs, it is rebuilt bigger in place: cottages gain a storey, then a chimney; towers and
+    halls gain storeys; shops and workshops gain floors, stalls and chimneys. What a building
+    needs is plain and checkable: time to settle in, a shop nearby for homes, customers nearby
+    for shops, shops to sell to for workshops, a big enough town for offices, and a street or
+    avenue for level 3. Level 2 also needs power and water; level 3 needs services in reach
+    (see below).
+11. **Abandonment.** A building with lasting trouble (no road, no jobs in town, no customers,
+    no workers, or lost power or water at level 2 and up) is abandoned: windows boarded, cobwebs, the door gone, nobody living or
+    working there. Fix the cause and people come back and repair it.
+12. **Building panel.** Click a building with Inspect to see its name ("Miller Cottage",
+    "Thatcher's Smithy"), level and style, what its next level needs (ticked or crossed), any
+    trouble, and its people: every household with names and ages, where each adult works or
+    if they're looking for work; or a workplace's staff and where they live.
+13. **While you're away** towns keep growing: sites in unloaded chunks keep count of the
+    blocks they owe and build them when the chunk next loads, or every 30 seconds by loading
+    it briefly. New sites can open anywhere on town land.
 
-Breaking the Town Hall disbands the town. Services, utilities and citizens come next. See the
-roadmap.
+14. **Utilities** (toolbar, fourth button): **1** windmill (40 power), **2** watermill (80 power,
+    needs a river or lake beside its lot), **3** well (30 water), **4** water tower (90 water).
+    Power and water run along the roads: every building on a connected road network shares the
+    plants and wells on it. When a network asks for more than it has, the oldest buildings are
+    served first and the rest go without. Homes use one unit per household, shops and offices one
+    per two jobs, workshops one per job.
+15. **Services** (fifth button): **1** clinic, **2** fire station, **3** guard house, **4** school,
+    **5** compost yard; **Parks** (seventh button): a park. Each covers the buildings within its
+    radius (32–80 blocks); the ring shows it while you place. Level 3 needs: homes a clinic, a
+    school and a park; shops a guard house and a compost yard; workshops a fire station and a
+    compost yard; offices a guard house, a school and a clinic.
+
+    Pick one, point at a lot facing a road (green: it fits; red: the panel says why) and click.
+    The bill of materials shows by the cursor. Services are built block by block like everything
+    else, take staff from the town's workers, and can be undone or bulldozed.
+16. **Status icons and info views.** Buildings show what they're missing over their roofs
+    (redstone: no power; water bucket: no water; cobweb: abandoned; a material: a site waiting on
+    it). The **Info** tool (eighth button) colours the town: **1** power, **2** water, **3–8** each
+    service's coverage (with rings), **9** building levels, with totals in the corner.
+
+The server setting `growthSpeed` (default 1) makes towns build, level and decline faster or
+slower.
+
+Breaking the Town Hall disbands the town. Citizens, money and happiness come next (Phase 4). See
+the roadmap.
 
 ## Screenshots (from the headless playtests)
 

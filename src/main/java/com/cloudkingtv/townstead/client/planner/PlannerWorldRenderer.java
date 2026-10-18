@@ -5,6 +5,8 @@ import com.cloudkingtv.townstead.city.TilePos;
 import com.cloudkingtv.townstead.client.ClientRoads;
 import com.cloudkingtv.townstead.client.ClientLand;
 import com.cloudkingtv.townstead.building.Building;
+import com.cloudkingtv.townstead.service.ServiceType;
+import com.cloudkingtv.townstead.service.Utilities;
 import com.cloudkingtv.townstead.zone.ZoneRules;
 import com.cloudkingtv.townstead.zone.ZoneType;
 import com.cloudkingtv.townstead.road.RoadCurve;
@@ -58,10 +60,12 @@ public final class PlannerWorldRenderer {
             if (hover != null && !hover.equals(selected)) cell(p, buf, level, cam, hover, CURSOR, width * 2f);
             roadLines(p, buf, cam, city, width);
             landLines(p, buf, level, cam, city, width, pulse);
+            serviceLines(p, buf, cam, city, width, pulse);
         });
         event.getSubmitNodeCollector().submitCustomGeometry(pose, PlannerRenderTypes.OVERLAY_QUADS, (p, buf) -> {
             roadQuads(p, buf, cam, city, pulse);
             landQuads(p, buf, level, cam, city, pulse);
+            serviceQuads(p, buf, level, cam, city, pulse);
         });
     }
 
@@ -112,7 +116,7 @@ public final class PlannerWorldRenderer {
             cellQuad(p, buf, cam, e.getKey(), cellY(level, e.getKey()), ARGB.color(zoning ? 0x66 : 0x38, e.getValue().type().rgb), 0.5);
         }
         int brush = PlannerClient.zoneBrush;
-        int strokeColor = brush < ZoneType.values().length ? ARGB.color(0x99, ZoneType.values()[brush].rgb) : 0x70FF5050;
+        int strokeColor = brush < ZoneType.PAINTABLE.size() ? ARGB.color(0x99, ZoneType.PAINTABLE.get(brush).rgb) : 0x70FF5050;
         for (long key : PlannerClient.STROKE) cellQuad(p, buf, cam, key, cellY(level, key), strokeColor, 0.3);
         Building doomed = PlannerScreen.bulldozing() ? PlannerClient.hoveredBuilding() : null;
         if (doomed != null) {
@@ -152,6 +156,89 @@ public final class PlannerWorldRenderer {
         line(p, buf, cam, x1, y, z0, x1, y, z1, color, w);
         line(p, buf, cam, x1, y, z1, x0, y, z1, color, w);
         line(p, buf, cam, x0, y, z1, x0, y, z0, color, w);
+    }
+
+    // ---------------------------------------------------------------- services and info views
+
+    private static final int GOOD = 0x9E9EE37D, BAD = 0x9EFF6B5B, SUPPLY = 0xB060B8FF;
+    private static final int[] LEVEL_COLORS = {0xA0BFE3FF, 0xA06EA8FF, 0xA02A5FE0}; // deeper blue per level
+
+    /** The lot ghost while placing, and the info tool's colouring of every building. */
+    private static void serviceQuads(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city, float pulse) {
+        BlockPos hover = PlannerClient.hoverCell;
+        if (PlannerScreen.placingActive() && hover != null) {
+            int cx = Math.floorDiv(hover.getX(), TilePos.CELL), cz = Math.floorDiv(hover.getZ(), TilePos.CELL);
+            long key = ZoneRules.cellKey(cx, cz);
+            boolean ok = PlannerScreen.placeProblem(cx, cz) == null;
+            cellQuad(p, buf, cam, key, cellY(level, key), ok ? ARGB.color(Math.round(0x50 + 0x30 * pulse), 120, 230, 110) : 0x80FF5050, 0.2);
+        }
+        if (!PlannerScreen.infoActive()) return;
+        String view = view();
+        var util = PlannerClient.utilities();
+        ServiceType service = ServiceType.find(view);
+        for (Building b : ClientLand.get().buildingsOf(city.id())) {
+            int color;
+            if (b.civic()) {
+                ServiceType s = b.serviceType();
+                boolean supplies = switch (view) {
+                    case "power" -> s.kind == ServiceType.Kind.POWER;
+                    case "water" -> s.kind == ServiceType.Kind.WATER;
+                    default -> s == service;
+                };
+                if (!supplies) continue;
+                color = SUPPLY;
+            } else if (view.equals("level")) {
+                color = LEVEL_COLORS[Math.max(0, Math.min(2, b.level - 1))];
+            } else if (b.state == Building.State.ABANDONED) {
+                color = 0x90606060;
+            } else {
+                boolean has = switch (view) {
+                    case "power" -> util.power(b);
+                    case "water" -> util.water(b);
+                    default -> service != null && Utilities.covered(b, ClientLand.get().buildingsOf(city.id()), service);
+                };
+                color = has ? GOOD : BAD;
+            }
+            cellQuad(p, buf, cam, b.cellKey(), b.baseY - 1, color, 0.3);
+        }
+    }
+
+    /** Coverage rings: the hovered lot's while placing a service, and every service of the viewed type. */
+    private static void serviceLines(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, CitySummary city, float w, float pulse) {
+        BlockPos hover = PlannerClient.hoverCell;
+        ServiceType shown = null;
+        if (PlannerScreen.placingActive()) {
+            shown = PlannerClient.placing;
+            if (hover != null && shown.kind == ServiceType.Kind.SERVICE) {
+                int cx = Math.floorDiv(hover.getX(), TilePos.CELL), cz = Math.floorDiv(hover.getZ(), TilePos.CELL);
+                ring(p, buf, cam, cx * TilePos.CELL + 4, cz * TilePos.CELL + 4, shown.radius, scale(0xFFFFFFFF, pulse), w * 2.5f);
+            }
+        } else if (PlannerScreen.infoActive()) {
+            shown = ServiceType.find(view());
+        }
+        if (shown == null || shown.kind != ServiceType.Kind.SERVICE) return;
+        for (Building b : ClientLand.get().buildingsOf(city.id())) {
+            if (!b.civic() || b.serviceType() != shown) continue;
+            int color = b.state == Building.State.ACTIVE ? 0xFF6EC8FF : 0xFFFFD36B; // blue, or amber while building
+            ring(p, buf, cam, b.cellX * TilePos.CELL + 4, b.cellZ * TilePos.CELL + 4, shown.radius, color, w * 2f);
+        }
+    }
+
+    private static String view() {
+        var views = PlannerClient.INFO_VIEWS;
+        return views.get(Math.max(0, Math.min(views.size() - 1, PlannerClient.infoView)));
+    }
+
+    /** A circle that follows the ground. */
+    private static void ring(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, double x, double z, double r, int color, float w) {
+        int n = Math.max(32, (int) (r * 1.5));
+        double px = x + r, pz = z, py = groundY(px, pz) + LIFT;
+        for (int i = 1; i <= n; i++) {
+            double a = Math.PI * 2 * i / n;
+            double qx = x + r * Math.cos(a), qz = z + r * Math.sin(a), qy = groundY(qx, qz) + LIFT;
+            line(p, buf, cam, px, py, pz, qx, qy, qz, color, w);
+            px = qx; py = qy; pz = qz;
+        }
     }
 
     // ---------------------------------------------------------------- roads

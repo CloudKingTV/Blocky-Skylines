@@ -5,6 +5,7 @@ import com.cloudkingtv.townstead.TownsteadConfig;
 import com.cloudkingtv.townstead.city.City;
 import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.Stock;
+import com.cloudkingtv.townstead.city.TilePos;
 import com.cloudkingtv.townstead.network.LandSnapshotPayload;
 import com.cloudkingtv.townstead.road.Material;
 import com.cloudkingtv.townstead.road.RoadEditor;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +32,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
@@ -44,38 +47,53 @@ import net.neoforged.neoforge.network.PacketDistributor;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The town grows itself: when a zone has demand and a zoned lot is free, a construction site opens there, and
- * sites put up their building one block at a time from the Town Storehouse. Everything placed is a real block.
- * Sites in unloaded chunks simply wait until someone is near.
+ * The town lives on its own. When a zone has demand and a zoned lot is free, a construction site opens; sites put
+ * their building up one block at a time from the Town Storehouse. Buildings that meet their next level's needs are
+ * rebuilt bigger in place; buildings in lasting trouble are abandoned (boarded up, cobwebs) and repaired when things
+ * improve. Everything placed is a real block. Sites in unloaded chunks keep a tally of steps owed and catch up in
+ * one go every so often by loading their chunks briefly, so towns grow while you're away.
  */
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownGrowth {
     /** Ticks between growth checks per town. */
     private static final int GROWTH_INTERVAL = 40;
-    /** Ticks between placed blocks on a site (4 = five blocks a second, about 40 s for a cottage). */
+    /** Ticks between placed blocks on a site (4 = five blocks a second at speed 1). */
     public static final int BUILD_INTERVAL = 4;
-    private static final int MAX_SITES = 2, MAX_SLOPE = 4, SITE_CLEAR_HEIGHT = 16;
+    /** Ticks between level-up / trouble checks. */
+    private static final int REVIEW_INTERVAL = 100;
+    /** Ticks between catch-ups of sites in unloaded chunks. */
+    private static final int CATCH_UP_INTERVAL = 600;
+    private static final int MAX_SITES = 2, MAX_UPGRADES = 1, MAX_SLOPE = 4, SITE_CLEAR_HEIGHT = 32;
 
-    private static final Map<Integer, BuildingGenerator.Plan> PLANS = new HashMap<>();
-    private static final Map<Integer, Set<BlockPos>> PLANNED = new HashMap<>();
+    private static final Map<Long, BuildingGenerator.Plan> PLANS = new HashMap<>();
+    private static final Map<Long, Set<BlockPos>> PLANNED = new HashMap<>();
+    private static final Map<Integer, Set<Long>> SITE_ROADS = new HashMap<>();
     private static boolean landDirty;
 
+    private static long key(Building b) {
+        return ((long) b.id << 8) | ((long) b.level << 4) | (b.style.hashCode() & 0xF);
+    }
+
     public static BuildingGenerator.Plan plan(Building b) {
-        return PLANS.computeIfAbsent(b.id, id -> BuildingGenerator.plan(b));
+        return PLANS.computeIfAbsent(key(b), k -> BuildingGenerator.plan(b));
     }
 
     private static Set<BlockPos> planned(Building b) {
-        return PLANNED.computeIfAbsent(b.id, id -> plan(b).positions());
+        return PLANNED.computeIfAbsent(key(b), k -> plan(b).positions());
     }
 
     public static void forget(int buildingId) {
-        PLANS.remove(buildingId);
-        PLANNED.remove(buildingId);
+        PLANS.keySet().removeIf(k -> (k >> 8) == buildingId);
+        PLANNED.keySet().removeIf(k -> (k >> 8) == buildingId);
         SITE_ROADS.remove(buildingId);
     }
 
     public static void markDirty() {
         landDirty = true;
+    }
+
+    public static double speed() {
+        return TownsteadConfig.GROWTH_SPEED.get();
     }
 
     @SubscribeEvent
@@ -84,16 +102,27 @@ public final class TownGrowth {
         long time = level.getGameTime();
         CityManager cities = CityManager.get(level.getServer());
         LandData land = LandData.get(level);
+        double speed = speed();
         if (time % BUILD_INTERVAL == 0) {
-            for (Building b : List.copyOf(land.buildings())) {
-                if (b.state != Building.State.ACTIVE) cities.byId(b.city).ifPresent(city -> build(level, city, land, b));
+            // Below speed 1, skip build ticks; above it, place several blocks per tick.
+            int every = speed < 1 ? (int) Math.round(1 / speed) : 1;
+            int perTick = speed < 1 ? 1 : (int) Math.round(speed);
+            if ((time / BUILD_INTERVAL) % every == 0) {
+                for (Building b : List.copyOf(land.buildings())) {
+                    if (b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
+                    cities.byId(b.city).ifPresent(city -> {
+                        for (int i = 0; i < perTick; i++) if (!build(level, city, land, b, false)) break;
+                    });
+                }
             }
         }
         if (time % GROWTH_INTERVAL == 0) {
-            for (City city : cities.all()) {
-                if (city.dimension().equals(level.dimension())) grow(level, city, land);
-            }
+            for (City city : cities.all()) if (city.dimension().equals(level.dimension())) grow(level, city, land);
         }
+        if (time % REVIEW_INTERVAL == 0) {
+            for (City city : cities.all()) if (city.dimension().equals(level.dimension())) review(level, city, land);
+        }
+        if (time % CATCH_UP_INTERVAL == 0) catchUp(level, cities, land);
         if (time % 20 == 0) {
             cities.flush(level.getServer());
             if (landDirty) {
@@ -103,15 +132,15 @@ public final class TownGrowth {
         }
     }
 
-    // ---------------------------------------------------------------- growth
+    // ---------------------------------------------------------------- new sites
 
     private static void grow(ServerLevel level, City city, LandData land) {
         List<Building> mine = land.buildingsOf(city.id());
-        if (mine.stream().filter(b -> b.state != Building.State.ACTIVE).count() >= MAX_SITES) return;
+        if (mine.stream().filter(b -> b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= MAX_SITES) return;
         Demand demand = Demand.of(mine);
         Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
-        Set<com.cloudkingtv.townstead.city.TilePos> tiles = city.tiles();
-        List<ZoneType> order = new ArrayList<>(List.of(ZoneType.values()));
+        Set<TilePos> tiles = city.tiles();
+        List<ZoneType> order = new ArrayList<>(ZoneType.PAINTABLE);
         order.sort(Comparator.comparingInt((ZoneType z) -> demand.of(z)).reversed());
         for (ZoneType zone : order) {
             if (demand.of(zone) < Demand.GROWTH_THRESHOLD) continue;
@@ -127,10 +156,11 @@ public final class TownGrowth {
             for (long[] lot : lots) {
                 int cx = RoadRaster.keyX(lot[0]), cz = RoadRaster.keyZ(lot[0]);
                 Direction front = ZoneRules.frontage(cx, cz, roads, tiles);
-                if (front == null || !level.hasChunk(cx >> 1, cz >> 1)) continue;
+                if (front == null) continue;
+                level.getChunk(cx >> 1, cz >> 1); // loads it if nobody is near: towns grow while you're away
                 Integer baseY = siteHeight(level, cx, cz, roads);
                 if (baseY == null) continue;
-                startSite(level, city, land, zone, cx, cz, front, baseY, roads);
+                startSite(level, city, land, zone, "", cx, cz, front, baseY, roads);
                 return;
             }
         }
@@ -164,17 +194,48 @@ public final class TownGrowth {
         return ys[i / 2] + 1;
     }
 
-    private static void startSite(ServerLevel level, City city, LandData land, ZoneType zone, int cx, int cz, Direction front, int baseY,
-                                  Map<Long, RoadRaster.Cell> roads) {
+    /**
+     * Places a service or utility the mayor chose: same site preparation and construction as growables.
+     * Returns the new building, or null with a reason key when the lot can't take it.
+     */
+    public static Object placeCivic(ServerLevel level, City city, com.cloudkingtv.townstead.service.ServiceType service, int cx, int cz) {
+        LandData land = LandData.get(level);
+        Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
+        if (land.buildingAt(ZoneRules.cellKey(cx, cz)) != null) return "service.townstead.lot_taken";
+        Direction front = ZoneRules.frontage(cx, cz, roads, city.tiles());
+        if (front == null) return "zone.townstead.no_frontage";
+        level.getChunk(cx >> 1, cz >> 1);
+        if (service == com.cloudkingtv.townstead.service.ServiceType.WATERMILL && !waterNear(level, cx, cz)) return "service.townstead.needs_water";
+        Integer baseY = siteHeight(level, cx, cz, roads);
+        if (baseY == null) return "service.townstead.bad_ground";
+        land.setZone(ZoneRules.cellKey(cx, cz), null); // a service replaces any zoning on its lot
+        return startSite(level, city, land, ZoneType.CIVIC, service.key(), cx, cz, front, baseY, roads);
+    }
+
+    /** Running water (a river or lake) within a few blocks of the lot, for a watermill. */
+    public static boolean waterNear(net.minecraft.world.level.LevelReader level, int cx, int cz) {
+        for (int x = cx * 8 - 6; x < cx * 8 + 14; x++) {
+            for (int z = cz * 8 - 6; z < cz * 8 + 14; z++) {
+                int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) - 1;
+                if (level.getFluidState(new BlockPos(x, top, z)).is(net.minecraft.tags.FluidTags.WATER)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static Building startSite(ServerLevel level, City city, LandData land, ZoneType zone, String service, int cx, int cz, Direction front,
+                                      int baseY, Map<Long, RoadRaster.Cell> roads) {
         Building b = new Building(land.newId(), city.id(), zone, cx, cz, front, baseY, level.getRandom().nextLong(), level.getGameTime(),
                 ZoneRules.setback(cx, cz, front, roads));
+        b.service = service;
+        b.style = Palette.styleAt(level, new BlockPos(cx * 8 + 4, baseY, cz * 8 + 4));
         BuildingGenerator.Plan plan = plan(b);
         b.households = plan.households();
         b.jobs = plan.jobs();
         // Level the lot: clear above the floor, fill below it, grass on top. Felled logs go to the storehouse.
-        Map<net.minecraft.world.item.Item, Integer> felled = new HashMap<>();
+        Map<Item, Integer> felled = new HashMap<>();
         BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState(), dirt = Blocks.DIRT.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
-        Set<Long> siteRoads = new java.util.HashSet<>();
+        Set<Long> siteRoads = new HashSet<>();
         for (int x = cx * 8; x < cx * 8 + 8; x++) {
             for (int z = cz * 8; z < cz * 8 + 8; z++) {
                 if (roads.containsKey(RoadRaster.key(x, z))) { siteRoads.add(RoadRaster.key(x, z)); continue; } // never dig up a road
@@ -205,7 +266,22 @@ public final class TownGrowth {
         markDirty();
         BlockPos centre = new BlockPos(cx * 8 + 4, baseY, cz * 8 + 4);
         level.playSound(null, centre, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS, 0.6f, 0.7f);
-        tell(level, city, Component.translatable("building.townstead.site_started", Component.translatable("building.townstead.kind." + plan.kind())), true);
+        tell(level, city, Component.translatable("building.townstead.site_started", kindName(plan)), true);
+        return b;
+    }
+
+    /** The bill of materials for a whole plan (for previews). */
+    public static Map<Material, Integer> bill(BuildingGenerator.Plan plan) {
+        Map<Material, Integer> out = new java.util.EnumMap<>(Material.class);
+        for (BuildingGenerator.Step s : plan.steps()) {
+            Material m = BuildCost.of(s.state());
+            if (m != null) out.merge(m, 1, Integer::sum);
+        }
+        return out;
+    }
+
+    public static Component kindName(BuildingGenerator.Plan plan) {
+        return Component.translatable("building.townstead.kind." + plan.kind());
     }
 
     /** A dirt path from the front door across the grass verge to the road. */
@@ -232,13 +308,11 @@ public final class TownGrowth {
         }
     }
 
-    /** Road columns inside a lot (its edge row may be road): yard work there is skipped. */
-    private static final Map<Integer, Set<Long>> SITE_ROADS = new HashMap<>();
-
+    /** Road columns inside a lot (its edge rows may be road): yard work there is skipped. */
     private static Set<Long> siteRoads(ServerLevel level, Building b) {
         return SITE_ROADS.computeIfAbsent(b.id, id -> {
             Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), b.city);
-            Set<Long> out = new java.util.HashSet<>();
+            Set<Long> out = new HashSet<>();
             for (int x = b.cellX * 8; x < b.cellX * 8 + 8; x++) for (int z = b.cellZ * 8; z < b.cellZ * 8 + 8; z++) {
                 if (roads.containsKey(RoadRaster.key(x, z))) out.add(RoadRaster.key(x, z));
             }
@@ -248,24 +322,32 @@ public final class TownGrowth {
 
     // ---------------------------------------------------------------- construction
 
-    private static void build(ServerLevel level, City city, LandData land, Building b) {
+    private static boolean loaded(ServerLevel level, BuildingGenerator.Plan plan) {
+        return level.hasChunkAt(plan.min()) && level.hasChunkAt(plan.max())
+                && level.hasChunkAt(new BlockPos(plan.min().getX(), 0, plan.max().getZ())) && level.hasChunkAt(new BlockPos(plan.max().getX(), 0, plan.min().getZ()));
+    }
+
+    /** Places the next step of a site. Returns false when nothing more can happen this tick. */
+    private static boolean build(ServerLevel level, City city, LandData land, Building b, boolean catchingUp) {
         BuildingGenerator.Plan plan = plan(b);
-        BlockPos first = plan.steps().getFirst().pos();
-        if (!level.hasChunkAt(first) || !level.hasChunkAt(plan.max())) return;
+        if (!catchingUp && !loaded(level, plan)) {
+            if (b.owed < plan.steps().size() - b.progress) { b.owed++; land.setDirty(); }
+            return false;
+        }
         if (b.progress >= plan.steps().size()) {
             finish(level, city, b, plan);
-            return;
+            return false;
         }
         BuildingGenerator.Step step = plan.steps().get(b.progress);
         if (step.pos().getY() <= b.baseY && siteRoads(level, b).contains(RoadRaster.key(step.pos().getX(), step.pos().getZ()))) {
             b.progress++; // yard work that would land on the road
-            return;
+            return true;
         }
         BlockState here = level.getBlockState(step.pos());
         if (here.is(step.state().getBlock())) { // panes, fences and stairs reshape to their neighbours
             b.progress++;
             land.setDirty();
-            return;
+            return true;
         }
         Material cost = BuildCost.of(step.state());
         boolean free = isFree(level, city);
@@ -276,23 +358,24 @@ public final class TownGrowth {
                     b.needs = cost;
                     land.setDirty();
                     markDirty();
-                    tell(level, city, Component.translatable("building.townstead.paused",
-                            Component.translatable("building.townstead.kind." + plan.kind()), cost.displayName()), false);
+                    tell(level, city, Component.translatable("building.townstead.paused", kindName(plan), cost.displayName()), false);
                 }
-                return;
+                return false;
             }
             CityManager.get(level.getServer()).editStockQuiet(city, stock -> Stock.consume(stock, Map.of(cost, 1)));
         }
-        raiseScaffold(level, b, plan, step.pos().getY());
+        if (!catchingUp) raiseScaffold(level, b, plan, step.pos().getY());
         if (step.state().getBlock() instanceof DoorBlock) {
             level.setBlock(step.pos().above(), step.state().setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
         }
         level.setBlock(step.pos(), step.state(), Block.UPDATE_ALL);
-        SoundType sound = step.state().getSoundType();
-        level.playSound(null, step.pos(), sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1f) / 4f, sound.getPitch() * 0.8f);
-        if (b.progress % 3 == 0) {
-            level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, step.state()), step.pos().getX() + 0.5, step.pos().getY() + 0.5,
-                    step.pos().getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.05);
+        if (!catchingUp) {
+            SoundType sound = step.state().getSoundType();
+            level.playSound(null, step.pos(), sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1f) / 4f, sound.getPitch() * 0.8f);
+            if (b.progress % 3 == 0) {
+                level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, step.state()), step.pos().getX() + 0.5, step.pos().getY() + 0.5,
+                        step.pos().getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.05);
+            }
         }
         b.progress++;
         if (b.state == Building.State.PAUSED) {
@@ -301,13 +384,32 @@ public final class TownGrowth {
         }
         land.setDirty();
         if (b.progress % 8 == 0) markDirty();
+        return true;
+    }
+
+    /** Sites whose chunks were unloaded: load them briefly and place everything owed since. */
+    private static void catchUp(ServerLevel level, CityManager cities, LandData land) {
+        for (Building b : List.copyOf(land.buildings())) {
+            if (b.owed <= 0 || b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
+            City city = cities.byId(b.city).orElse(null);
+            if (city == null) continue;
+            BuildingGenerator.Plan plan = plan(b);
+            for (int x = plan.min().getX() >> 4; x <= plan.max().getX() >> 4; x++) {
+                for (int z = plan.min().getZ() >> 4; z <= plan.max().getZ() >> 4; z++) level.getChunk(x, z);
+            }
+            int owed = b.owed;
+            b.owed = 0;
+            for (int i = 0; i < owed; i++) if (!build(level, city, land, b, true)) break;
+            if (b.progress >= plan.steps().size() && b.state != Building.State.ACTIVE) finish(level, city, b, plan);
+            markDirty();
+        }
     }
 
     /** Scaffolding beside the walls tracks the height being built. */
     private static void raiseScaffold(ServerLevel level, Building b, BuildingGenerator.Plan plan, int y) {
         Set<BlockPos> planned = planned(b);
         for (BlockPos base : plan.scaffold()) {
-            for (int sy = base.getY(); sy <= Math.min(y + 1, base.getY() + 8); sy++) {
+            for (int sy = base.getY(); sy <= Math.min(y + 1, base.getY() + 24); sy++) {
                 BlockPos p = new BlockPos(base.getX(), sy, base.getZ());
                 if (planned.contains(p)) break;
                 BlockState s = level.getBlockState(p);
@@ -320,7 +422,7 @@ public final class TownGrowth {
 
     static void removeScaffold(ServerLevel level, BuildingGenerator.Plan plan) {
         for (BlockPos base : plan.scaffold()) {
-            for (int sy = base.getY() + 10; sy >= base.getY(); sy--) {
+            for (int sy = base.getY() + 26; sy >= base.getY(); sy--) {
                 BlockPos p = new BlockPos(base.getX(), sy, base.getZ());
                 if (level.getBlockState(p).is(Blocks.SCAFFOLDING)) {
                     level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
@@ -331,18 +433,130 @@ public final class TownGrowth {
 
     private static void finish(ServerLevel level, City city, Building b, BuildingGenerator.Plan plan) {
         removeScaffold(level, plan);
+        boolean upgrade = b.upgrading && !b.repairing, repaired = b.repairing;
         b.state = Building.State.ACTIVE;
         b.needs = null;
+        b.upgrading = false;
+        b.repairing = false;
+        b.owed = 0;
+        b.households = plan.households();
+        b.jobs = plan.jobs();
+        b.activeSince = level.getGameTime();
         LandData.get(level).setDirty();
         markDirty();
         BlockPos door = plan.steps().getFirst().pos();
-        level.playSound(null, door, SoundEvents.VILLAGER_CELEBRATE, SoundSource.NEUTRAL, 0.8f, 1.0f);
+        level.playSound(null, door, upgrade ? SoundEvents.PLAYER_LEVELUP : SoundEvents.VILLAGER_CELEBRATE, SoundSource.NEUTRAL, 0.8f, 1.0f);
         level.sendParticles(ParticleTypes.HAPPY_VILLAGER, (plan.min().getX() + plan.max().getX()) / 2.0 + 0.5, plan.max().getY() + 1,
                 (plan.min().getZ() + plan.max().getZ()) / 2.0 + 0.5, 20, 2, 1, 2, 0.02);
-        Component kind = Component.translatable("building.townstead.kind." + plan.kind());
-        tell(level, city, b.zone == ZoneType.RESIDENTIAL
-                ? Component.translatable("building.townstead.moved_in", kind, b.households * Demand.PEOPLE_PER_HOUSEHOLD)
+        Component kind = kindName(plan);
+        if (repaired) tell(level, city, Component.translatable("building.townstead.repaired", kind), true);
+        else if (upgrade) tell(level, city, Component.translatable("building.townstead.levelled", kind, b.level), true);
+        else if (b.civic()) tell(level, city, Component.translatable(switch (b.serviceType().kind) {
+                case POWER -> "service.townstead.opened_power";
+                case WATER -> "service.townstead.opened_water";
+                case SERVICE -> "service.townstead.opened_service";
+            }, kind, b.serviceType().kind == com.cloudkingtv.townstead.service.ServiceType.Kind.SERVICE ? b.serviceType().radius : b.serviceType().capacity), true);
+        else tell(level, city, b.zone.residential()
+                ? Component.translatable("building.townstead.moved_in", kind, Residents.people(b))
                 : Component.translatable("building.townstead.opened", kind, b.jobs), true);
+    }
+
+    // ---------------------------------------------------------------- levels and trouble
+
+    private static void review(ServerLevel level, City city, LandData land) {
+        List<Building> mine = land.buildingsOf(city.id());
+        if (mine.isEmpty()) return;
+        RoadNetwork roads = RoadNetwork.get(level);
+        Demand demand = Demand.of(mine);
+        double speed = speed();
+        long upgrading = mine.stream().filter(b -> b.upgrading).count();
+        com.cloudkingtv.townstead.service.Utilities.State util = com.cloudkingtv.townstead.service.Utilities.compute(mine, roads);
+        for (Building b : mine) {
+            boolean built = b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED;
+            if (!built) continue;
+            Component trouble = Progression.trouble(b, mine, roads, demand, city.tiles(), util);
+            int before = b.trouble;
+            // Capped, so recovery takes the same time however long the trouble lasted.
+            if (trouble != null) b.trouble = Math.min(Progression.ABANDON_AFTER, b.trouble + (int) Math.round(REVIEW_INTERVAL * speed));
+            else b.trouble = Math.max(0, b.trouble - (int) Math.round(REVIEW_INTERVAL * 2 * speed));
+            if (b.trouble != before) { land.setDirty(); markDirty(); }
+            if (b.state == Building.State.ACTIVE && b.trouble >= Progression.ABANDON_AFTER) {
+                abandon(level, city, b, trouble);
+                continue;
+            }
+            if (b.state == Building.State.ABANDONED && b.trouble == 0) {
+                repair(level, city, b);
+                continue;
+            }
+            if (b.state == Building.State.ACTIVE && trouble == null && upgrading < MAX_UPGRADES
+                    && Progression.canLevel(Progression.nextLevel(b, mine, roads, level.getGameTime(), speed, util))) {
+                upgrade(level, city, b);
+                upgrading++;
+            }
+        }
+    }
+
+    /** Rebuild at the next level: take down what the new plan doesn't keep (salvaged to the storehouse), then build. */
+    private static void upgrade(ServerLevel level, City city, Building b) {
+        BuildingGenerator.Plan old = plan(b);
+        b.level++;
+        BuildingGenerator.Plan next = plan(b);
+        Set<BlockPos> keep = next.positions();
+        Map<Material, Integer> salvage = new java.util.EnumMap<>(Material.class);
+        for (int i = old.steps().size() - 1; i >= 0; i--) {
+            BuildingGenerator.Step s = old.steps().get(i);
+            if (keep.contains(s.pos()) || !level.getBlockState(s.pos()).is(s.state().getBlock())) continue;
+            Material m = BuildCost.of(s.state());
+            if (m != null) salvage.merge(m, 1, Integer::sum);
+            if (s.state().getBlock() instanceof DoorBlock) level.setBlock(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+            level.setBlock(s.pos(), s.pos().getY() < b.baseY ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        if (!salvage.isEmpty() && !isFree(level, city)) {
+            CityManager.get(level.getServer()).editStockQuiet(city, stock -> salvage.forEach((m, n) -> Stock.add(stock, m.icon().getItem(), n)));
+        }
+        b.upgrading = true;
+        b.progress = 0;
+        b.state = Building.State.CONSTRUCTING;
+        LandData.get(level).setDirty();
+        markDirty();
+        tell(level, city, Component.translatable("building.townstead.levelling", kindName(next), b.level), true);
+    }
+
+    /** Boarded windows, no door, cobwebs: the building stands empty until things improve. */
+    private static void abandon(ServerLevel level, City city, Building b, @Nullable Component why) {
+        BuildingGenerator.Plan plan = plan(b);
+        int i = 0;
+        for (BuildingGenerator.Step s : plan.steps()) {
+            BlockState here = level.getBlockState(s.pos());
+            if (s.state().is(Blocks.GLASS_PANE) && here.is(Blocks.GLASS_PANE)) {
+                level.setBlock(s.pos(), (i++ % 3 == 0 ? Blocks.COBWEB : Blocks.SPRUCE_PLANKS).defaultBlockState(), Block.UPDATE_ALL);
+            } else if ((s.state().is(Blocks.LANTERN) || s.state().is(Blocks.WALL_TORCH)) && here.is(s.state().getBlock())) {
+                level.setBlock(s.pos(), Blocks.COBWEB.defaultBlockState(), Block.UPDATE_ALL);
+            } else if (s.state().getBlock() instanceof DoorBlock && here.getBlock() instanceof DoorBlock) {
+                level.setBlock(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
+                level.setBlock(s.pos(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            }
+        }
+        b.state = Building.State.ABANDONED;
+        LandData.get(level).setDirty();
+        markDirty();
+        level.playSound(null, plan.min(), SoundEvents.WOODEN_DOOR_CLOSE, SoundSource.BLOCKS, 0.8f, 0.6f);
+        tell(level, city, Component.translatable("building.townstead.abandoned", kindName(plan), why == null ? Component.empty() : why), false);
+    }
+
+    /** People come back: clear the cobwebs and boards and rebuild what's missing. */
+    private static void repair(ServerLevel level, City city, Building b) {
+        BuildingGenerator.Plan plan = plan(b);
+        for (BuildingGenerator.Step s : plan.steps()) {
+            if (level.getBlockState(s.pos()).is(Blocks.COBWEB)) level.setBlock(s.pos(), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        b.state = Building.State.CONSTRUCTING;
+        b.progress = 0;
+        b.upgrading = true; // keeps counting as lived-in while the repairs go on
+        b.repairing = true;
+        LandData.get(level).setDirty();
+        markDirty();
+        tell(level, city, Component.translatable("building.townstead.repairing", kindName(plan)), true);
     }
 
     static boolean isFree(ServerLevel level, City city) {

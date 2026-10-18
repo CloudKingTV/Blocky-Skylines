@@ -368,5 +368,39 @@ replacing it.
 - **Simulation records:** `LandData` (per dimension) holds zones and buildings (zone, cell,
   frontage, floor height, seed, setback, progress, households/jobs, what a paused site needs).
 - **Undo:** zoning strokes and building demolition go through the same history as roads.
-- **Not yet:** levels and upgrades, abandonment, high density, offices, biome palettes, building
-  panel with residents, construction completing while the chunk is unloaded.
+- **Added after the first cut:** levels 1–3 with legible factors (Progression), rebuild-in-place
+  upgrades that salvage what the new plan drops, abandonment after 10 minutes of trouble (no road,
+  unemployment, no customers or workers) with boarded windows and cobwebs and repair on recovery,
+  high-density homes and shops (from 30 people) and offices (from 40), five biome palettes,
+  deterministic residents and employment (names, ages, trades after the villager professions) in
+  a building panel, and offline construction: sites owe steps while unloaded and catch up by
+  loading their chunks every 30 s; growth may open sites in unloaded chunks. A `growthSpeed`
+  server setting scales build rate and timers.
+
+## 13. Phase 3 as built (utilities and services)
+
+- **Utilities are road-borne** (as in Cities: Skylines 2, which dropped pipes and pylons): road
+  nodes are joined with union-find into networks, and a building belongs to the network of the
+  road it faces. Each network pools the capacity of its active plants and wells: windmill 40
+  power, watermill 80 (needs water beside the lot), well 30 water, water tower 90. Buildings are
+  served oldest first (abandoned ones last); the rest go without. Demand per building: homes one
+  per household, shops and offices one per two jobs, workshops one per job, services one.
+- **Services cover a radius** from their lot: clinic 48, fire station 56, guard house 56,
+  school 64, compost yard 80, park 32 blocks. Each is a real procedural building (palette by
+  biome) with a few jobs that draw on the town's workers, so services also count as jobs for
+  demand.
+- **Levels now ask for them:** level 2 needs power and water; level 3 adds per-zone services
+  (homes: clinic, school, park; shops: guard house, compost yard; workshops: fire station,
+  compost yard; offices: guard house, school, clinic). A level-2+ building that loses power or
+  water is in trouble and is eventually abandoned.
+- **One pure function** (`Utilities.compute`) feeds the server's level and trouble checks and
+  the client's status icons, info views and building panel, so what the player sees is what the
+  simulation decided.
+- **Planner:** the Utilities, Services and Parks tools place a chosen building on a road-facing
+  lot (ghost, coverage ring, bill of materials, reason when it can't go there); the Info tool
+  colours buildings by power, water, each service's coverage or level. Status icons over roofs
+  are projected through the camera's near plane. Placing goes through undo like everything else;
+  zoning strokes skip service lots.
+- **Deferred to Phase 4:** upkeep and budgets for services, service capacity (patients,
+  pupils), garbage and fire as events, and land value effects of parks.
+

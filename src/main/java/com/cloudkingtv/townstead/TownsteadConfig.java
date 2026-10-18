@@ -28,6 +28,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.freeBuild")
             .define("freeBuild", false);
 
+    public static final ModConfigSpec.DoubleValue GROWTH_SPEED = SERVER
+            .comment("How fast towns build, level up and decline (1 = five blocks a second, levels after 5-10 minutes)")
+            .translation("townstead.configuration.growthSpeed")
+            .defineInRange("growthSpeed", 1.0, 0.25, 20.0);
+
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 
     private TownsteadConfig() {}

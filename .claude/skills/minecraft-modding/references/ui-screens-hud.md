@@ -205,6 +205,28 @@ HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT, id("quest_tracke
 // also: attachElementAfter, addFirst, addLast, replaceElement, removeElement
 ```
 
+### World-anchored icons and labels (verified on 26.3)
+
+To draw a GUI icon over a block (status icons, name tags in a planner view), project the point
+through the camera's near plane instead of rebuilding the projection matrix:
+
+```java
+Camera cam = mc.gameRenderer.mainCamera();
+Camera.NearPlane np = cam.getNearPlane(cam.getFov());          // corners are offsets from the eye
+Vec3 tl = np.getTopLeft(), tr = np.getTopRight(), bl = np.getBottomLeft(), br = np.getBottomRight();
+Vec3 fwd = tl.add(tr).add(bl).add(br).scale(0.25);               // plane centre
+Vec3 up = tl.subtract(bl).scale(0.5), left = tl.subtract(tr).scale(0.5);
+Vec3 d = target.subtract(cam.position());
+double along = d.dot(fwd);
+if (along <= 0) return;                                          // behind the camera
+double t = fwd.lengthSqr() / along;                              // scale d onto the plane
+double ny = d.dot(up) * t / up.lengthSqr(), nx = -d.dot(left) * t / left.lengthSqr();
+int sx = (int) ((nx + 1) / 2 * g.guiWidth()), sy = (int) ((1 - ny) / 2 * g.guiHeight());
+```
+
+`getPointOnPlane(x, y)` is `centre + up·y − left·x`, so this is its exact inverse and stays right
+when the FOV or window changes.
+
 HUD rules: respect `minecraft.options.hideGui` (F1), stay out of vanilla's regions (hotbar,
 chat, boss bars, sidebar), anchor to screen edges using `g.guiWidth()`/`g.guiHeight()`, fade in
 and out instead of popping, keep text at least 1 px from edges and shadowed. Test at GUI scales

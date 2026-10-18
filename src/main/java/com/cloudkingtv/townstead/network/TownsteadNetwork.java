@@ -6,6 +6,7 @@ import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.StorehouseService;
 import com.cloudkingtv.townstead.building.LandEditor;
 import com.cloudkingtv.townstead.history.EditHistory;
+import com.cloudkingtv.townstead.service.ServiceType;
 import com.cloudkingtv.townstead.zone.ZoneType;
 import com.cloudkingtv.townstead.road.RoadEditor;
 import java.util.Optional;
@@ -21,7 +22,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "4";
+    private static final String PROTOCOL = "5";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -47,8 +48,13 @@ public final class TownsteadNetwork {
         r.playToClient(LandSnapshotPayload.TYPE, LandSnapshotPayload.STREAM_CODEC);
         r.playToServer(LandEditPayloads.Paint.TYPE, LandEditPayloads.Paint.STREAM_CODEC, (msg, ctx) -> {
             if (!(ctx.player() instanceof ServerPlayer player)) return;
-            ZoneType zone = msg.zone() >= 0 && msg.zone() < ZoneType.values().length ? ZoneType.values()[msg.zone()] : null;
+            ZoneType zone = msg.zone() >= 0 && msg.zone() < ZoneType.PAINTABLE.size() ? ZoneType.PAINTABLE.get(msg.zone()) : null;
             plannerCity(player, msg.cityId()).ifPresent(city -> LandEditor.paint(player, city, zone, msg.cells()));
+        });
+        r.playToServer(LandEditPayloads.PlaceService.TYPE, LandEditPayloads.PlaceService.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            if (msg.service() < 0 || msg.service() >= ServiceType.values().length) return;
+            plannerCity(player, msg.cityId()).ifPresent(city -> LandEditor.placeService(player, city, ServiceType.values()[msg.service()], msg.cell()));
         });
         r.playToServer(LandEditPayloads.BulldozeBuilding.TYPE, LandEditPayloads.BulldozeBuilding.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
