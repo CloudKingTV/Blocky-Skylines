@@ -544,6 +544,7 @@ public final class TownGrowth {
         com.cloudkingtv.townstead.sim.TownModel model = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city);
         double speed = speed();
         long upgrading = mine.stream().filter(b -> b.upgrading).count();
+        com.cloudkingtv.townstead.disaster.Fires.review(level, city, mine, model, REVIEW_INTERVAL * speed);
         for (Building b : mine) {
             boolean built = b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED;
             if (!built) continue;
@@ -565,7 +566,7 @@ public final class TownGrowth {
                 repair(level, city, b);
                 continue;
             }
-            if (b.state == Building.State.ACTIVE && trouble == null && upgrading < MAX_UPGRADES
+            if (b.state == Building.State.ACTIVE && b.fire == 0 && trouble == null && upgrading < MAX_UPGRADES
                     && Progression.canLevel(Progression.nextLevel(b, model, level.getGameTime(), speed))) {
                 upgrade(level, city, b);
                 upgrading++;
@@ -633,6 +634,7 @@ public final class TownGrowth {
         b.progress = 0;
         b.upgrading = true; // keeps counting as lived-in while the repairs go on
         b.repairing = true;
+        b.burned = false;
         LandData.get(level).setDirty();
         markDirty();
         tell(level, city, Component.translatable("building.townstead.repairing", kindName(plan)), true);

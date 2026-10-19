@@ -38,6 +38,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.unlockAll")
             .define("unlockAll", false);
 
+    public static final ModConfigSpec.BooleanValue FIRES = SERVER
+            .comment("Buildings now and then catch fire; a fire station's brigade puts them out, unattended ones burn down")
+            .translation("townstead.configuration.fires")
+            .define("fires", true);
+
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 
     private TownsteadConfig() {}

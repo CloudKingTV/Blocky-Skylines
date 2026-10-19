@@ -91,10 +91,15 @@ public final class BuildingPanel {
                     Math.round(100f * b.progress / plan.steps().size())), WARN, 0));
             case PAUSED -> out.add(new Line(Component.translatable("building.townstead.waiting",
                     b.needs == null ? Component.empty() : b.needs.displayName()), BAD, 0));
-            case ABANDONED -> out.add(new Line(Component.translatable("panel.townstead.abandoned"), BAD, 0));
+            case ABANDONED -> out.add(new Line(Component.translatable(b.burned ? "panel.townstead.burned" : "panel.townstead.abandoned"), BAD, 0));
             case ACTIVE -> out.add(new Line(b.zone.residential()
                     ? Component.translatable("building.townstead.residents", Residents.people(b))
                     : Component.translatable("panel.townstead.jobs_open", b.jobs), GOOD, 0));
+        }
+        if (b.fire > 0) {
+            boolean brigade = m.covered(b, com.cloudkingtv.townstead.service.ServiceType.FIRE_STATION);
+            out.add(new Line(Component.translatable("panel.townstead.burning"), BAD, 0));
+            out.add(new Line(Component.translatable(brigade ? "panel.townstead.brigade" : "panel.townstead.no_brigade"), brigade ? WARN : BAD, 4));
         }
         if (b.trouble > 0 || b.state == Building.State.ABANDONED) {
             Component why = Progression.trouble(b, m);

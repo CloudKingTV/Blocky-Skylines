@@ -1530,7 +1530,9 @@ public class PlannerScreen extends Screen {
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             List<ItemStack> icons = new ArrayList<>();
             List<Component> why = new ArrayList<>();
-            if (b.state == Building.State.ABANDONED) { icons.add(new ItemStack(Items.COBWEB)); why.add(Component.translatable("status.townstead.abandoned")); }
+            if (b.fire > 0) { icons.add(new ItemStack(Items.FIRE_CHARGE)); why.add(Component.translatable("status.townstead.fire")); }
+            else if (b.burned && b.state == Building.State.ABANDONED) { icons.add(new ItemStack(Items.CHARCOAL)); why.add(Component.translatable("status.townstead.burned")); }
+            else if (b.state == Building.State.ABANDONED) { icons.add(new ItemStack(Items.COBWEB)); why.add(Component.translatable("status.townstead.abandoned")); }
             else if (b.state == Building.State.PAUSED && b.needs != null) { icons.add(b.needs.icon()); why.add(Component.translatable("building.townstead.waiting", b.needs.displayName())); }
             else if (!b.civic() && b.working()) {
                 if (!util.power(b)) { icons.add(new ItemStack(Items.REDSTONE)); why.add(Component.translatable("status.townstead.no_power")); }
