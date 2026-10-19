@@ -92,7 +92,7 @@ public final class CityManager extends SavedData {
         String name = founder.getGameProfile().name() + "'s Town";
         City city = new City(UUID.randomUUID(), name, founder.getUUID(), founder.getGameProfile().name(),
                 level.dimension(), pos.immutable(), startingClaim(pos), com.cloudkingtv.townstead.economy.TownEconomy.FOUNDING_PURSE,
-                level.getGameTime(), Map.of(), List.of(), java.util.Optional.empty(), 0);
+                level.getGameTime(), Map.of(), List.of(), java.util.Optional.empty(), 0, List.of(), 1);
         cities.put(city.id, city);
         changed(level.getServer());
         Townstead.LOGGER.info("Founded town '{}' at {} for {}", name, pos, founder.getGameProfile().name());
@@ -147,6 +147,23 @@ public final class CityManager extends SavedData {
         city.milestone = milestone;
         city.treasury += reward;
         changed(server);
+    }
+
+    /** Adds a coach line, giving it the next id; returns that id. */
+    public int addLine(MinecraftServer server, City city, com.cloudkingtv.townstead.transit.CoachLine line) {
+        int id = city.nextLineId++;
+        city.lines.add(new com.cloudkingtv.townstead.transit.CoachLine(id, line.name(), line.color(), line.stops()));
+        changed(server);
+        return id;
+    }
+
+    /** Removes a coach line; returns it, or null if there was none with that id. */
+    public com.cloudkingtv.townstead.transit.@org.jspecify.annotations.Nullable CoachLine removeLine(MinecraftServer server, City city, int id) {
+        for (var it = city.lines.iterator(); it.hasNext(); ) {
+            var line = it.next();
+            if (line.id() == id) { it.remove(); changed(server); return line; }
+        }
+        return null;
     }
 
     /** Adds a tile to a town's land, paying {@code cost} cents from its treasury. */

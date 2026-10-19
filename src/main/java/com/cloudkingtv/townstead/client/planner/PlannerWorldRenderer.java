@@ -243,6 +243,15 @@ public final class PlannerWorldRenderer {
             fieldQuads(p, buf, level, cam, city, model, view);
             return;
         }
+        if (view.equals("traffic")) {
+            // Every town road by how loaded it is: green clear, yellow busy, red jammed.
+            for (RoadSegment s : ClientRoads.network().segments()) {
+                if (!s.city().equals(city.id())) continue;
+                int color = gradient(1f - (float) Math.min(1, model.traffic.ratio(s) / 1.2), 0xA0);
+                for (RoadRaster.Cell c : ClientRoads.network().raster(s).values()) top(p, buf, cam, c.x(), c.y() + 1.04, c.z(), color);
+            }
+            return;
+        }
         ServiceType service = ServiceType.find(view);
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             int color;

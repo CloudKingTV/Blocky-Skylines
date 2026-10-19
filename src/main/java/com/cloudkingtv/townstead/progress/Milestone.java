@@ -21,7 +21,7 @@ public enum Milestone {
     WORTHY_VILLAGE(40, 40, 1,
             List.of(RoadType.AVENUE),
             List.of(),
-            List.of(ServiceType.CLINIC, ServiceType.SCHOOL, ServiceType.GUARD_HOUSE, ServiceType.FOUNDERS_FOUNTAIN)),
+            List.of(ServiceType.CLINIC, ServiceType.SCHOOL, ServiceType.GUARD_HOUSE, ServiceType.COACH_HOUSE, ServiceType.FOUNDERS_FOUNTAIN)),
     TINY_TOWN(100, 80, 2,
             List.of(),
             List.of(ZoneType.RESIDENTIAL_HIGH, ZoneType.COMMERCIAL_HIGH),

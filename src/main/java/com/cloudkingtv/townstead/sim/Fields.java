@@ -20,7 +20,7 @@ import net.minecraft.util.Mth;
 /**
  * Pollution, noise and land value per 8x8 cell (0-100), as in Cities: Skylines' info views. Each comes from
  * sources that fade linearly to nothing at their radius: workshops and the compost yard pollute; shops, workshops,
- * the fire station and busy roads make noise; parks, services, shops and the Town Hall raise land value while
+ * the fire station and roads make noise (more the busier they are); parks, services, shops and the Town Hall raise land value while
  * pollution and noise lower it. Pure and cheap, so server and client compute the same numbers.
  */
 public final class Fields {
@@ -41,7 +41,8 @@ public final class Fields {
     /**
      * @param radius how far each active service reaches (its department budget scales it)
      */
-    public static Fields of(UUID city, Collection<Building> town, RoadNetwork roads, BlockPos townHall, ToDoubleFunction<ServiceType> radius) {
+    public static Fields of(UUID city, Collection<Building> town, RoadNetwork roads, BlockPos townHall, ToDoubleFunction<ServiceType> radius,
+                            Traffic traffic) {
         Fields f = new Fields();
         f.value.add(new Source(townHall.getX() + 0.5, townHall.getZ() + 0.5, 12, 72));
         for (Building b : town) {
@@ -78,7 +79,9 @@ public final class Fields {
         }
         for (RoadSegment s : roads.segments()) {
             if (!s.city().equals(city)) continue;
-            double loud = s.type() == RoadType.AVENUE ? 16 : s.type() == RoadType.STREET ? 8 : 3;
+            // Busier roads are louder: an empty road makes 40% of its noise, a jammed one up to 160%.
+            double busy = Mth.clamp(traffic.ratio(s), 0, 1.5);
+            double loud = (s.type() == RoadType.AVENUE ? 16 : s.type() == RoadType.STREET ? 8 : 3) * (0.4 + 0.8 * busy);
             double reach = s.type().halfWidth() + (s.type() == RoadType.AVENUE ? 10 : s.type() == RoadType.STREET ? 7 : 4);
             int n = Math.max(1, (int) Math.ceil(s.curve().length() / 4));
             for (int i = 0; i <= n; i++) {

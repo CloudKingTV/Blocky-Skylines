@@ -31,7 +31,9 @@ public final class City {
             Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("stock", Map.of()).forGetter(c -> c.stock),
             BlockPos.CODEC.listOf().optionalFieldOf("storehouses", List.of()).forGetter(c -> List.copyOf(c.storehouses)),
             com.cloudkingtv.townstead.economy.Budget.CODEC.optionalFieldOf("budget").forGetter(c -> java.util.Optional.of(c.budget)),
-            Codec.INT.optionalFieldOf("milestone", 0).forGetter(c -> c.milestone)
+            Codec.INT.optionalFieldOf("milestone", 0).forGetter(c -> c.milestone),
+            com.cloudkingtv.townstead.transit.CoachLine.CODEC.listOf().optionalFieldOf("lines", List.of()).forGetter(c -> List.copyOf(c.lines)),
+            Codec.INT.optionalFieldOf("next_line", 1).forGetter(c -> c.nextLineId)
     ).apply(i, City::new));
 
     final UUID id;
@@ -50,11 +52,17 @@ public final class City {
     final com.cloudkingtv.townstead.economy.Budget budget;
     /** The highest milestone reached ({@link com.cloudkingtv.townstead.progress.Milestone} ordinal). */
     int milestone;
+    /** Coach lines, in the order they were drawn. Mutate through {@link CityManager}. */
+    final List<com.cloudkingtv.townstead.transit.CoachLine> lines;
+    int nextLineId;
 
     City(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension, BlockPos townHall,
          List<TilePos> tiles, long treasury, long foundedGameTime, Map<Identifier, Integer> stock, List<BlockPos> storehouses,
-         java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget, int milestone) {
+         java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget, int milestone,
+         List<com.cloudkingtv.townstead.transit.CoachLine> lines, int nextLineId) {
         this.milestone = milestone;
+        this.lines = new ArrayList<>(lines);
+        this.nextLineId = nextLineId;
         this.budget = budget.orElseGet(com.cloudkingtv.townstead.economy.Budget::new);
         this.id = id;
         this.name = name;
@@ -82,12 +90,13 @@ public final class City {
     /** Read-only use; change it through {@link CityManager#editBudget}. */
     public com.cloudkingtv.townstead.economy.Budget budget() { return budget; }
     public int milestone() { return milestone; }
+    public List<com.cloudkingtv.townstead.transit.CoachLine> lines() { return java.util.Collections.unmodifiableList(lines); }
 
     public boolean contains(BlockPos pos) {
         return tiles.contains(TilePos.of(pos));
     }
 
     public CitySummary summary() {
-        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone);
+        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone, List.copyOf(lines));
     }
 }

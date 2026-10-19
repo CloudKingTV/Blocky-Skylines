@@ -34,6 +34,10 @@ public final class TownModel {
     public final Set<TilePos> tiles;
     public final Utilities.State util;
     public final Fields fields;
+    /** Coach lines, as drawn. */
+    public final List<com.cloudkingtv.townstead.transit.CoachLine> lines;
+    /** Who drives where, how jammed each road is, and who rides the coaches. */
+    public final Traffic traffic;
     /** Homes with a school in reach. */
     public final Set<Integer> schooled = new HashSet<>();
     public final Map<Integer, List<Residents.Job>> employment;
@@ -43,18 +47,21 @@ public final class TownModel {
     public final int adults, unemployed, educated;
     private final Map<Integer, Happiness> happiness = new HashMap<>();
 
-    private TownModel(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury, Set<TilePos> tiles, BlockPos townHall) {
+    private TownModel(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury, Set<TilePos> tiles, BlockPos townHall,
+                      List<com.cloudkingtv.townstead.transit.CoachLine> lines) {
         this.city = city;
         this.town = List.copyOf(town);
         this.roads = roads;
         this.budget = budget;
         this.treasury = treasury;
         this.tiles = tiles;
+        this.lines = List.copyOf(lines);
         this.util = Utilities.compute(this.town, roads, this::strength);
-        this.fields = Fields.of(city, this.town, roads, townHall, this::radius);
         for (Building b : this.town) if (b.zone.residential() && covered(b, ServiceType.SCHOOL)) schooled.add(b.id);
         this.employment = Residents.employment(this.town, schooled);
         this.jobsByPerson = Residents.jobsByPerson(employment);
+        this.traffic = new Traffic(this, this.lines);
+        this.fields = Fields.of(city, this.town, roads, townHall, this::radius, traffic);
         int a = 0, e = 0;
         for (Building b : this.town) {
             if (!b.working() || !b.zone.residential()) continue;
@@ -74,8 +81,8 @@ public final class TownModel {
     }
 
     public static TownModel of(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury,
-                               Collection<TilePos> tiles, BlockPos townHall) {
-        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall);
+                               Collection<TilePos> tiles, BlockPos townHall, List<com.cloudkingtv.townstead.transit.CoachLine> lines) {
+        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, lines);
     }
 
     /** In debt: services and utilities run at half strength until the treasury is back above zero. */

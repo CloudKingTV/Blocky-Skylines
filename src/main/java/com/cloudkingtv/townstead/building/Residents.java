@@ -181,6 +181,7 @@ public final class Residents {
                 case WINDMILL, WATERMILL -> "miller";
                 case WELL, WATER_TOWER -> "water_keeper";
                 case FOUNDERS_FOUNTAIN, CLOCK_TOWER, CHAPEL -> slot == 0 ? "keeper" : "gardener";
+                case COACH_HOUSE -> slot == 0 ? "ostler" : "coachman";
             };
             case OFFICE -> new String[] {"clerk", "cartographer", "librarian", "scribe"}[slot % 4];
             case INDUSTRIAL -> new String[] {stationTrade(w, Blocks.SMOKER, Blocks.BLAST_FURNACE), "mason", "farmer", "labourer"}[slot % 4];

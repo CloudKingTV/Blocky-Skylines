@@ -1420,6 +1420,7 @@ public final class BuildingGenerator {
                 case FOUNDERS_FOUNTAIN -> foundersFountain(c);
                 case CLOCK_TOWER -> clockTower(c);
                 case CHAPEL -> chapel(c);
+                case COACH_HOUSE -> coachHouse(c);
             };
         }
 
@@ -1625,6 +1626,47 @@ public final class BuildingGenerator {
             c.lampPost(0, c.zf);
             c.scaffoldAround(box);
             return "fire_station";
+        }
+
+        /**
+         * The coach house: a long timber stable with two wide coach doors and a hay loft, a water trough and hay by the
+         * doors, and a fenced paddock beside it.
+         */
+        static String coachHouse(Canvas c) {
+            Wall w = Style.wall(c, true);
+            BlockState floor = Blocks.STONE_BRICKS.defaultBlockState();
+            int z0 = c.zf + 2;
+            Box box = new Box(1, z0, 10, Math.min(c.D - 2, z0 + 5));
+            c.foundation(box, c.p.foundation().defaultBlockState(), floor);
+            // Two coach doors, three blocks wide and three high, under a hay loft.
+            for (int x : new int[] {2, 3, 4, 7, 8, 9}) { c.doorway(x, 0, box.z0); c.doorway(x, 1, box.z0); }
+            int top = c.walls(box, 0, 2, w, c.p.floor().defaultBlockState());
+            c.roof(box, top, true, c.p.foundation().defaultBlockState());
+            c.put(3, 4, box.z0, Blocks.HAY_BLOCK, FIT);
+            c.put(8, 4, box.z0, Blocks.HAY_BLOCK, FIT);
+            // Stalls inside: hay and troughs along the back wall.
+            for (int x = box.x0 + 1; x < box.x1; x++) {
+                if (x % 3 == 0) c.put(x, 0, box.z1 - 1, Blocks.HAY_BLOCK, FIT);
+                else if (x % 3 == 1) c.put(x, 0, box.z1 - 1, Blocks.WATER_CAULDRON.defaultBlockState(), FIT);
+            }
+            c.banner(1, 3, box.z0 - 1, DyeColor.BROWN, c.front);
+            c.banner(10, 3, box.z0 - 1, DyeColor.BROWN, c.front);
+            c.put(5, 2, box.z0 - 1, Blocks.WALL_TORCH.defaultBlockState().setValue(WallTorchBlock.FACING, c.front), FIT);
+            c.put(6, 2, box.z0 - 1, Blocks.WALL_TORCH.defaultBlockState().setValue(WallTorchBlock.FACING, c.front), FIT);
+            // The yard: a trough and hay by the doors, a paddock fence round the side.
+            c.put(5, 0, box.z0 - 2, Blocks.WATER_CAULDRON.defaultBlockState(), GARDEN);
+            c.put(6, 0, box.z0 - 2, Blocks.HAY_BLOCK, GARDEN);
+            int px0 = box.x1 + 2;
+            if (px0 < c.W - 1) {
+                for (int x = px0; x < c.W; x++) for (int z = z0; z <= box.z1; z++) {
+                    if (x == px0 || x == c.W - 1 || z == z0 || z == box.z1) c.put(x, 0, z, Style.fence(c.p), GARDEN);
+                }
+                c.put(c.W - 2, 0, z0 + 1, Blocks.HAY_BLOCK, GARDEN);
+            }
+            for (int x : new int[] {2, 3, 4, 7, 8, 9}) c.path(x, c.zf, box.z0 - 1);
+            c.lampPost(0, c.zf);
+            c.scaffoldAround(box);
+            return "coach_house";
         }
 
         /** A stone guard tower with battlements, a banner, and a training yard of targets. */

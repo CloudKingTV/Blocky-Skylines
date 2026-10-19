@@ -512,6 +512,7 @@ public final class TownGrowth {
                 case POWER -> "service.townstead.opened_power";
                 case WATER -> "service.townstead.opened_water";
                 case SERVICE -> "service.townstead.opened_service";
+                case TRANSIT -> "service.townstead.opened_transit";
             }, kind, b.serviceType().kind == com.cloudkingtv.townstead.service.ServiceType.Kind.SERVICE ? b.serviceType().radius : b.serviceType().capacity), true);
         else tell(level, city, b.zone.residential()
                 ? Component.translatable("building.townstead.moved_in", kind, Residents.people(b))

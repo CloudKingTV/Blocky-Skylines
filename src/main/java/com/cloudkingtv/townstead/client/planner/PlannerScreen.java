@@ -1195,6 +1195,7 @@ public class PlannerScreen extends Screen {
             case "pollution" -> new ItemStack(Items.COAL);
             case "noise" -> new ItemStack(Items.NOTE_BLOCK);
             case "education" -> new ItemStack(Items.BOOK);
+            case "traffic" -> new ItemStack(Items.MINECART);
             default -> ServiceType.byKey(view).icon();
         };
     }
@@ -1209,6 +1210,7 @@ public class PlannerScreen extends Screen {
             case POWER -> Component.translatable("panel.townstead.supplies_power", st.capacity);
             case WATER -> Component.translatable("panel.townstead.supplies_water", st.capacity);
             case SERVICE -> Component.translatable("panel.townstead.covers", st.radius);
+            case TRANSIT -> Component.translatable("panel.townstead.runs_coaches");
         });
         colors.add(0xFFDDDDDD);
         BlockPos cell = PlannerClient.hoverCell;
@@ -1257,6 +1259,19 @@ public class PlannerScreen extends Screen {
                 }
                 lines.add(Component.translatable("info.townstead.supply", used, cap));
                 lines.add(Component.translatable("info.townstead.without", without));
+            }
+            case "traffic" -> {
+                var m = PlannerClient.model();
+                if (m == null) break;
+                lines.add(Component.translatable("info.townstead.flow", m.traffic.flowPercent()));
+                lines.add(Component.translatable("info.townstead.trips", m.traffic.trips(), m.traffic.riders()));
+                BlockPos cell = PlannerClient.hoverCell;
+                if (cell != null) {
+                    ClientRoads.network().nearestSegment(cell.getX() + 4, cell.getZ() + 4, 2).filter(h -> h.segment().city().equals(city.id()))
+                            .ifPresent(h -> lines.add(Component.translatable("info.townstead.road_load", Math.round(m.traffic.flow(h.segment().id())),
+                                    Math.round(m.traffic.ratio(h.segment()) * 100))));
+                }
+                lines.add(Component.translatable("info.townstead.legend.traffic"));
             }
             case "level" -> {
                 int[] n = new int[4];

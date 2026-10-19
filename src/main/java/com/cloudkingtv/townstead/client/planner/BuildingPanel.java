@@ -59,6 +59,8 @@ public final class BuildingPanel {
                 case POWER -> Component.translatable("panel.townstead.supplies_power", Math.round(s.capacity * m.strength(s)));
                 case WATER -> Component.translatable("panel.townstead.supplies_water", Math.round(s.capacity * m.strength(s)));
                 case SERVICE -> Component.translatable("panel.townstead.covers", Math.round(m.radius(s)));
+                case TRANSIT -> Component.translatable("panel.townstead.coaches", m.traffic.lines().values().stream().mapToInt(l -> l.coaches()).sum(),
+                        m.lines.size(), m.traffic.riders());
             }, TEXT, 0));
             out.add(new Line(Component.translatable("panel.townstead.upkeep", Budget.format((long) s.upkeep * m.budget.budget(s.department) / 100),
                     s.department.displayName(), m.budget.budget(s.department)), strength < 100 ? WARN : DIM, 0));

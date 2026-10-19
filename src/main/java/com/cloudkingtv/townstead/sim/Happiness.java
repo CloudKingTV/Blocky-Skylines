@@ -42,6 +42,13 @@ public record Happiness(int total, List<Factor> factors) {
             if (noise >= 5) f.add(new Factor(Component.translatable("happy.townstead.noise", noise), -Math.round(noise / 5f)));
         }
         if (home) f.add(new Factor(Component.translatable("happy.townstead.land_value", lv), Math.round((lv - 50) / 5f)));
+        if (home) {
+            // Commutes slowed by traffic; a coach stop by the door helps.
+            double delay = m.traffic.commuteDelay(b);
+            if (delay > 1.25) f.add(new Factor(Component.translatable("happy.townstead.traffic", Math.round((delay - 1) * 100)),
+                    -Math.min(12, (int) Math.round((delay - 1) * 20))));
+            if (m.traffic.nearStop(b, m.lines)) f.add(factor("coach_stop", 3));
+        }
         int kind = taxKind(b);
         int tax = m.budget.tax(kind);
         if (tax != Demand.NEUTRAL_TAX) f.add(new Factor(Component.translatable("happy.townstead.taxes", tax), (Demand.NEUTRAL_TAX - tax) * 2));

@@ -17,6 +17,7 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jspecify.annotations.Nullable;
 
@@ -71,7 +72,7 @@ final class BudgetPanel {
 
         w = Math.min(MAX_W, screenW - 12);
         int col = (w - PAD * 3) / 2;
-        int rows = 2 + 1 + Math.max(TAX_ZONES.length + 1 + Loan.Offer.values().length + 1, ServiceType.Department.values().length + 3);
+        int rows = 2 + 1 + Math.max(TAX_ZONES.length + 2 + Loan.Offer.values().length + 1, ServiceType.Department.values().length + 3);
         int graphH = 26;
         h = PAD * 2 + rows * ROW + graphH + 6;
         if (h > bottom - topBar - 4) { graphH = 0; h = PAD * 2 + rows * ROW; }
@@ -104,7 +105,16 @@ final class BudgetPanel {
                     () -> send(EconomyPayloads.Action.TAX, kind, rate - 1), () -> send(EconomyPayloads.Action.TAX, kind, rate + 1));
             ly += ROW;
         }
-        ly += 2;
+        // Coach fares: no rate to set, just what the riders pay.
+        g.pose().pushMatrix();
+        g.pose().translate(x, ly - 2);
+        g.pose().scale(0.625f, 0.625f);
+        g.item(new ItemStack(Items.MINECART), 0, 0);
+        g.pose().popMatrix();
+        g.text(font, Component.translatable("budget.townstead.fares", m.traffic.riders()), x + 13, ly, TEXT, true);
+        String fares = Budget.signed(day.fares());
+        g.text(font, fares, x + col - font.width(fares), ly, day.fares() == 0 ? DIM : GOOD, true);
+        ly += ROW + 2;
         g.text(font, Component.translatable("budget.townstead.loans"), x, ly, TITLE, true);
         ly += ROW;
         for (Loan.Offer offer : Loan.Offer.values()) {

@@ -12,7 +12,7 @@ import com.cloudkingtv.townstead.zone.ZoneType;
  * A town's money per Minecraft day, line by line, as the budget panel shows it. Taxes: each household and each
  * filled job has a taxable value that grows with the building's level (and, for homes, with land value); the rate
  * for its kind takes a share. Upkeep: every service and utility at its department's budget, plus the roads by
- * length. Loans: their daily payments. All in hundredths of an emerald.
+ * length, and the coaches running on lines (which earn fares). Loans: their daily payments. All in hundredths of an emerald.
  */
 public final class Finance {
     /** Taxable value per household per day, at level 1 and land value 50. */
@@ -21,9 +21,12 @@ public final class Finance {
     public static final int SHOP_JOB_VALUE = 500, WORKSHOP_JOB_VALUE = 400, OFFICE_JOB_VALUE = 700;
     private static final double[] LEVEL_MULTIPLIER = {1.0, 1.5, 2.25};
 
-    public record Report(long[] taxes, long[] upkeep, long roads, long loans) {
+    /** Fare per coach rider per day, and a coach's running cost at a 100% transport budget. */
+    public static final int FARE = 4, COACH_UPKEEP = 120;
+
+    public record Report(long[] taxes, long[] upkeep, long roads, long loans, long fares) {
         public long income() {
-            long n = 0;
+            long n = fares;
             for (long t : taxes) n += t;
             return n;
         }
@@ -58,7 +61,13 @@ public final class Finance {
         }
         long loans = 0;
         for (Loan l : m.budget.loans) loans += Math.min(l.daily(), l.owed());
-        return new Report(taxes, upkeep, roads, loans);
+        // Coaches cost their upkeep (from the transport budget) and earn fares.
+        int transport = ServiceType.Department.TRANSPORT.ordinal();
+        for (var line : m.traffic.lines().values()) {
+            upkeep[transport] += (long) line.coaches() * COACH_UPKEEP * m.budget.budget(ServiceType.Department.TRANSPORT) / 100;
+        }
+        long fares = (long) m.traffic.riders() * FARE;
+        return new Report(taxes, upkeep, roads, loans, fares);
     }
 
     /** Taxable value of a building per day, before the rate. */

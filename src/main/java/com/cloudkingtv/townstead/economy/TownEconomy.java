@@ -58,7 +58,7 @@ public final class TownEconomy {
 
     public static TownModel model(ServerLevel level, City city) {
         return TownModel.of(city.id(), LandData.get(level).buildingsOf(city.id()), RoadNetwork.get(level), city.budget(),
-                city.treasury(), city.tiles(), city.townHall());
+                city.treasury(), city.tiles(), city.townHall(), city.lines());
     }
 
     private static void settle(ServerLevel level, CityManager cities, City city) {
