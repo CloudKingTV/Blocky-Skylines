@@ -262,7 +262,7 @@ skill).
 | **3. Utilities & services** | Power and water (road-borne), 6 core services with coverage, status icons, info views (power, water, coverage), building panel | A building shows "no power", you place a plant, the icon clears |
 | **4. People & money** | Households, jobs, education, happiness, land value/pollution/noise fields, leveling, taxes/budget/upkeep/loans | A balanced town grows, levels up and pays its bills |
 | **5. Progression** | Milestones, unlocks, tile purchase, Chirps feed, first unique buildings | Hit "Worthy Village" and unlock a second tile (districts moved to Phase 7) |
-| **6. Living city** | Ambient citizen NPCs, visual traffic, bus lines, traffic flow model and info view | Walk your streets among citizens while buses run routes |
+| **6. Living city** | Ambient citizen NPCs, visual traffic, bus lines (coach lines), traffic flow model and info view | Walk your streets among citizens while coaches run routes |
 | **7. Depth** | Districts and policies, specializations, disasters, monuments, multiplayer roles, more styles | A full play-through to "Megalopolis" |
 
 **MVP / vertical slice = Phases 0–3 plus a minimal Phase 5** ("Little Hamlet" to "Worthy
@@ -493,3 +493,46 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   per town, placed with the Landmarks tool, built block by block like services, staffed by a
   keeper and a gardener, upkeep from the parks department. Each adds land value (+22 at the
   centre) and +6 happiness to every building in reach.
+
+## 17. Phase 6 as built (living city)
+
+- **Routing** (`road.RoadRouter`): Dijkstra over the town's junction graph from a point on one
+  segment to a point on another, leaving and entering segments part-way. Shared by traffic, coach
+  lines and the vehicles drawn on the streets. Speeds: lane 1.0, street 1.3, avenue 1.8.
+- **Traffic** (`sim.Traffic`, part of the shared `TownModel`): trips are commutes (each filled job,
+  home to workplace), errands (half a trip per household to the nearest shop) and deliveries (0.3
+  per workshop job to the nearest shop). Identical trips merge; each is assigned a quarter at a
+  time over four rounds, every round routing on travel times that include the previous rounds'
+  congestion (BPR: t = t0 × (1 + 0.15 (v/c)^4)). Capacities per day: lane 40, street 100, avenue
+  260. Outputs: flow and v/c per segment, each home's commute delay, and the town's *traffic flow*
+  (free-flow time over actual time, as in Cities: Skylines).
+- **Effects:** homes whose commutes take over 25% longer lose up to 12 happiness ("Stuck in
+  traffic"); road noise now scales with load (40% of the old figure on an empty road, up to 160%
+  jammed); the traffic info view colours roads by v/c and reads out a hovered road's trips.
+- **Coach lines** (`transit.CoachLine`, `transit.CoachLines`): loops of 2–24 stops drawn with the
+  Transport tool, up to 8 per town, 0.5 emerald a stop. Stops are real blocks: a spruce post with a
+  standing banner in the line colour and a spruce-stair bench, removed with the line. Stops keep
+  their post position, so a road split by a new junction or rebuilt is found again by position.
+  The **Coach House** (2×1 lot, a timber stable with two coach doors and a paddock; unlocked at
+  Worthy Village; new Transport department) is needed for coaches to run. A line runs one coach
+  per 90 blocks of route at a 100% budget. A commuter rides when home and work are each within 40
+  blocks of different stops of a running line (60% of them, a stable share by name, scaled by the
+  budget); riders add no car trips, coaches add four trips each along the route, riders pay 4
+  hundredths a day, coaches cost 1.2 emeralds a day.
+- **Street life** (`client.StreetLife`): client-only puppets (vanilla horse/donkey/mule, minecart
+  and villager entities that are never added to the world, given negative ids and drawn through
+  the entity render dispatcher from `ExtractLevelRenderStateEvent` / `SubmitCustomGeometryEvent`).
+  Carts spawn on roads within 112 blocks of the camera, picked by flow, about one per six trips
+  a day per 64 blocks, and wander the graph turning by flow; they keep right (0.8 blocks off the
+  centreline, 2 on avenues). Coaches (two horses abreast, a minecart with a carpet canopy in the
+  line colour, two villager passengers) run evenly spaced round each line and dwell 2.5 s at every
+  stop. Drawing failures are caught and logged once, never crash the game.
+- **Citizens** (`life.CitizenNpc`, `life.Citizens`): a non-saved `AgeableMob` with the villager
+  model, dressed by town style (villager type) and trade (profession; plain clothes for children
+  and the jobless). Around each player in a town, up to a quarter of the population (max 24) are
+  out by day and a quarter of that at night, spawned 12+ blocks away on sidewalks (lane verges),
+  each a real person from a home within 48 blocks, never two copies of one person. They stroll
+  between street points, look at players, and on right-click say their name and age, home, job
+  (or school, retirement, job hunting) and mood with their home's biggest complaint or joy.
+- **Deferred:** pedestrian trips and walking in the model, service vehicles, minecart metro,
+  per-lane junction behaviour.

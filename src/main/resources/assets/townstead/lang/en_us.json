@@ -525,7 +525,7 @@
   "info.townstead.flow": "Traffic flow: %s%%",
   "info.townstead.trips": "Trips a day: %s · on coaches: %s",
   "info.townstead.road_load": "This road: %s trips (%s%% of capacity)",
-  "info.townstead.legend.traffic": "Green clear · yellow busy · red jammed. Coach lines take commuters off the roads",
+  "info.townstead.legend.traffic": "Green clear · yellow busy · red jammed",
   "transit.townstead.lines": "Coach lines",
   "transit.townstead.mode.0": "Coach House (keeps the coaches)",
   "transit.townstead.mode.1": "Draw a coach line",

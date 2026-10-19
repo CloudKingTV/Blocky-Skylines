@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 5 complete (milestones, land, chirps, landmarks)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 6 complete (traffic, coach lines, carts and citizens on the streets)**
 
 ## Playing (current build)
 
@@ -29,6 +29,7 @@ you designed.
    | Zone lots | Zoning tool, then drag; **1–6** zone type, **7** clear |
    | Place a service | Utilities / Services / Parks / Landmarks tool, **1–5** pick, click a lot |
    | Buy land | Land tool, click a gold-outlined tile |
+   | Coach lines | Transport tool: **1** Coach House, **2** draw a line (click stops, **Enter** or the first stop to finish), **3** remove a line |
    | Milestones and unlocks | **U** |
    | Info views | Info tool, **1–9** pick a view (or click) |
    | Town budget | **L**, or click the treasury |
@@ -135,8 +136,9 @@ for free, and the server config option `freeBuild` turns materials off for every
     else, take staff from the town's workers, and can be undone or bulldozed.
 16. **Status icons and info views.** Buildings show what they're missing over their roofs
     (redstone: no power; water bucket: no water; cobweb: abandoned; a material: a site waiting on
-    it). The **Info** tool (tenth button) colours the town: **1** power, **2** water, **3–8** each
-    service's coverage (with rings), **9** building levels, with totals in the corner.
+    it). The **Info** tool (tenth button) colours the town: power, water, happiness, land value,
+    pollution, noise, education, traffic, building levels and each service's coverage (with
+    rings), with totals in the corner.
 
 17. **Money.** The treasury is in emeralds. Use the Town Hall with emeralds (or emerald blocks)
     in hand to put them in; use it empty-handed to see the treasury and take emeralds out. A new
@@ -191,8 +193,31 @@ slower.
     (Worthy Village), **Clock Tower** (Boom Town) and **Chapel** (Busy Town) raise land value
     and make everyone in reach happier (+6), and cost upkeep from the parks budget.
 
-Breaking the Town Hall disbands the town. Phase 6 (living city: citizens on the streets,
-traffic and bus lines) is next. See the roadmap.
+24. **Traffic.** Everyone who works drives to work, households run errands to the nearest shop
+    and workshops deliver to shops. These trips are routed over your road network and pile up
+    on its roads: lanes carry about 40 trips a day before they slow, streets 100, avenues 260.
+    The **traffic info view** (Info tool, **8**) colours every road green, yellow or red and
+    shows the town's *traffic flow* (100% means nobody is held up). Jammed commutes make people
+    unhappy, and busier roads are louder.
+25. **Coach lines** (Transport tool, sixth button), the village answer to bus lines. Build a
+    **Coach House** (**1**, unlocked at Worthy Village), then pick **2** and click along your roads
+    to drop stops; click the first stop again or press **Enter** to close the loop. Each stop
+    goes up as a real stop by the road: a post flying a banner in the line's colour, with a bench.
+    People who live and work near stops of the same line ride it instead of driving: that takes
+    trips off the roads and earns fares, while the coaches cost upkeep from the new Transport
+    budget line. Homes near a stop are a little happier. The panel at the top left lists each
+    line's stops, coaches, riders and length; **3** removes a line and its stops.
+26. **Carts and coaches on the streets.** Horse, donkey and mule carts loaded with hay, barrels,
+    logs and produce drive the roads, more on busier ones, keeping to the right. Coaches in
+    their line's colours (two horses, passengers aboard) run every line and wait at each stop.
+    They're drawn on your screen only, so they cost the server nothing.
+27. **Citizens.** Real residents walk the sidewalks around you, dressed for their trade and in
+    their town's style, more in a bigger town and fewer at night. Look at one to see their name;
+    right-click to hear who they are, where they live and work, how happy they are and what's on
+    their mind.
+
+Breaking the Town Hall disbands the town. Phase 7 (districts and policies, specialisations,
+disasters, monuments) is next. See the roadmap.
 
 ## Screenshots (from the headless playtests)
 

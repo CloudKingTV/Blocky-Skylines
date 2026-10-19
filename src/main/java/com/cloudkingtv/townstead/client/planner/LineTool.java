@@ -19,10 +19,10 @@ import org.jspecify.annotations.Nullable;
  * again (or press Enter) to close the loop; right-click takes the last stop back. Its other mode removes a line by
  * clicking one of its stops.
  */
-final class LineTool {
+public final class LineTool {
     /** 0: place the coach house, 1: draw a line, 2: remove a line. */
-    static int mode;
-    static final List<TransitPayloads.StopPick> DRAFT = new ArrayList<>();
+    public static int mode;
+    public static final List<TransitPayloads.StopPick> DRAFT = new ArrayList<>();
     /** The point of ground under the cursor (line modes only). */
     static @Nullable Vec3 hover;
     /** Stops within this many blocks count as clicked. */
@@ -45,8 +45,8 @@ final class LineTool {
     }
 
     /** The town road under the cursor, as a stop would sit on it. */
-    static RoadRouter.@Nullable Access hoverRoad(CitySummary city) {
-        return hover == null ? null : router(city).access(hover.x, hover.z, 1);
+    public static RoadRouter.@Nullable Access hoverRoad(CitySummary city) {
+        return hover == null ? null : router(city).access(hover.x, hover.z, 3);
     }
 
     /** World point of a pick on its road. */
