@@ -16,14 +16,17 @@ import net.minecraft.world.item.DyeColor;
  * signpost and bench by the road ({@code marker} is the post).
  */
 public record CoachLine(int id, String name, DyeColor color, List<Stop> stops) {
-    public record Stop(int segment, double t, BlockPos marker) {
+    /** {@code marker}: the post's lowest block; {@code bench}: the bench beside it (the marker itself if there was no room). */
+    public record Stop(int segment, double t, BlockPos marker, BlockPos bench) {
         static final Codec<Stop> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.fieldOf("segment").forGetter(Stop::segment),
                 Codec.DOUBLE.fieldOf("t").forGetter(Stop::t),
-                BlockPos.CODEC.fieldOf("marker").forGetter(Stop::marker)
-        ).apply(i, Stop::new));
+                BlockPos.CODEC.fieldOf("marker").forGetter(Stop::marker),
+                BlockPos.CODEC.optionalFieldOf("bench").forGetter(s -> java.util.Optional.of(s.bench))
+        ).apply(i, (seg, t, marker, bench) -> new Stop(seg, t, marker, bench.orElse(marker))));
         static final StreamCodec<ByteBuf, Stop> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.VAR_INT, Stop::segment, ByteBufCodecs.DOUBLE, Stop::t, BlockPos.STREAM_CODEC, Stop::marker, Stop::new);
+                ByteBufCodecs.VAR_INT, Stop::segment, ByteBufCodecs.DOUBLE, Stop::t, BlockPos.STREAM_CODEC, Stop::marker,
+                BlockPos.STREAM_CODEC, Stop::bench, Stop::new);
     }
 
     public static final Codec<CoachLine> CODEC = RecordCodecBuilder.create(i -> i.group(
@@ -41,10 +44,11 @@ public record CoachLine(int id, String name, DyeColor color, List<Stop> stops) {
     public static final DyeColor[] PALETTE = {DyeColor.RED, DyeColor.BLUE, DyeColor.YELLOW, DyeColor.LIME, DyeColor.PURPLE,
             DyeColor.ORANGE, DyeColor.CYAN, DyeColor.MAGENTA};
 
-    /** A stop's segment and place, as the router takes them. */
-    public com.cloudkingtv.townstead.road.RoadRouter.Access access(int i) {
+    /** Where stop i meets the road, as the router takes it (null if its road is gone). */
+    public com.cloudkingtv.townstead.road.RoadRouter.@org.jspecify.annotations.Nullable Access access(
+            com.cloudkingtv.townstead.road.RoadRouter router, int i) {
         Stop s = stops.get(i);
-        return new com.cloudkingtv.townstead.road.RoadRouter.Access(s.segment(), s.t());
+        return router.stop(s.segment(), s.t(), s.marker());
     }
 
     public int rgb() {

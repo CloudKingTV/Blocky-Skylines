@@ -136,7 +136,9 @@ public final class Traffic {
         if (line.stops().size() < 2) return null;
         List<RoadRouter.Leg> route = new ArrayList<>();
         for (int i = 0; i < line.stops().size(); i++) {
-            List<RoadRouter.Leg> legs = router.route(line.access(i), line.access((i + 1) % line.stops().size()), router::freeTime);
+            RoadRouter.Access a = line.access(router, i), b = line.access(router, (i + 1) % line.stops().size());
+            if (a == null || b == null) return null;
+            List<RoadRouter.Leg> legs = router.route(a, b, router::freeTime);
             if (legs == null) return null;
             route.addAll(legs);
         }

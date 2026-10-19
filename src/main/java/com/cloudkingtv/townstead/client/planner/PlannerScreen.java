@@ -78,13 +78,13 @@ public class PlannerScreen extends Screen {
             new Tool("zoning", new ItemStack(Items.OAK_SIGN), true),
             new Tool("utilities", new ItemStack(Items.REDSTONE_TORCH), true),
             new Tool("services", new ItemStack(Items.BELL), true),
-            new Tool("transport", new ItemStack(Items.MINECART), false),
+            new Tool("transport", new ItemStack(Items.MINECART), true),
             new Tool("parks", new ItemStack(Items.OAK_SAPLING), true),
             new Tool("landmarks", new ItemStack(Items.BEACON), true),
             new Tool("land", new ItemStack(Items.FILLED_MAP), true),
             new Tool("info", new ItemStack(Items.COMPASS), true),
             new Tool("bulldoze", new ItemStack(Items.IRON_SHOVEL), true));
-    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, PARKS = 6, LANDMARKS = 7, LAND = 8, INFO = 9, BULLDOZE = 10;
+    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, TRANSPORT = 5, PARKS = 6, LANDMARKS = 7, LAND = 8, INFO = 9, BULLDOZE = 10;
 
     /** What the utilities / services / parks tools can place. */
     private static List<ServiceType> placeList(int tool) {
@@ -93,6 +93,7 @@ public class PlannerScreen extends Screen {
             case SERVICES -> ServiceType.SERVICES.stream().filter(t -> t != ServiceType.PARK).toList();
             case PARKS -> List.of(ServiceType.PARK);
             case LANDMARKS -> ServiceType.LANDMARKS;
+            case TRANSPORT -> LineTool.mode == 0 ? List.of(ServiceType.COACH_HOUSE) : List.of();
             default -> List.of();
         };
     }
@@ -111,12 +112,18 @@ public class PlannerScreen extends Screen {
     private static @Nullable Object subThing(int i) {
         if (selectedTool == ROADS) return i < RoadType.values().length ? RoadType.values()[i] : null;
         if (selectedTool == ZONING) return i < ZoneType.PAINTABLE.size() ? ZoneType.PAINTABLE.get(i) : null;
+        if (selectedTool == TRANSPORT) return i < 2 ? ServiceType.COACH_HOUSE : null; // lines unlock with the coach house
         List<ServiceType> list = placeList(selectedTool);
         return i < list.size() ? list.get(i) : null;
     }
 
     private static boolean placing() {
         return !placeList(selectedTool).isEmpty();
+    }
+
+    /** Whether the transport tool is out (the world renderer draws the coach lines and the draft then). */
+    public static boolean transportActive() {
+        return selectedTool == TRANSPORT;
     }
 
     /** Whether the info tool is out (the world renderer colours buildings then). */
@@ -136,6 +143,8 @@ public class PlannerScreen extends Screen {
     /** Tool sub-panels: roads (three sizes, gap, two modes), zoning (three zones, gap, clear). */
     private static final int SUB_GAP = 6;
     private static final List<ItemStack> MODE_ICONS = List.of(new ItemStack(Items.RAIL), new ItemStack(Items.POWERED_RAIL));
+    /** Transport sub-panel: the coach house, draw a line, remove a line. */
+    private static final List<ItemStack> TRANSPORT_ICONS = List.of(new ItemStack(Items.SADDLE), new ItemStack(Items.BANNER.pick(net.minecraft.world.item.DyeColor.RED)), new ItemStack(Items.SHEARS));
 
     private final long openedAt = Util.getMillis();
     private final float[] hover = new float[TOOLS.size()];
@@ -213,7 +222,14 @@ public class PlannerScreen extends Screen {
         if (key == InputConstants.KEY_U) { MilestonePanel.open = !MilestonePanel.open; BudgetPanel.open = false; click(MilestonePanel.open ? 1.2f : 0.8f); return true; }
         if (key == InputConstants.KEY_L) { MilestonePanel.open = false; }
         if (key == InputConstants.KEY_L) { BudgetPanel.open = !BudgetPanel.open; click(BudgetPanel.open ? 1.2f : 0.8f); return true; }
-        if ((placing() || selectedTool == INFO) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
+        if (selectedTool == TRANSPORT && LineTool.mode == 1 && (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER)) {
+            PlannerClient.city().ifPresent(c -> {
+                Component problem = LineTool.finish(c);
+                if (problem != null) { flash(problem); click(0.5f); } else click(1.3f);
+            });
+            return true;
+        }
+        if ((placing() || selectedTool == INFO || selectedTool == TRANSPORT) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
             pickSub(key - InputConstants.KEY_1);
             return true;
         }
@@ -273,6 +289,8 @@ public class PlannerScreen extends Screen {
             panelBuilding = -1;
             click(0.8f);
         } else if (selectedTool == ROADS && PlannerClient.ROADS.cancel()) {
+            click(0.8f);
+        } else if (selectedTool == TRANSPORT && LineTool.undo()) {
             click(0.8f);
         } else if (painting) {
             painting = false;
@@ -343,6 +361,13 @@ public class PlannerScreen extends Screen {
         if (selectedTool == ROADS) { roadClick(); return true; }
         if (selectedTool == BULLDOZE) { bulldozeClick(); return true; }
         if (selectedTool == LAND) { landClick(); return true; }
+        if (selectedTool == TRANSPORT && LineTool.mode != 0) {
+            PlannerClient.city().ifPresent(c -> {
+                Component problem = LineTool.click(c);
+                if (problem != null) { flash(problem); click(0.5f); } else click(LineTool.DRAFT.isEmpty() ? 1.3f : 1.1f);
+            });
+            return true;
+        }
         if (placing()) { placeClick(); return true; }
         if (selectedTool == ZONING) {
             painting = true;
@@ -516,6 +541,60 @@ public class PlannerScreen extends Screen {
         cursorPanel(g, lines, colors, mouseX, mouseY);
     }
 
+    /** The line tool's readout: stops so far and how to finish, or the line a click would remove. */
+    private void drawLineInfo(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
+        if (city == null) return;
+        List<Component> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+        if (LineTool.mode == 1) {
+            lines.add(Component.translatable("transit.townstead.drawing", LineTool.DRAFT.size()));
+            colors.add(0xFFFFE9B0);
+            if (LineTool.DRAFT.size() >= 2) {
+                var r = LineTool.router(city);
+                lines.add(Component.translatable("transit.townstead.length", Math.round(r.length(LineTool.draftRoute(city)))));
+                colors.add(0xFFDDDDDD);
+            }
+            lines.add(Component.translatable(LineTool.onFirst() ? "transit.townstead.click_close"
+                    : LineTool.DRAFT.size() >= 2 ? "transit.townstead.click_more" : "transit.townstead.click_stop"));
+            colors.add(0xFFB8B8B8);
+        } else {
+            var line = LineTool.hoveredLine(city);
+            lines.add(line == null ? Component.translatable("transit.townstead.mode.2") : com.cloudkingtv.townstead.transit.CoachLines.lineName(line.color()));
+            colors.add(line == null ? 0xFFFFE9B0 : 0xFF000000 | line.rgb());
+            if (line != null) { lines.add(Component.translatable("transit.townstead.click_remove")); colors.add(0xFFB8B8B8); }
+        }
+        Component problem = LineTool.problem(city);
+        if (problem != null && (LineTool.mode == 2 ? LineTool.hover != null && LineTool.hoveredLine(city) == null : true)) {
+            if (LineTool.mode == 1 || LineTool.hover != null) { lines.add(problem); colors.add(0xFFFF9A7A); }
+        }
+        cursorPanel(g, lines, colors, mouseX, mouseY);
+    }
+
+    /** The town's coach lines, top left while the transport tool is out: colour, stops, coaches, riders, length. */
+    private void drawLinesPanel(GuiGraphicsExtractor g, @Nullable CitySummary city) {
+        var m = PlannerClient.model();
+        if (city == null || m == null) return;
+        List<Component> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+        boolean depot = m.town.stream().anyMatch(b -> b.state == Building.State.ACTIVE && ServiceType.COACH_HOUSE.key().equals(b.service));
+        lines.add(Component.translatable("transit.townstead.panel", city.lines().size(), m.traffic.riders()));
+        colors.add(0xFFFFE9B0);
+        if (!depot) { lines.add(Component.translatable("transit.townstead.no_depot")); colors.add(0xFFFF9A7A); }
+        for (var line : city.lines()) {
+            var st = m.traffic.line(line.id());
+            Component status = st == null || st.route().isEmpty() ? Component.translatable("transit.townstead.broken")
+                    : Component.translatable("transit.townstead.stats", line.stops().size(), st.coaches(), st.riders(), Math.round(st.length()));
+            lines.add(Component.literal("\u25A0 ").withColor(line.rgb()).append(com.cloudkingtv.townstead.transit.CoachLines.lineName(line.color())
+                    .copy().withColor(0xFFFFFF)).append(Component.literal("  ")).append(status));
+            colors.add(0xFFDDDDDD);
+        }
+        if (city.lines().isEmpty()) { lines.add(Component.translatable("transit.townstead.none")); colors.add(0xFFB8B8B8); }
+        int w = lines.stream().mapToInt(font::width).max().orElse(60) + 12, h = lines.size() * (font.lineHeight + 2) + 8;
+        int x = 6, y = TOP_BAR_H + 6;
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
+        for (int i = 0; i < lines.size(); i++) g.text(font, lines.get(i), x + 6, y + 5 + i * (font.lineHeight + 2), colors.get(i), true);
+    }
+
     private void placeClick() {
         BlockPos cell = PlannerClient.hoverCell;
         CitySummary city = PlannerClient.city().orElse(null);
@@ -554,6 +633,13 @@ public class PlannerScreen extends Screen {
             click(0.6f);
             return;
         }
+        if (selectedTool == TRANSPORT) {
+            LineTool.mode = i;
+            LineTool.reset();
+            if (i == 0) PlannerClient.placing = ServiceType.COACH_HOUSE;
+            click(1.1f);
+            return;
+        }
         if (placing()) {
             List<ServiceType> list = placeList(selectedTool);
             if (i < list.size()) PlannerClient.placing = list.get(i);
@@ -582,7 +668,7 @@ public class PlannerScreen extends Screen {
 
     private void pickTool(int tool) {
         if (TOOLS.get(tool).available()) {
-            if (tool != selectedTool) PlannerClient.ROADS.reset();
+            if (tool != selectedTool) { PlannerClient.ROADS.reset(); LineTool.reset(); }
             selectedTool = tool;
             if (placing() && !placeList(tool).contains(PlannerClient.placing)) PlannerClient.placing = placeList(tool).getFirst();
             PlannerClient.selectedCell = null;
@@ -649,6 +735,7 @@ public class PlannerScreen extends Screen {
 
     private void updateHover(int mouseX, int mouseY) {
         PlannerClient.hoverTile = null;
+        LineTool.hover = null;
         PlannerClient.hoveredSegmentId = -1;
         PlannerClient.hoveredBuildingId = -1;
         if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || overPanel(mouseX, mouseY)
@@ -677,6 +764,11 @@ public class PlannerScreen extends Screen {
         if (selectedTool == LAND) {
             PlannerClient.hoverCell = null;
             PlannerClient.hoverTile = TilePos.ofBlock((int) Math.floor(at.x), (int) Math.floor(at.z));
+            return;
+        }
+        if (selectedTool == TRANSPORT && LineTool.mode != 0) {
+            PlannerClient.hoverCell = null;
+            LineTool.hover = at;
             return;
         }
         // Buildings first: the cell under the cursor (inspect and bulldoze pick them out).
@@ -741,12 +833,14 @@ public class PlannerScreen extends Screen {
         Building hovered = PlannerClient.hoveredBuilding();
         // The bars and their buttons have their own tooltips: no cursor readout over them.
         boolean overBars = mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0;
+        if (selectedTool == TRANSPORT && panelBuilding < 0) drawLinesPanel(g, city);
         if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
         else if (!overBars) {
             if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
             else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
             else if (selectedTool == ZONING) drawZoningInfo(g, city, mouseX, mouseY);
             else if (selectedTool == LAND) drawLandInfo(g, city, mouseX, mouseY);
+            else if (selectedTool == TRANSPORT && LineTool.mode != 0) drawLineInfo(g, city, mouseX, mouseY);
             else if (placing()) drawPlaceInfo(g, city, mouseX, mouseY);
             else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
             else drawCursorInfo(g, city);
@@ -1025,6 +1119,7 @@ public class PlannerScreen extends Screen {
             case ROADS -> RoadType.values().length + RoadTool.Mode.values().length;
             case ZONING -> PlannerClient.CLEAR_BRUSH + 1;
             case INFO -> PlannerClient.INFO_VIEWS.size();
+            case TRANSPORT -> 3;
             default -> placeList(selectedTool).size();
         };
     }
@@ -1068,6 +1163,9 @@ public class PlannerScreen extends Screen {
             if (roads) {
                 on = i < types ? tool.type.ordinal() == i : tool.mode.ordinal() == i - types;
                 icon = i < types ? RoadType.values()[i].icon() : MODE_ICONS.get(i - types);
+            } else if (selectedTool == TRANSPORT) {
+                on = LineTool.mode == i;
+                icon = TRANSPORT_ICONS.get(i);
             } else if (placing()) {
                 ServiceType st = placeList(selectedTool).get(i);
                 on = PlannerClient.placing == st;
@@ -1094,7 +1192,9 @@ public class PlannerScreen extends Screen {
         }
         if (hovered >= 0) {
             Component name;
-            if (placing()) {
+            if (selectedTool == TRANSPORT) {
+                name = Component.translatable("transit.townstead.mode." + hovered);
+            } else if (placing()) {
                 ServiceType st = placeList(selectedTool).get(hovered);
                 name = Component.translatable(st.kind == ServiceType.Kind.SERVICE ? "service.townstead.tip_service" : "service.townstead.tip_utility",
                         st.displayName(), st.kind == ServiceType.Kind.SERVICE ? st.radius : st.capacity);

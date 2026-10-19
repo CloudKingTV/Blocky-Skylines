@@ -62,6 +62,7 @@ public final class PlannerWorldRenderer {
             if (PlannerScreen.landActive()) landForSale(p, buf, level, cam, city, width, pulse);
             landLines(p, buf, level, cam, city, width, pulse);
             serviceLines(p, buf, cam, city, width, pulse);
+            if (PlannerScreen.transportActive() || PlannerScreen.infoActive() && view().equals("traffic")) transitLines(p, buf, cam, city, width, pulse);
         });
         event.getSubmitNodeCollector().submitCustomGeometry(pose, PlannerRenderTypes.OVERLAY_QUADS, (p, buf) -> {
             roadQuads(p, buf, cam, city, pulse);
@@ -443,6 +444,56 @@ public final class PlannerWorldRenderer {
     private static double groundY(double x, double z) {
         ClientLevel level = Minecraft.getInstance().level;
         return level == null ? 64 : level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, Mth.floor(x), Mth.floor(z));
+    }
+
+    // ---------------------------------------------------------------- coach lines
+
+    /** Every coach line along its route in its colour with its stops, and the line being drawn. */
+    private static void transitLines(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, CitySummary city, float w, float pulse) {
+        var model = PlannerClient.model();
+        var hovered = PlannerScreen.transportActive() && LineTool.mode == 2 ? LineTool.hoveredLine(city) : null;
+        int lane = 0;
+        for (var line : city.lines()) {
+            int color = 0xFF000000 | line.rgb();
+            if (hovered != null && hovered.id() == line.id()) color = scale(0xFFFF5050, pulse);
+            var stats = model == null ? null : model.traffic.line(line.id());
+            // Lines sharing a road sit side by side, a little apart.
+            double lift = 1.25 + 0.12 * (lane++ % 4);
+            if (stats != null) legs(p, buf, cam, stats.route(), lift, color, w * 3.5f);
+            for (var stop : line.stops()) diamond(p, buf, cam, stop.marker().getX() + 0.5, stop.marker().getY() + 0.3, stop.marker().getZ() + 0.5, 1.4, color, w * 3f);
+        }
+        if (PlannerScreen.transportActive() && LineTool.mode == 1) {
+            int white = scale(0xFFFFFFFF, pulse);
+            legs(p, buf, cam, LineTool.draftRoute(city), 1.5, white, w * 3f);
+            for (var pick : LineTool.DRAFT) {
+                Vec3 at = LineTool.point(pick);
+                if (at != null) diamond(p, buf, cam, at.x, at.y + 0.3, at.z, 1.6, white, w * 3f);
+            }
+            var road = LineTool.hoverRoad(city);
+            if (road != null) {
+                var seg = ClientRoads.network().segment(road.segment());
+                if (seg != null) diamond(p, buf, cam, seg.curve().x(road.t()), seg.heightAt(road.t()) + 1.3, seg.curve().z(road.t()), 1.2,
+                        LineTool.onFirst() ? 0xFF9EE37D : 0xFFFFD36B, w * 2.5f);
+            }
+        }
+    }
+
+    /** A route drawn along the road centreline, {@code lift} blocks above the surface. */
+    private static void legs(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, java.util.List<com.cloudkingtv.townstead.road.RoadRouter.Leg> legs,
+                             double lift, int color, float w) {
+        for (var leg : legs) {
+            RoadSegment s = ClientRoads.network().segment(leg.segment());
+            if (s == null) continue;
+            double span = Math.abs(leg.t1() - leg.t0());
+            int n = Math.max(1, (int) Math.ceil(span * s.curve().length() / 2));
+            double px = 0, py = 0, pz = 0;
+            for (int i = 0; i <= n; i++) {
+                double t = leg.t0() + (leg.t1() - leg.t0()) * i / n;
+                double x = s.curve().x(t), y = s.heightAt(t) + lift, z = s.curve().z(t);
+                if (i > 0) line(p, buf, cam, px, py, pz, x, y, z, color, w);
+                px = x; py = y; pz = z;
+            }
+        }
     }
 
     private static void diamond(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, double x, double y, double z, double r, int color, float w) {

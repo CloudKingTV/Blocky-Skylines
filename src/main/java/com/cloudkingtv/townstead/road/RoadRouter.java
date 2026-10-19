@@ -134,6 +134,19 @@ public final class RoadRouter {
         }
     }
 
+    /**
+     * Where a coach stop meets the road now: its own segment and place if that still runs past the post, otherwise
+     * (the road was split by a junction, or rebuilt) the town road nearest the post.
+     */
+    public @Nullable Access stop(int segment, double t, net.minecraft.core.BlockPos marker) {
+        RoadSegment s = net.segment(segment);
+        double mx = marker.getX() + 0.5, mz = marker.getZ() + 0.5;
+        if (s != null && lengths.containsKey(segment) && Math.hypot(s.curve().x(t) - mx, s.curve().z(t) - mz) <= s.type().halfWidth() + 3.5) {
+            return new Access(segment, t);
+        }
+        return access(mx, mz, 4);
+    }
+
     /** Length in blocks of a route. */
     public double length(List<Leg> legs) {
         double n = 0;

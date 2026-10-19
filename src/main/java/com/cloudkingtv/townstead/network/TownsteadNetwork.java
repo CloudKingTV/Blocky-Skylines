@@ -23,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "7";
+    private static final String PROTOCOL = "8";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -77,6 +77,14 @@ public final class TownsteadNetwork {
                     .ifPresent(city -> StorehouseService.withdraw(player, city, msg.item(), msg.count()));
         });
         r.playToClient(ChirpPayload.TYPE, ChirpPayload.STREAM_CODEC);
+        r.playToServer(TransitPayloads.CreateLine.TYPE, TransitPayloads.CreateLine.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
+                    .ifPresent(city -> com.cloudkingtv.townstead.transit.CoachLines.create(player, city, msg.stops()));
+        });
+        r.playToServer(TransitPayloads.RemoveLine.TYPE, TransitPayloads.RemoveLine.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
+                    .ifPresent(city -> com.cloudkingtv.townstead.transit.CoachLines.remove(player, city, msg.lineId()));
+        });
         r.playToServer(LandEditPayloads.BuyTile.TYPE, LandEditPayloads.BuyTile.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
                     .ifPresent(city -> TownActions.buyTile(player, city, new com.cloudkingtv.townstead.city.TilePos(msg.tileX(), msg.tileZ())));
