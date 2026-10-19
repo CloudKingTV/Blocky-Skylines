@@ -28,7 +28,8 @@ you designed.
    | Show all controls | **H** |
    | Zone lots | Zoning tool, then drag; **1–6** zone type, **7** clear |
    | Place a service | Utilities / Services / Parks tool, **1–5** pick, click a lot |
-   | Info views | Info tool, **1–9** pick a view |
+   | Info views | Info tool, **1–9** pick a view (or click) |
+   | Town budget | **L**, or click the treasury |
    | Building panel | Inspect tool, click a building (Esc closes) |
    | Undo / redo | **Ctrl+Z** / **Ctrl+Y** (or **Ctrl+Shift+Z**) |
    | Leave the planner | **M**, or **Esc** with nothing selected |
@@ -134,11 +135,33 @@ for free, and the server config option `freeBuild` turns materials off for every
     it). The **Info** tool (eighth button) colours the town: **1** power, **2** water, **3–8** each
     service's coverage (with rings), **9** building levels, with totals in the corner.
 
+17. **Money.** The treasury is in emeralds. Use the Town Hall with emeralds (or emerald blocks)
+    in hand to put them in; use it empty-handed to see the treasury and take emeralds out. A new
+    town starts with a 25-emerald purse, which stays as a reserve, and you can't take out what's
+    still owed on loans. Every half minute the town collects a slice of its daily taxes and pays a
+    slice of its upkeep.
+18. **The budget** (**L**, or click the treasury in the top bar). Taxes per kind of building
+    (homes, shops, workshops, offices) from 0 to 29%: each household and each filled job has a
+    taxable value that grows with level (and, for homes, land value). Above 9% people get less
+    happy and demand falls; below it the opposite. Every service department has a budget from 50%
+    to 150%, which scales its upkeep and its reach (or a plant's output). Roads cost upkeep by
+    length. Three loans are on offer (50, 150 and 400 emeralds at 5–12% interest), paid back
+    daily or early. A town in debt runs its services at half strength. The bars show recent
+    settlements.
+19. **People.** Every resident has an education level (unschooled to highly educated); a school in
+    reach of their home adds one. Offices, the clinic and the school need well-educated workers,
+    and offices only come when the town has them. **Happiness** comes from plain factors listed in
+    the building panel: power and water, services in reach, a park, land value, pollution, noise,
+    taxes, unemployment, staff and customers. Level 2 needs 50, level 3 needs 65, and below 20 it's
+    trouble. **Pollution** (workshops, the compost yard), **noise** (shops, workshops, the fire
+    station, busy roads) and **land value** (parks, services, shops, the Town Hall; pollution and
+    noise lower it) each have an info view. Level 3 homes and shops need land value 50.
+
 The server setting `growthSpeed` (default 1) makes towns build, level and decline faster or
 slower.
 
-Breaking the Town Hall disbands the town. Citizens, money and happiness come next (Phase 4). See
-the roadmap.
+Breaking the Town Hall disbands the town. Milestones, unlocks and buying land come next
+(Phase 5). See the roadmap.
 
 ## Screenshots (from the headless playtests)
 

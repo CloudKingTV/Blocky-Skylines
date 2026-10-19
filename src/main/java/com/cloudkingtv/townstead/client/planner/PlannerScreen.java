@@ -650,7 +650,8 @@ public class PlannerScreen extends Screen {
             // Pencil-ish quill marks the name as editable.
             g.item(new ItemStack(Items.WRITABLE_BOOK), NAME_X + font.width(city.name()) + 3, 3);
             // Anchor the tooltip under the bar so it never covers the name it describes.
-            if (hot) g.setTooltipForNextFrame(font, Component.translatable("hud.townstead.rename_hint"), mouseX, TOP_BAR_H + 14);
+            if (hot) g.setTooltipForNextFrame(font, List.of(Component.translatable("hud.townstead.rename_hint").getVisualOrderText(),
+                    Component.translatable("hud.townstead.tiles", city.tiles().size()).getVisualOrderText()), mouseX, TOP_BAR_H + 14);
         }
         int x = width - 8;
         int stored = city.stock().values().stream().mapToInt(Integer::intValue).sum();
@@ -666,7 +667,6 @@ public class PlannerScreen extends Screen {
             if (lines.size() == 1) lines.add(Component.translatable("hud.townstead.stock_empty"));
             g.setTooltipForNextFrame(font, lines.stream().map(Component::getVisualOrderText).toList(), mouseX, TOP_BAR_H + 14);
         }
-        x = rightStat(g, x, y, new ItemStack(Items.FILLED_MAP), Component.translatable("hud.townstead.tiles", city.tiles().size()));
         var model = PlannerClient.model();
         Demand demand = model != null ? model.demand : Demand.of(ClientLand.get().buildingsOf(city.id()));
         x = rightStat(g, x, y, new ItemStack(Items.VILLAGER_SPAWN_EGG), Component.translatable("hud.townstead.population", demand.population()));
@@ -846,7 +846,7 @@ public class PlannerScreen extends Screen {
             g.blitSprite(RenderPipelines.GUI_TEXTURED, on ? BUTTON_SELECTED : i == hovered ? BUTTON_HOVER : BUTTON, bx + 1, by + 1, SLOT - 2, SLOT - 2);
             if (selectedTool == ZONING && i < ZoneType.PAINTABLE.size()) g.fill(bx + 3, by + SLOT - 5, bx + SLOT - 3, by + SLOT - 3, 0xFF000000 | ZoneType.PAINTABLE.get(i).rgb);
             g.item(icon, bx + 4, by + 4);
-            if (!roads || i < types) g.text(font, String.valueOf(i + 1), bx + SLOT - 7, by + SLOT - 10, 0xFFFFFFFF, true);
+            if ((!roads || i < types) && i < 9) g.text(font, String.valueOf(i + 1), bx + SLOT - 7, by + SLOT - 10, 0xFFFFFFFF, true);
         }
         if (hovered >= 0) {
             Component name;
@@ -871,7 +871,10 @@ public class PlannerScreen extends Screen {
     private void drawDemand(GuiGraphicsExtractor g, int right, Demand demand, int mouseX, int mouseY) {
         ZoneType[] bars = {ZoneType.RESIDENTIAL, ZoneType.COMMERCIAL, ZoneType.INDUSTRIAL, ZoneType.OFFICE};
         int barW = 5, gap = 3, h = TOP_BAR_H - 8, x0 = right - bars.length * (barW + gap) - 10;
-        g.text(font, "RCIO", x0 - font.width("RCIO") - 3, (TOP_BAR_H - font.lineHeight) / 2, 0xFFB8B8B8, true);
+        // The label only when it won't run into the town's name.
+        int nameEnd = PlannerClient.city().map(c -> NAME_X + font.width(c.name()) + 20).orElse(NAME_X);
+        if (x0 < nameEnd + 4) return;
+        if (x0 - font.width("RCIO") - 3 > nameEnd) g.text(font, "RCIO", x0 - font.width("RCIO") - 3, (TOP_BAR_H - font.lineHeight) / 2, 0xFFB8B8B8, true);
         for (int i = 0; i < bars.length; i++) {
             int bx = x0 + i * (barW + gap), top = 4;
             g.fill(bx, top, bx + barW, top + h, 0x80101010);

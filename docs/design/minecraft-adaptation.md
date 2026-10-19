@@ -426,3 +426,36 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   storeys.
 - A **Bricks** material joins the storehouse groups (chimneys, fire stations, brick roofs).
 
+## 15. Phase 4 as built (people and money)
+
+- **One model of the town** (`sim.TownModel`) is built from the buildings, roads and budget: power
+  and water (with department budgets scaling plant output), service reach (budget scales radius:
+  80% at a 50% budget, 120% at 150%), the land fields, who is schooled, who works where, demand
+  and happiness. The server uses it to decide (growth, levels, trouble, taxes); the client builds
+  the same one to explain (panel, info views, budget, Town Hall).
+- **Money** in hundredths of an emerald. Settlement every 600 ticks applies a fortieth of the
+  daily figures (scaled by `growthSpeed`) and records a ledger entry. Taxes: households ×
+  4 emeralds × level factor (1, 1.5, 2.25) × land-value factor (0.8 + value/250), filled jobs ×
+  5/4/7 emeralds (shops/workshops/offices) × level factor, times the rate. Upkeep per service at
+  its department budget; roads 1/2/4 hundredths per block of lane/street/avenue a day; loans
+  repaid daily. Debt halves service strength. The Town Hall holds emeralds; withdrawals keep a
+  25-emerald founding reserve and anything owed on loans, so loans can't be cashed out.
+- **Education** per resident (0–3, from the seed: 30/45/20/5%); a school in reach adds one.
+  Employment fills skilled jobs first (offices, clinic, school need level 2). Office demand
+  follows well-educated adults. Taxes push all demand three points per percent from 9%.
+- **Happiness** (0–100) = 50 + factors: power/water (+5, or −5/−15 missing at level 1/2+),
+  services in reach (+5, park +8), land value ((v−50)/5), pollution (−p/3) and noise (−n/5) at
+  homes and offices, taxes ((9−rate)×2), unemployment over 10%, short staff, customers, debt.
+- **Fields** per cell from point sources with linear falloff: pollution (workshops 30+, compost
+  yard 25), noise (shops 12–20, workshops 15, fire station 12, roads by type, loudest stretch),
+  land value (base 30, Town Hall +12, parks +25, services +6, shops +4, minus 0.6·pollution and
+  0.4·noise).
+- **Levels** now also need happiness (50 / 65), land value 50 at level 3 for homes and shops, and
+  20 well-educated adults for level-3 offices. Trouble adds "unhappy" (with its worst factor) and
+  offices short of educated staff.
+- **UI:** budget panel (L / treasury click), treasury with daily net and town happiness in the
+  top bar, info views for happiness, land value, pollution, noise and education (heat maps for
+  the fields), building panel sections for happiness factors, the lot's fields and taxes, and
+  each resident's education; Town Hall treasury screen.
+- **Deferred:** ageing, births and deaths, crime, garbage and fire as events, service capacity.
+
