@@ -95,6 +95,14 @@ public final class StreetLife {
             this.total = s;
         }
 
+        /** The segment under distance s, or -1. */
+        int segmentAt(double s) {
+            if (legs.isEmpty() || total <= 0) return -1;
+            s = loop ? ((s % total) + total) % total : Mth.clamp(s, 0, total);
+            for (int k = 0; k < legs.size(); k++) if (k + 1 == legs.size() || start[k + 1] > s) return legs.get(k).segment();
+            return -1;
+        }
+
         /** {x, y, z, yaw} at distance s (wrapped on loops, clamped otherwise). */
         double @Nullable [] at(RoadNetwork net, double s) {
             if (legs.isEmpty() || total <= 0) return null;
@@ -162,10 +170,10 @@ public final class StreetLife {
         }
 
         /** Moves along; false once a cart has driven off the end of its path. */
-        boolean tick(RoadNetwork net) {
+        boolean tick(RoadNetwork net, java.util.function.IntToDoubleFunction pace) {
             double before = s;
             if (dwell > 0) dwell--;
-            else s += speed;
+            else s += speed * pace.applyAsDouble(path.segmentAt(s));
             if (stops.length > 0 && dwell == 0) {
                 double at = stops[nextStop % stops.length];
                 double lap = Math.floor(before / path.total) * path.total;
@@ -226,8 +234,15 @@ public final class StreetLife {
         RoadNetwork net = ClientRoads.network();
         RoadRouter router = m.traffic.router();
         coaches(level, city, m, router);
-        CARTS.removeIf(v -> !v.tick(net) || far(v, cam));
-        for (List<Vehicle> list : COACHES.values()) for (Vehicle v : list) v.tick(net);
+        // Jammed roads crawl: speed falls as the BPR travel time rises.
+        java.util.function.IntToDoubleFunction pace = seg -> {
+            RoadSegment s = net.segment(seg);
+            if (s == null) return 1;
+            double r = m.traffic.ratio(s);
+            return 1 / (1 + 0.15 * r * r * r * r);
+        };
+        CARTS.removeIf(v -> !v.tick(net, pace) || far(v, cam));
+        for (List<Vehicle> list : COACHES.values()) for (Vehicle v : list) v.tick(net, pace);
         spawnCarts(level, m, router, net, cam);
     }
 

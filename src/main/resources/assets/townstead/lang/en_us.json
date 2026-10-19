@@ -556,5 +556,7 @@
   "help.townstead.transport": "Transport tool: 1 Coach House, 2 draw a line (click stops, Enter or the first stop to finish), 3 remove a line",
   "chirp.townstead.line.0": "The new %s is running. No more walking to market! #coaches",
   "chirp.townstead.line.1": "Took the %s across %s this morning. Lovely horses.",
-  "transit.townstead.undo_hint": "Right-click takes the last stop back"
+  "transit.townstead.undo_hint": "Right-click takes the last stop back",
+  "transit.townstead.line_lost": "The %s lost its road and was taken down",
+  "transit.townstead.stop_lost": "The %s lost %s stops with that road"
 }

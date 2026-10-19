@@ -132,6 +132,8 @@ public final class EditHistory {
         Component msg = Component.translatable(redo ? "history.townstead.redone" : "history.townstead.undone", e.label());
         if (skipped > 0) msg = Component.translatable("history.townstead.skipped", msg, skipped);
         RoadEditor.notify(player, msg, true);
+        // Undoing a road's construction takes it away again: so do its coach stops.
+        com.cloudkingtv.townstead.transit.CoachLines.pruneOrphans(player, city);
     }
 
     public static void clear() {

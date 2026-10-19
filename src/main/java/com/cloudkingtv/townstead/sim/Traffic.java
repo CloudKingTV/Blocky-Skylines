@@ -68,7 +68,7 @@ public final class Traffic {
                 if (home == null || work == null) continue;
                 Integer line = ridable(home, work, coachLines, strength, j.person().first() + j.person().last() + j.homeId());
                 if (line != null) { lineRiders.merge(line, 1, Integer::sum); riders++; continue; }
-                all.add(new Trip(home.id, work.id, 1, true));
+                all.add(new Trip(home.id, work.id, 2, true)); // there and back
             }
         }
         List<Building> shops = m.town.stream().filter(b -> b.working() && b.zone.need == ZoneType.Need.SHOPS).toList();
@@ -76,10 +76,10 @@ public final class Traffic {
             if (!b.working()) continue;
             if (b.zone.residential()) {
                 Building shop = nearest(b, shops);
-                if (shop != null) all.add(new Trip(b.id, shop.id, 0.5 * b.households, false));
+                if (shop != null) all.add(new Trip(b.id, shop.id, 1.0 * b.households, false)); // half a round trip each
             } else if (b.zone.need == ZoneType.Need.WORKSHOPS) {
                 Building shop = nearest(b, shops);
-                if (shop != null) all.add(new Trip(b.id, shop.id, 0.3 * m.staff(b), false));
+                if (shop != null) all.add(new Trip(b.id, shop.id, 0.6 * m.staff(b), false));
             }
         }
         lineRiders.forEach((id, n) -> {
@@ -191,9 +191,9 @@ public final class Traffic {
     /** Trips a road could carry before it slows: per day, per direction pair. */
     public static double capacity(RoadType type) {
         return switch (type) {
-            case LANE -> 40;
-            case STREET -> 100;
-            case AVENUE -> 260;
+            case LANE -> 30;
+            case STREET -> 80;
+            case AVENUE -> 200;
         };
     }
 

@@ -157,6 +157,12 @@ public final class CityManager extends SavedData {
         return id;
     }
 
+    /** Replaces a coach line (same id) with a changed one. */
+    public void replaceLine(MinecraftServer server, City city, com.cloudkingtv.townstead.transit.CoachLine line) {
+        for (int i = 0; i < city.lines.size(); i++) if (city.lines.get(i).id() == line.id()) city.lines.set(i, line);
+        changed(server);
+    }
+
     /** Removes a coach line; returns it, or null if there was none with that id. */
     public com.cloudkingtv.townstead.transit.@org.jspecify.annotations.Nullable CoachLine removeLine(MinecraftServer server, City city, int id) {
         for (var it = city.lines.iterator(); it.hasNext(); ) {

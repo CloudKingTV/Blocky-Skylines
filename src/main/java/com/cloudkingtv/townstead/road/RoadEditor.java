@@ -378,6 +378,8 @@ public final class RoadEditor {
         level.playSound(null, seg.curve().x(0.5), seg.heightAt(0.5) + 1, seg.curve().z(0.5), SoundEvents.GRAVEL_BREAK, SoundSource.BLOCKS, 1.0f, 0.8f);
         notify(player, Component.translatable(recent ? "road.townstead.bulldozed_full" : "road.townstead.bulldozed",
                 seg.type().displayName()), true);
+        // Coach stops on the road that went come down with it.
+        com.cloudkingtv.townstead.transit.CoachLines.pruneOrphans(player, city);
     }
 
     // ---------------------------------------------------------------- messages and sync

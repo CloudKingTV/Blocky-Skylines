@@ -82,6 +82,33 @@ public final class CoachLines {
         RoadEditor.notify(player, Component.translatable("transit.townstead.removed", lineName(line.color())), true);
     }
 
+    /**
+     * After a road is bulldozed: stops whose road is gone come down (post, banner and bench), and a line left with
+     * fewer than two stops is removed. Tells the mayor what changed.
+     */
+    public static void pruneOrphans(ServerPlayer player, City city) {
+        ServerLevel level = player.level();
+        CityManager cities = CityManager.get(level.getServer());
+        RoadRouter router = new RoadRouter(RoadNetwork.get(level), city.id());
+        for (CoachLine line : List.copyOf(city.lines())) {
+            List<CoachLine.Stop> kept = new ArrayList<>();
+            for (int i = 0; i < line.stops().size(); i++) {
+                if (line.access(router, i) != null) kept.add(line.stops().get(i));
+                else clearStop(level, line.stops().get(i));
+            }
+            if (kept.size() == line.stops().size()) continue;
+            if (kept.size() < 2) {
+                for (CoachLine.Stop s : kept) clearStop(level, s);
+                cities.removeLine(level.getServer(), city, line.id());
+                RoadEditor.notify(player, Component.translatable("transit.townstead.line_lost", lineName(line.color())), false);
+            } else {
+                cities.replaceLine(level.getServer(), city, new CoachLine(line.id(), line.name(), line.color(), kept));
+                RoadEditor.notify(player, Component.translatable("transit.townstead.stop_lost", lineName(line.color()),
+                        line.stops().size() - kept.size()), false);
+            }
+        }
+    }
+
     /** "Red line", "Blue line"... */
     public static Component lineName(net.minecraft.world.item.DyeColor color) {
         return Component.translatable("transit.townstead.line_name", Component.translatable("color.minecraft." + color.getName()));
