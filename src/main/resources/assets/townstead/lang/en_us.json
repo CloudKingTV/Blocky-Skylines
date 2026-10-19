@@ -428,7 +428,7 @@
   "milestone.townstead.busy_town": "Busy Town",
   "milestone.townstead.big_town": "Big Town",
   "milestone.townstead.subtitle": "%s · +%s emeralds for the treasury",
-  "milestone.townstead.reached": "Milestone reached: %s! %s emeralds paid into the treasury, and new things to build",
+  "milestone.townstead.reached": "Milestone reached: %s! +%s emeralds",
   "milestone.townstead.locked": "%s unlocks at %s",
   "milestone.townstead.locked_short": "Locked: %s",
   "milestone.townstead.unlocks_at": "Unlocks at %s (%s people)",

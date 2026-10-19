@@ -733,8 +733,9 @@ public class PlannerScreen extends Screen {
         g.pose().popMatrix();
 
         if (!painting && strokeSentAt > 0 && Util.getMillis() - strokeSentAt > 1500) { PlannerClient.STROKE.clear(); strokeSentAt = 0; }
-        drawChirps(g, mouseX, mouseY);
         drawBanner(g, city);
+        if (banner == null) drawChirps(g, mouseX, mouseY);
+        else chirpHits.clear();
         Building hovered = PlannerClient.hoveredBuilding();
         if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
         else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
