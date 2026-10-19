@@ -32,9 +32,9 @@ The test streets put buildings of all kinds side by side, so neighbours show at 
 
 ![Offices: counting house, guild hall](sheet_5_offices.jpg)
 
-## Services, utilities and landmarks
+## Services, utilities, landmarks and transport
 
-The last three are the Phase 5 landmarks: the Founders' Fountain, the Clock Tower and the Chapel.
+Then the Phase 5 landmarks (the Founders' Fountain, the Clock Tower and the Chapel) and the Phase 6 Coach House.
 
 ![Services, utilities and landmarks](sheet_6_services_and_utilities.jpg)
 
