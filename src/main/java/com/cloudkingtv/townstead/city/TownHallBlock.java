@@ -62,6 +62,38 @@ public class TownHallBlock extends HorizontalDirectionalBlock {
         player.sendSystemMessage(Component.translatable(key));
     }
 
+    /** Emeralds in hand go into the treasury. */
+    @Override
+    protected net.minecraft.world.InteractionResult useItemOn(ItemStack stack, BlockState state, Level level, BlockPos pos, Player player,
+                                                             net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.BlockHitResult hit) {
+        if (!stack.is(net.minecraft.world.item.Items.EMERALD) && !stack.is(net.minecraft.world.item.Items.EMERALD_BLOCK)) {
+            return net.minecraft.world.InteractionResult.TRY_WITH_EMPTY_HAND;
+        }
+        if (player instanceof ServerPlayer sp) {
+            com.cloudkingtv.townstead.economy.TownEconomy.townHall(sp, pos)
+                    .ifPresent(city -> com.cloudkingtv.townstead.economy.TownEconomy.deposit(sp, city, stack, pos));
+        }
+        return net.minecraft.world.InteractionResult.SUCCESS;
+    }
+
+    /** Empty-handed: the mayor opens the treasury; anyone else hears how the town is doing. */
+    @Override
+    protected net.minecraft.world.InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
+                                                                  net.minecraft.world.phys.BlockHitResult hit) {
+        if (player instanceof ServerPlayer sp) {
+            com.cloudkingtv.townstead.economy.TownEconomy.townHall(sp, pos).ifPresent(city -> {
+                if (city.owner().equals(sp.getUUID())) {
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
+                            new com.cloudkingtv.townstead.network.EconomyPayloads.OpenTownHall(city.id(), pos));
+                } else {
+                    sp.sendOverlayMessage(Component.translatable("economy.townstead.visitor", city.name(),
+                            com.cloudkingtv.townstead.economy.Budget.format(city.treasury())));
+                }
+            });
+        }
+        return net.minecraft.world.InteractionResult.SUCCESS;
+    }
+
     @Override
     public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         if (level instanceof ServerLevel server) {

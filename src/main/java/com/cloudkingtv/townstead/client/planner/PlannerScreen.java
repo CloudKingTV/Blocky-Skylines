@@ -181,6 +181,7 @@ public class PlannerScreen extends Screen {
         if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
         if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
+        if (key == InputConstants.KEY_L) { BudgetPanel.open = !BudgetPanel.open; click(BudgetPanel.open ? 1.2f : 0.8f); return true; }
         if ((placing() || selectedTool == INFO) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
             pickSub(key - InputConstants.KEY_1);
             return true;
@@ -235,7 +236,10 @@ public class PlannerScreen extends Screen {
 
     /** Esc / right-click: drop the road being drawn or the selection, then the tool, and only then leave (like CS). */
     private void cancelOrExit() {
-        if (panelBuilding >= 0) {
+        if (BudgetPanel.open) {
+            BudgetPanel.open = false;
+            click(0.8f);
+        } else if (panelBuilding >= 0) {
             panelBuilding = -1;
             click(0.8f);
         } else if (selectedTool == ROADS && PlannerClient.ROADS.cancel()) {
@@ -258,6 +262,7 @@ public class PlannerScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
+        if (BudgetPanel.scroll(x, y, scrollY)) return true;
         if (overPanel(x, y)) {
             panelScroll = Math.max(0, panelScroll - (int) Math.signum(scrollY) * 2);
             return true;
@@ -278,6 +283,8 @@ public class PlannerScreen extends Screen {
         if (button != InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(event, doubleClick);
         // Re-aim at the click itself: the cursor may have moved since the last frame drew.
         updateHover((int) event.x(), (int) event.y());
+        if (BudgetPanel.click(event.x(), event.y())) return true;
+        if (overTreasury(event.x(), event.y())) { BudgetPanel.open = !BudgetPanel.open; click(1.2f); return true; }
 
         if (overPanel(event.x(), event.y())) {
             // The close cross sits in the panel's top-right corner.
@@ -536,7 +543,8 @@ public class PlannerScreen extends Screen {
     private void updateHover(int mouseX, int mouseY) {
         PlannerClient.hoveredSegmentId = -1;
         PlannerClient.hoveredBuildingId = -1;
-        if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || overPanel(mouseX, mouseY) || minecraft.level == null) {
+        if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || overPanel(mouseX, mouseY)
+                || BudgetPanel.contains(mouseX, mouseY) || minecraft.level == null) {
             PlannerClient.hoverCell = null;
             return;
         }
@@ -621,8 +629,9 @@ public class PlannerScreen extends Screen {
         else drawCursorInfo(g, city);
         drawFlash(g, subCount() > 0 ? subY() : barY);
         drawStatusIcons(g, city, mouseX, mouseY);
-        drawHints(g);
+        if (!BudgetPanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
+        BudgetPanel.draw(g, font, width, height, TOP_BAR_H, barY, mouseX, mouseY);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
@@ -654,10 +663,35 @@ public class PlannerScreen extends Screen {
             g.setTooltipForNextFrame(font, lines.stream().map(Component::getVisualOrderText).toList(), mouseX, TOP_BAR_H + 14);
         }
         x = rightStat(g, x, y, new ItemStack(Items.FILLED_MAP), Component.translatable("hud.townstead.tiles", city.tiles().size()));
-        Demand demand = Demand.of(ClientLand.get().buildingsOf(city.id()));
+        var model = PlannerClient.model();
+        Demand demand = model != null ? model.demand : Demand.of(ClientLand.get().buildingsOf(city.id()));
         x = rightStat(g, x, y, new ItemStack(Items.VILLAGER_SPAWN_EGG), Component.translatable("hud.townstead.population", demand.population()));
-        x = rightStat(g, x, y, new ItemStack(Items.EMERALD), Component.literal(String.valueOf(city.treasury())));
+        if (model != null) {
+            int happy = model.townHappiness();
+            int happyRight = x;
+            x = rightStat(g, x, y, new ItemStack(happy >= 50 ? Items.POPPY : Items.WITHER_ROSE), Component.literal(happy + "%"));
+            if (renameBox == null && mouseY < TOP_BAR_H && mouseX > x + 20 && mouseX <= happyRight) {
+                g.setTooltipForNextFrame(font, Component.translatable("hud.townstead.happiness", happy, model.unemploymentRate()), mouseX, TOP_BAR_H + 14);
+            }
+        }
+        long net = model == null ? 0 : com.cloudkingtv.townstead.economy.Finance.daily(model).net();
+        int moneyRight = x;
+        Component netText = Component.literal(" " + com.cloudkingtv.townstead.economy.Budget.signed(net))
+                .withColor(net >= 0 ? 0xFF9EE37D : 0xFFFF8A7A);
+        x = rightStat(g, x, y, new ItemStack(Items.EMERALD), Component.literal(com.cloudkingtv.townstead.economy.Budget.format(city.treasury()))
+                .withColor(city.treasury() < 0 ? 0xFFFF8A7A : 0xFFF2F2F2).append(netText));
+        treasuryX0 = x + 20;
+        treasuryX1 = moneyRight;
+        if (renameBox == null && overTreasury(mouseX, mouseY)) {
+            g.setTooltipForNextFrame(font, Component.translatable("hud.townstead.treasury_tip"), mouseX, TOP_BAR_H + 14);
+        }
         drawDemand(g, x - 4, demand, mouseX, mouseY);
+    }
+
+    private int treasuryX0, treasuryX1;
+
+    private boolean overTreasury(double x, double y) {
+        return y < TOP_BAR_H && x >= treasuryX0 - 18 && x <= treasuryX1;
     }
 
     private int rightStat(GuiGraphicsExtractor g, int right, int y, ItemStack icon, Component text) {
@@ -723,7 +757,7 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
                     Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.zoning"),
-                    Component.translatable("help.townstead.undo"),
+                    Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"),
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
@@ -846,7 +880,8 @@ public class PlannerScreen extends Screen {
                             demand.shopJobs() + demand.workshopJobs() + demand.officeJobs(), demand.workers()),
                     Component.translatable("demand.townstead.commercial", demand.commercial(), demand.plannedPeople(), demand.shopJobs()),
                     Component.translatable("demand.townstead.industrial", demand.industrial(), demand.workshopJobs()),
-                    Component.translatable("demand.townstead.office", demand.office(), demand.officeJobs(), ZoneType.OFFICE.minPopulation),
+                    Component.translatable("demand.townstead.office", demand.office(), demand.educated(), demand.officeJobs(), ZoneType.OFFICE.minPopulation),
+                    Component.translatable("demand.townstead.taxes"),
                     Component.translatable("demand.townstead.density", ZoneType.RESIDENTIAL_HIGH.minPopulation),
                     Component.translatable("demand.townstead.hint"));
             g.setTooltipForNextFrame(font, lines.stream().map(Component::getVisualOrderText).toList(), mouseX, TOP_BAR_H + 14);
@@ -899,6 +934,11 @@ public class PlannerScreen extends Screen {
             case "power" -> new ItemStack(Items.REDSTONE);
             case "water" -> new ItemStack(Items.WATER_BUCKET);
             case "level" -> new ItemStack(Items.EXPERIENCE_BOTTLE);
+            case "happiness" -> new ItemStack(Items.POPPY);
+            case "land_value" -> new ItemStack(Items.GOLD_INGOT);
+            case "pollution" -> new ItemStack(Items.COAL);
+            case "noise" -> new ItemStack(Items.NOTE_BLOCK);
+            case "education" -> new ItemStack(Items.BOOK);
             default -> ServiceType.byKey(view).icon();
         };
     }
@@ -967,13 +1007,42 @@ public class PlannerScreen extends Screen {
                 for (Building b : town) if (!b.civic()) n[Math.min(3, b.level)]++;
                 lines.add(Component.translatable("info.townstead.levels", n[1], n[2], n[3]));
             }
+            case "happiness", "land_value", "pollution", "noise", "education" -> {
+                var m = PlannerClient.model();
+                if (m == null) break;
+                switch (view) {
+                    case "happiness" -> {
+                        int unhappy = 0;
+                        for (Building b : m.working()) if (!b.civic() && m.happiness(b).total() < com.cloudkingtv.townstead.sim.Happiness.UNHAPPY) unhappy++;
+                        lines.add(Component.translatable("info.townstead.town_happiness", m.townHappiness(), unhappy));
+                    }
+                    case "education" -> lines.add(Component.translatable("info.townstead.educated", m.educated, m.adults, m.schooled.size()));
+                    default -> {
+                        int sum = 0, n = 0;
+                        for (Building b : m.working()) {
+                            if (!b.zone.residential()) continue;
+                            n++;
+                            sum += view.equals("land_value") ? m.fields.landValue(b) : view.equals("pollution") ? m.fields.pollution(b) : m.fields.noise(b);
+                        }
+                        lines.add(Component.translatable("info.townstead.home_average", n == 0 ? 0 : sum / n));
+                    }
+                }
+                BlockPos cell = PlannerClient.hoverCell;
+                if (cell != null && !view.equals("happiness") && !view.equals("education")) {
+                    int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
+                    int v = view.equals("land_value") ? m.fields.landValue(cx, cz) : view.equals("pollution") ? m.fields.pollution(cx, cz) : m.fields.noise(cx, cz);
+                    lines.add(Component.translatable("info.townstead.here", v));
+                }
+                lines.add(Component.translatable("info.townstead.legend." + view));
+            }
             default -> {
                 ServiceType st = ServiceType.byKey(view);
+                var m = PlannerClient.model();
                 int covered = 0, total = 0;
                 for (Building b : town) {
                     if (b.civic()) continue;
                     total++;
-                    if (com.cloudkingtv.townstead.service.Utilities.covered(b, town, st)) covered++;
+                    if (m != null && m.covered(b, st)) covered++;
                 }
                 lines.add(Component.translatable("info.townstead.coverage", covered, total));
             }
@@ -1007,6 +1076,11 @@ public class PlannerScreen extends Screen {
             else if (!b.civic() && b.working()) {
                 if (!util.power(b)) { icons.add(new ItemStack(Items.REDSTONE)); why.add(Component.translatable("status.townstead.no_power")); }
                 if (!util.water(b)) { icons.add(new ItemStack(Items.WATER_BUCKET)); why.add(Component.translatable("status.townstead.no_water")); }
+                var model = PlannerClient.model();
+                if (model != null && model.happiness(b).total() < com.cloudkingtv.townstead.sim.Happiness.UNHAPPY) {
+                    icons.add(new ItemStack(Items.WITHER_ROSE));
+                    why.add(Component.translatable("status.townstead.unhappy"));
+                }
             }
             if (icons.isEmpty()) continue;
             BuildingGenerator.Plan plan = BuildingGenerator.plan(b);

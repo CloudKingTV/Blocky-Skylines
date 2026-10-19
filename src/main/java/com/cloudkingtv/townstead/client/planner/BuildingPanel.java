@@ -2,17 +2,18 @@ package com.cloudkingtv.townstead.client.planner;
 
 import com.cloudkingtv.townstead.building.Building;
 import com.cloudkingtv.townstead.building.BuildingGenerator;
-import com.cloudkingtv.townstead.building.Demand;
 import com.cloudkingtv.townstead.building.Progression;
 import com.cloudkingtv.townstead.building.Residents;
 import com.cloudkingtv.townstead.client.ClientLand;
-import com.cloudkingtv.townstead.client.ClientRoads;
 import com.cloudkingtv.townstead.TownsteadConfig;
 import com.cloudkingtv.townstead.service.ServiceType;
 import com.cloudkingtv.townstead.service.Utilities;
+import com.cloudkingtv.townstead.economy.Budget;
+import com.cloudkingtv.townstead.economy.Finance;
+import com.cloudkingtv.townstead.sim.Happiness;
+import com.cloudkingtv.townstead.sim.TownModel;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import org.jspecify.annotations.Nullable;
@@ -41,22 +42,27 @@ public final class BuildingPanel {
 
     public static List<Line> lines(Building b) {
         List<Line> out = new ArrayList<>();
-        List<Building> town = ClientLand.get().buildingsOf(b.city);
+        TownModel m = PlannerClient.model();
+        if (m == null) return out;
         BuildingGenerator.Plan plan = BuildingGenerator.plan(b);
         long now = Minecraft.getInstance().level == null ? 0 : Minecraft.getInstance().level.getGameTime();
         double speed = TownsteadConfig.GROWTH_SPEED.get();
-        Utilities.State util = Utilities.compute(town, ClientRoads.network());
+        Utilities.State util = m.util;
 
         out.add(new Line(name(b), TITLE, 0));
         if (b.civic()) {
             ServiceType s = b.serviceType();
             out.add(new Line(Component.translatable("panel.townstead.civic", s.displayName(), Component.translatable("style.townstead." + b.style)),
                     0xFF000000 | b.zone.rgb, 0));
+            int strength = (int) Math.round(m.strength(s) * 100);
             out.add(new Line(switch (s.kind) {
-                case POWER -> Component.translatable("panel.townstead.supplies_power", s.capacity);
-                case WATER -> Component.translatable("panel.townstead.supplies_water", s.capacity);
-                case SERVICE -> Component.translatable("panel.townstead.covers", s.radius);
+                case POWER -> Component.translatable("panel.townstead.supplies_power", Math.round(s.capacity * m.strength(s)));
+                case WATER -> Component.translatable("panel.townstead.supplies_water", Math.round(s.capacity * m.strength(s)));
+                case SERVICE -> Component.translatable("panel.townstead.covers", Math.round(m.radius(s)));
             }, TEXT, 0));
+            out.add(new Line(Component.translatable("panel.townstead.upkeep", Budget.format((long) s.upkeep * m.budget.budget(s.department) / 100),
+                    s.department.displayName(), m.budget.budget(s.department)), strength < 100 ? WARN : DIM, 0));
+            if (m.broke()) out.add(new Line(Component.translatable("panel.townstead.half_strength"), BAD, 0));
             Utilities.Grid grid = util.grid(b);
             if (grid != null && s.kind != ServiceType.Kind.SERVICE) {
                 out.add(new Line(Component.translatable("panel.townstead.grid", grid.powerUsed(), grid.powerCapacity(), grid.waterUsed(), grid.waterCapacity()), DIM, 0));
@@ -68,6 +74,12 @@ public final class BuildingPanel {
                     Component.translatable(util.power(b) ? "panel.townstead.yes" : "panel.townstead.no"),
                     Component.translatable(util.water(b) ? "panel.townstead.yes" : "panel.townstead.no")),
                     util.power(b) && util.water(b) ? GOOD : WARN, 0));
+            out.add(new Line(Component.translatable("panel.townstead.lot", m.fields.landValue(b), m.fields.pollution(b), m.fields.noise(b)), DIM, 0));
+            if (b.working()) {
+                int kind = Happiness.taxKind(b);
+                long tax = Math.round(Finance.value(b, m) * m.budget.tax(kind) / 100.0);
+                out.add(new Line(Component.translatable("panel.townstead.pays", Budget.format(tax), m.budget.tax(kind)), DIM, 0));
+            }
         }
 
         // Status.
@@ -83,8 +95,7 @@ public final class BuildingPanel {
                     : Component.translatable("panel.townstead.jobs_open", b.jobs), GOOD, 0));
         }
         if (b.trouble > 0 || b.state == Building.State.ABANDONED) {
-            var city = PlannerClient.city().orElse(null);
-            Component why = city == null ? null : Progression.trouble(b, town, ClientRoads.network(), Demand.of(town), java.util.Set.copyOf(city.tiles()), util);
+            Component why = Progression.trouble(b, m);
             if (why != null) {
                 int left = (int) Math.max(1, Math.ceil((Progression.ABANDON_AFTER - b.trouble) / speed / 1200));
                 out.add(new Line(b.state == Building.State.ABANDONED ? Component.translatable("panel.townstead.because", why)
@@ -94,29 +105,40 @@ public final class BuildingPanel {
             }
         }
 
+        // Happiness, factor by factor.
+        if (!b.civic() && b.working()) {
+            Happiness h = m.happiness(b);
+            out.add(new Line(Component.empty(), TEXT, 0));
+            out.add(new Line(Component.translatable("panel.townstead.happiness", h.total()),
+                    h.total() >= Happiness.LEVEL_3 ? GOOD : h.total() >= Happiness.LEVEL_2 ? TITLE : h.total() >= Happiness.UNHAPPY ? WARN : BAD, 0));
+            for (Happiness.Factor f : h.factors()) {
+                out.add(new Line(Component.literal((f.delta() > 0 ? "+" : "") + f.delta() + "  ").append(f.label()), f.delta() > 0 ? GOOD : BAD, 4));
+            }
+        }
+
         // Next level.
         if (b.civic()) {
             // No levels for services; fall through to staff.
         } else if (b.level < Building.MAX_LEVEL) {
             out.add(new Line(Component.empty(), TEXT, 0));
             out.add(new Line(Component.translatable("panel.townstead.next_level", b.level + 1), TITLE, 0));
-            for (Progression.Factor f : Progression.nextLevel(b, town, ClientRoads.network(), now, speed, util)) {
+            for (Progression.Factor f : Progression.nextLevel(b, m, now, speed)) {
                 out.add(new Line(Component.literal(f.met() ? "✓ " : "✗ ").append(f.label()), f.met() ? GOOD : BAD, 4));
             }
         } else {
             out.add(new Line(Component.translatable("panel.townstead.top_level"), GOOD, 0));
         }
 
-        Map<Integer, List<Residents.Job>> employment = Residents.employment(town);
         out.add(new Line(Component.empty(), TEXT, 0));
         if (b.zone.residential()) {
-            Map<String, Residents.Job> jobs = Residents.jobsByPerson(employment);
             List<Residents.Household> households = b.working() ? Residents.households(b) : List.of();
+            boolean school = m.schooled.contains(b.id);
             out.add(new Line(Component.translatable("panel.townstead.households", households.size()), TITLE, 0));
+            if (school) out.add(new Line(Component.translatable("panel.townstead.schooled"), GOOD, 2));
             for (Residents.Household h : households) {
                 out.add(new Line(Component.translatable("panel.townstead.family", h.surname()), TEXT, 2));
                 for (Residents.Person p : h.members()) {
-                    Residents.Job job = jobs.get(b.id + ":" + p.name());
+                    Residents.Job job = m.jobsByPerson.get(b.id + ":" + p.name());
                     Component what = switch (p.stage()) {
                         case CHILD -> Component.translatable("panel.townstead.child");
                         case TEEN -> Component.translatable("panel.townstead.teen");
@@ -125,19 +147,22 @@ public final class BuildingPanel {
                                 : Component.translatable("panel.townstead.works_at", Component.translatable("job.townstead." + job.trade()),
                                         workplaceName(job.workplaceId()));
                     };
-                    out.add(new Line(Component.translatable("panel.townstead.person", p.name(), p.age(), what),
+                    out.add(new Line(Component.translatable("panel.townstead.person", p.name(), p.age(), what,
+                                    Component.translatable("education.townstead." + p.education(school))),
                             p.stage() == Residents.Stage.ADULT && job == null ? WARN : DIM, 8));
                 }
             }
         } else {
-            List<Residents.Job> staff = employment.getOrDefault(b.id, List.of());
+            List<Residents.Job> staff = m.employment.getOrDefault(b.id, List.of());
             out.add(new Line(Component.translatable("panel.townstead.workers", staff.size(), b.jobs), TITLE, 0));
             for (Residents.Job j : staff) {
                 out.add(new Line(Component.translatable("panel.townstead.worker", j.person().name(),
                         Component.translatable("job.townstead." + j.trade()), homeName(j.homeId())), DIM, 4));
             }
             if (staff.size() < b.jobs && b.working()) {
-                out.add(new Line(Component.translatable("panel.townstead.vacancies", b.jobs - staff.size()), WARN, 4));
+                boolean skilled = Residents.required(b, staff.size()) >= Residents.SKILLED;
+                out.add(new Line(Component.translatable(skilled ? "panel.townstead.vacancies_skilled" : "panel.townstead.vacancies",
+                        b.jobs - staff.size()), WARN, 4));
             }
         }
         return out;

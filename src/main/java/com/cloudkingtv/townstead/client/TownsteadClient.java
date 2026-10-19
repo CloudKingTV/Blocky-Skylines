@@ -55,6 +55,8 @@ public final class TownsteadClient {
         event.register(RoadSnapshotPayload.TYPE, (msg, ctx) -> ClientRoads.set(msg.network()));
         event.register(LandSnapshotPayload.TYPE, (msg, ctx) -> ClientLand.set(msg.land()));
         event.register(StorehousePayloads.Open.TYPE, (msg, ctx) -> Minecraft.getInstance().gui.setScreen(new StorehouseScreen(msg.cityId(), msg.pos())));
+        event.register(com.cloudkingtv.townstead.network.EconomyPayloads.OpenTownHall.TYPE,
+                (msg, ctx) -> Minecraft.getInstance().gui.setScreen(new TownHallScreen(msg.cityId(), msg.pos())));
     }
 
     @SubscribeEvent

@@ -29,7 +29,8 @@ public final class City {
             Codec.LONG.optionalFieldOf("treasury", 0L).forGetter(c -> c.treasury),
             Codec.LONG.optionalFieldOf("founded", 0L).forGetter(c -> c.foundedGameTime),
             Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("stock", Map.of()).forGetter(c -> c.stock),
-            BlockPos.CODEC.listOf().optionalFieldOf("storehouses", List.of()).forGetter(c -> List.copyOf(c.storehouses))
+            BlockPos.CODEC.listOf().optionalFieldOf("storehouses", List.of()).forGetter(c -> List.copyOf(c.storehouses)),
+            com.cloudkingtv.townstead.economy.Budget.CODEC.optionalFieldOf("budget").forGetter(c -> java.util.Optional.of(c.budget))
     ).apply(i, City::new));
 
     final UUID id;
@@ -44,9 +45,13 @@ public final class City {
     /** Building materials in the Town Storehouse (item id to count). Mutate through {@link CityManager}. */
     final Map<Identifier, Integer> stock;
     final Set<BlockPos> storehouses;
+    /** Taxes, department budgets, loans and the ledger. The treasury above is in hundredths of an emerald. */
+    final com.cloudkingtv.townstead.economy.Budget budget;
 
     City(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension, BlockPos townHall,
-         List<TilePos> tiles, long treasury, long foundedGameTime, Map<Identifier, Integer> stock, List<BlockPos> storehouses) {
+         List<TilePos> tiles, long treasury, long foundedGameTime, Map<Identifier, Integer> stock, List<BlockPos> storehouses,
+         java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget) {
+        this.budget = budget.orElseGet(com.cloudkingtv.townstead.economy.Budget::new);
         this.id = id;
         this.name = name;
         this.owner = owner;
@@ -70,12 +75,14 @@ public final class City {
     public long treasury() { return treasury; }
     public Map<Identifier, Integer> stock() { return java.util.Collections.unmodifiableMap(stock); }
     public Set<BlockPos> storehouses() { return java.util.Collections.unmodifiableSet(storehouses); }
+    /** Read-only use; change it through {@link CityManager#editBudget}. */
+    public com.cloudkingtv.townstead.economy.Budget budget() { return budget; }
 
     public boolean contains(BlockPos pos) {
         return tiles.contains(TilePos.of(pos));
     }
 
     public CitySummary summary() {
-        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock));
+        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy());
     }
 }

@@ -32,29 +32,36 @@ public final class PlannerClient {
     public static final int CLEAR_BRUSH = ZoneType.PAINTABLE.size();
     /** Info view shown by the info tool: -1 none, else an index into {@link #INFO_VIEWS}. */
     public static int infoView = 0;
-    /** Info views: power, water, each service's coverage, building levels. */
+    /** Info views: power, water, happiness, the land fields, education, levels, then each service's coverage. */
     public static final java.util.List<String> INFO_VIEWS;
     static {
-        java.util.List<String> views = new java.util.ArrayList<>(java.util.List.of("power", "water"));
+        java.util.List<String> views = new java.util.ArrayList<>(java.util.List.of("power", "water", "happiness", "land_value",
+                "pollution", "noise", "education", "level"));
         for (com.cloudkingtv.townstead.service.ServiceType s : com.cloudkingtv.townstead.service.ServiceType.SERVICES) views.add(s.key());
-        views.add("level");
         INFO_VIEWS = java.util.List.copyOf(views);
     }
     /** The service or utility the placing tools put down. */
     public static com.cloudkingtv.townstead.service.ServiceType placing = com.cloudkingtv.townstead.service.ServiceType.WINDMILL;
-    private static @Nullable Object utilKey;
-    private static com.cloudkingtv.townstead.service.Utilities.@Nullable State util;
+    private static @Nullable Object modelKey;
+    private static com.cloudkingtv.townstead.sim.@Nullable TownModel model;
 
-    /** Power, water and networks for the town being planned (cached per land/road update). */
-    public static com.cloudkingtv.townstead.service.Utilities.State utilities() {
+    /** The town's rules worked out for the town being planned, as the server works them (cached per update). */
+    public static com.cloudkingtv.townstead.sim.@Nullable TownModel model() {
         CitySummary city = city().orElse(null);
-        Object key = java.util.List.of(ClientLand.version(), ClientRoads.version(), city == null ? "" : city.id());
-        if (util == null || !key.equals(utilKey)) {
-            utilKey = key;
-            util = com.cloudkingtv.townstead.service.Utilities.compute(
-                    city == null ? java.util.List.of() : ClientLand.get().buildingsOf(city.id()), ClientRoads.network());
+        if (city == null) return null;
+        Object key = java.util.List.of(ClientLand.version(), ClientRoads.version(), city);
+        if (model == null || !key.equals(modelKey)) {
+            modelKey = key;
+            model = com.cloudkingtv.townstead.sim.TownModel.of(city.id(), ClientLand.get().buildingsOf(city.id()), ClientRoads.network(),
+                    city.budget(), city.treasury(), city.tiles(), city.townHall());
         }
-        return util;
+        return model;
+    }
+
+    /** Power, water and networks for the town being planned. */
+    public static com.cloudkingtv.townstead.service.Utilities.State utilities() {
+        var m = model();
+        return m != null ? m.util : com.cloudkingtv.townstead.service.Utilities.compute(java.util.List.of(), ClientRoads.network());
     }
 
     /** Cells in the brush stroke being dragged (sent on release). */

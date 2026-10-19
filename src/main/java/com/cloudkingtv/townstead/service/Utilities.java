@@ -45,6 +45,11 @@ public final class Utilities {
     }
 
     public static State compute(Collection<Building> town, RoadNetwork roads) {
+        return compute(town, roads, s -> 1.0);
+    }
+
+    /** {@code strength}: how hard each plant works (its department budget: 1.0 at 100%). */
+    public static State compute(Collection<Building> town, RoadNetwork roads, java.util.function.ToDoubleFunction<ServiceType> strength) {
         // Road networks: union-find over road nodes.
         Map<Integer, Integer> parent = new HashMap<>();
         for (RoadSegment s : roads.segments()) union(parent, s.a(), s.b());
@@ -62,8 +67,9 @@ public final class Utilities {
             if (!b.civic() || b.state != Building.State.ACTIVE || !networkOf.containsKey(b.id)) continue;
             ServiceType s = b.serviceType();
             int[] c = cap.computeIfAbsent(networkOf.get(b.id), k -> new int[2]);
-            if (s.kind == ServiceType.Kind.POWER) c[0] += s.capacity;
-            if (s.kind == ServiceType.Kind.WATER) c[1] += s.capacity;
+            int capacity = (int) Math.round(s.capacity * strength.applyAsDouble(s));
+            if (s.kind == ServiceType.Kind.POWER) c[0] += capacity;
+            if (s.kind == ServiceType.Kind.WATER) c[1] += capacity;
         }
         List<Building> users = new ArrayList<>(town);
         // Oldest first; abandoned buildings last, so supply for their return is checked without crowding out others.
@@ -91,10 +97,15 @@ public final class Utilities {
 
     /** Whether an active service of this type covers the building. */
     public static boolean covered(Building b, Collection<Building> town, ServiceType service) {
+        return covered(b, town, service, service.radius);
+    }
+
+    /** Whether an active service of this type covers the building, with the service reaching {@code radius} blocks. */
+    public static boolean covered(Building b, Collection<Building> town, ServiceType service, double radius) {
         for (Building s : town) {
             if (!s.civic() || s.state != Building.State.ACTIVE || !s.service.equals(service.key())) continue;
             double d = Math.hypot((s.cellX - b.cellX) * ZoneRules.CELL, (s.cellZ - b.cellZ) * ZoneRules.CELL);
-            if (d <= service.radius) return true;
+            if (d <= radius) return true;
         }
         return false;
     }

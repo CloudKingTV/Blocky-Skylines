@@ -15,18 +15,32 @@ import net.minecraft.world.item.Items;
  * clinics, fire and police stations, schools, landfills and parks.
  */
 public enum ServiceType implements StringRepresentable {
-    WINDMILL("windmill", Kind.POWER, Items.GRINDSTONE, 40, 0, 2),
-    WATERMILL("watermill", Kind.POWER, Items.OAK_TRAPDOOR, 80, 0, 3),
-    WELL("well", Kind.WATER, Items.WATER_BUCKET, 30, 0, 0),
-    WATER_TOWER("water_tower", Kind.WATER, Items.BARREL, 90, 0, 1),
-    CLINIC("clinic", Kind.SERVICE, Items.BREWING_STAND, 0, 48, 4),
-    FIRE_STATION("fire_station", Kind.SERVICE, Items.CAULDRON, 0, 56, 5),
-    GUARD_HOUSE("guard_house", Kind.SERVICE, Items.IRON_SWORD, 0, 56, 4),
-    SCHOOL("school", Kind.SERVICE, Items.BOOKSHELF, 0, 64, 5),
-    COMPOST_YARD("compost_yard", Kind.SERVICE, Items.COMPOSTER, 0, 80, 3),
-    PARK("park", Kind.SERVICE, Items.OAK_SAPLING, 0, 32, 1);
+    WINDMILL("windmill", Kind.POWER, Items.GRINDSTONE, 40, 0, 2, Department.POWER, 300),
+    WATERMILL("watermill", Kind.POWER, Items.OAK_TRAPDOOR, 80, 0, 3, Department.POWER, 500),
+    WELL("well", Kind.WATER, Items.WATER_BUCKET, 30, 0, 0, Department.WATER, 150),
+    WATER_TOWER("water_tower", Kind.WATER, Items.BARREL, 90, 0, 1, Department.WATER, 450),
+    CLINIC("clinic", Kind.SERVICE, Items.BREWING_STAND, 0, 48, 4, Department.HEALTH, 500),
+    FIRE_STATION("fire_station", Kind.SERVICE, Items.CAULDRON, 0, 56, 5, Department.FIRE, 500),
+    GUARD_HOUSE("guard_house", Kind.SERVICE, Items.IRON_SWORD, 0, 56, 4, Department.POLICE, 450),
+    SCHOOL("school", Kind.SERVICE, Items.BOOKSHELF, 0, 64, 5, Department.EDUCATION, 600),
+    COMPOST_YARD("compost_yard", Kind.SERVICE, Items.COMPOSTER, 0, 80, 3, Department.GARBAGE, 350),
+    PARK("park", Kind.SERVICE, Items.OAK_SAPLING, 0, 32, 1, Department.PARKS, 150);
 
     public enum Kind { POWER, WATER, SERVICE }
+
+    /** Budget lines: each has one slider, shared by the buildings in it. */
+    public enum Department {
+        POWER(Items.REDSTONE), WATER(Items.WATER_BUCKET), HEALTH(Items.BREWING_STAND), FIRE(Items.CAULDRON),
+        POLICE(Items.IRON_SWORD), EDUCATION(Items.BOOKSHELF), GARBAGE(Items.COMPOSTER), PARKS(Items.OAK_SAPLING);
+
+        private final Item icon;
+
+        Department(Item icon) { this.icon = icon; }
+
+        public ItemStack icon() { return new ItemStack(icon); }
+        public String key() { return name().toLowerCase(java.util.Locale.ROOT); }
+        public Component displayName() { return Component.translatable("department.townstead." + key()); }
+    }
 
     public static final Codec<ServiceType> CODEC = StringRepresentable.fromEnum(ServiceType::values);
     public static final List<ServiceType> UTILITIES = Arrays.stream(values()).filter(s -> s.kind != Kind.SERVICE).toList();
@@ -40,8 +54,13 @@ public enum ServiceType implements StringRepresentable {
     /** Coverage radius in blocks (services). */
     public final int radius;
     public final int jobs;
+    public final Department department;
+    /** Running cost at a 100% budget, in hundredths of an emerald per day. */
+    public final int upkeep;
 
-    ServiceType(String key, Kind kind, Item icon, int capacity, int radius, int jobs) {
+    ServiceType(String key, Kind kind, Item icon, int capacity, int radius, int jobs, Department department, int upkeep) {
+        this.department = department;
+        this.upkeep = upkeep;
         this.key = key;
         this.kind = kind;
         this.icon = icon;

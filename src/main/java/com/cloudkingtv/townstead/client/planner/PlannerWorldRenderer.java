@@ -175,10 +175,21 @@ public final class PlannerWorldRenderer {
         if (!PlannerScreen.infoActive()) return;
         String view = view();
         var util = PlannerClient.utilities();
+        var model = PlannerClient.model();
+        if (model == null) return;
+        if (view.equals("land_value") || view.equals("pollution") || view.equals("noise")) {
+            fieldQuads(p, buf, level, cam, city, model, view);
+            return;
+        }
         ServiceType service = ServiceType.find(view);
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             int color;
-            if (b.civic()) {
+            if (view.equals("happiness") || view.equals("education")) {
+                if (b.civic() || !b.working()) continue;
+                if (view.equals("happiness")) color = gradient(model.happiness(b).total() / 100f, 0xA0);
+                else if (!b.zone.residential()) continue;
+                else color = LEVEL_COLORS[Math.max(0, Math.min(2, (int) Math.floor(model.education(b) * 1.5)))];
+            } else if (b.civic()) {
                 ServiceType s = b.serviceType();
                 boolean supplies = switch (view) {
                     case "power" -> s.kind == ServiceType.Kind.POWER;
@@ -195,12 +206,47 @@ public final class PlannerWorldRenderer {
                 boolean has = switch (view) {
                     case "power" -> util.power(b);
                     case "water" -> util.water(b);
-                    default -> service != null && Utilities.covered(b, ClientLand.get().buildingsOf(city.id()), service);
+                    default -> service != null && model.covered(b, service);
                 };
                 color = has ? GOOD : BAD;
             }
             cellQuad(p, buf, cam, b.cellKey(), b.baseY - 1, color, 0.3);
         }
+    }
+
+    /** Pollution, noise or land value over every cell of the town, as a translucent heat map. */
+    private static void fieldQuads(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city,
+                                   com.cloudkingtv.townstead.sim.TownModel model, String view) {
+        for (TilePos t : city.tiles()) {
+            for (int cx = t.minBlockX() / TilePos.CELL; cx < (t.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
+                for (int cz = t.minBlockZ() / TilePos.CELL; cz < (t.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
+                    long key = ZoneRules.cellKey(cx, cz);
+                    int color;
+                    switch (view) {
+                        case "land_value" -> color = gradient(model.fields.landValue(cx, cz) / 100f, 0x70);
+                        case "pollution" -> {
+                            int v = model.fields.pollution(cx, cz);
+                            if (v <= 0) continue;
+                            color = ARGB.color(Math.min(0xB0, 0x30 + v * 2), 120, 90, 40);
+                        }
+                        default -> {
+                            int v = model.fields.noise(cx, cz);
+                            if (v <= 0) continue;
+                            color = ARGB.color(Math.min(0xB0, 0x30 + v * 3), 190, 80, 220);
+                        }
+                    }
+                    cellQuad(p, buf, cam, key, cellY(level, key), color, 0.1);
+                }
+            }
+        }
+    }
+
+    /** Red (0) through yellow to green (1). */
+    private static int gradient(float f, int alpha) {
+        f = Mth.clamp(f, 0f, 1f);
+        int r = f < 0.5f ? 230 : Math.round(230 - (f - 0.5f) * 2 * 140);
+        int g = f < 0.5f ? Math.round(70 + f * 2 * 150) : 220;
+        return ARGB.color(alpha, r, g, 70);
     }
 
     /** Coverage rings: the hovered lot's while placing a service, and every service of the viewed type. */
@@ -211,7 +257,8 @@ public final class PlannerWorldRenderer {
             shown = PlannerClient.placing;
             if (hover != null && shown.kind == ServiceType.Kind.SERVICE) {
                 int cx = Math.floorDiv(hover.getX(), TilePos.CELL), cz = Math.floorDiv(hover.getZ(), TilePos.CELL);
-                ring(p, buf, cam, cx * TilePos.CELL + 4, cz * TilePos.CELL + 4, shown.radius, scale(0xFFFFFFFF, pulse), w * 2.5f);
+                var m = PlannerClient.model();
+                ring(p, buf, cam, cx * TilePos.CELL + 4, cz * TilePos.CELL + 4, m == null ? shown.radius : m.radius(shown), scale(0xFFFFFFFF, pulse), w * 2.5f);
             }
         } else if (PlannerScreen.infoActive()) {
             shown = ServiceType.find(view());
@@ -220,7 +267,8 @@ public final class PlannerWorldRenderer {
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             if (!b.civic() || b.serviceType() != shown) continue;
             int color = b.state == Building.State.ACTIVE ? 0xFF6EC8FF : 0xFFFFD36B; // blue, or amber while building
-            ring(p, buf, cam, b.cellX * TilePos.CELL + 4, b.cellZ * TilePos.CELL + 4, shown.radius, color, w * 2f);
+            var m = PlannerClient.model();
+            ring(p, buf, cam, b.cellX * TilePos.CELL + 4, b.cellZ * TilePos.CELL + 4, m == null ? shown.radius : m.radius(shown), color, w * 2f);
         }
     }
 

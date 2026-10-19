@@ -5,6 +5,7 @@ import com.cloudkingtv.townstead.city.City;
 import com.cloudkingtv.townstead.city.CityManager;
 import com.cloudkingtv.townstead.city.StorehouseService;
 import com.cloudkingtv.townstead.building.LandEditor;
+import com.cloudkingtv.townstead.economy.TownEconomy;
 import com.cloudkingtv.townstead.history.EditHistory;
 import com.cloudkingtv.townstead.service.ServiceType;
 import com.cloudkingtv.townstead.zone.ZoneType;
@@ -22,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "5";
+    private static final String PROTOCOL = "6";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -74,6 +75,26 @@ public final class TownsteadNetwork {
         r.playToServer(StorehousePayloads.Withdraw.TYPE, StorehousePayloads.Withdraw.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) StorehouseService.access(player, msg.pos())
                     .ifPresent(city -> StorehouseService.withdraw(player, city, msg.item(), msg.count()));
+        });
+        r.playToClient(EconomyPayloads.OpenTownHall.TYPE, EconomyPayloads.OpenTownHall.STREAM_CODEC);
+        r.playToServer(EconomyPayloads.Edit.TYPE, EconomyPayloads.Edit.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            plannerCity(player, msg.cityId()).ifPresent(city -> {
+                switch (msg.action()) {
+                    case TAX -> TownEconomy.setTax(player, city, msg.index(), msg.value());
+                    case BUDGET -> TownEconomy.setBudget(player, city, msg.index(), msg.value());
+                    case TAKE_LOAN -> TownEconomy.takeLoan(player, city, msg.index());
+                    case REPAY_LOAN -> TownEconomy.repayLoan(player, city, msg.index());
+                }
+            });
+        });
+        r.playToServer(EconomyPayloads.Withdraw.TYPE, EconomyPayloads.Withdraw.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) TownEconomy.townHall(player, msg.pos())
+                    .ifPresent(city -> TownEconomy.withdraw(player, city, msg.emeralds()));
+        });
+        r.playToServer(EconomyPayloads.DepositAll.TYPE, EconomyPayloads.DepositAll.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) TownEconomy.townHall(player, msg.pos())
+                    .ifPresent(city -> TownEconomy.depositAll(player, city, msg.pos()));
         });
         r.playToServer(RenameTownPayload.TYPE, RenameTownPayload.STREAM_CODEC, (msg, ctx) -> {
             if (!(ctx.player() instanceof ServerPlayer player)) return;

@@ -91,7 +91,8 @@ public final class CityManager extends SavedData {
     public City found(ServerLevel level, BlockPos pos, ServerPlayer founder) {
         String name = founder.getGameProfile().name() + "'s Town";
         City city = new City(UUID.randomUUID(), name, founder.getUUID(), founder.getGameProfile().name(),
-                level.dimension(), pos.immutable(), startingClaim(pos), 0L, level.getGameTime(), Map.of(), List.of());
+                level.dimension(), pos.immutable(), startingClaim(pos), com.cloudkingtv.townstead.economy.TownEconomy.FOUNDING_PURSE,
+                level.getGameTime(), Map.of(), List.of(), java.util.Optional.empty());
         cities.put(city.id, city);
         changed(level.getServer());
         Townstead.LOGGER.info("Founded town '{}' at {} for {}", name, pos, founder.getGameProfile().name());
@@ -133,6 +134,25 @@ public final class CityManager extends SavedData {
 
     public void flush(MinecraftServer server) {
         if (pendingSync) changed(server);
+    }
+
+    /** Changes a town's taxes, budgets or loans, then saves and syncs. */
+    public void editBudget(MinecraftServer server, City city, java.util.function.Consumer<com.cloudkingtv.townstead.economy.Budget> edit) {
+        edit.accept(city.budget);
+        changed(server);
+    }
+
+    /** One settlement: moves the treasury by {@code cents} and updates the budget's records, with a single sync. */
+    public void settle(MinecraftServer server, City city, long cents, java.util.function.Consumer<com.cloudkingtv.townstead.economy.Budget> edit) {
+        city.treasury += cents;
+        edit.accept(city.budget);
+        changed(server);
+    }
+
+    /** Adds to (or, negative, takes from) the treasury, in cents, then saves and syncs. */
+    public void addTreasury(MinecraftServer server, City city, long cents) {
+        city.treasury += cents;
+        changed(server);
     }
 
     public void addStorehouse(MinecraftServer server, City city, BlockPos pos) {

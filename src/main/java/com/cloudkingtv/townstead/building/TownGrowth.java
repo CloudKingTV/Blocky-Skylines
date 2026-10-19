@@ -137,7 +137,7 @@ public final class TownGrowth {
     private static void grow(ServerLevel level, City city, LandData land) {
         List<Building> mine = land.buildingsOf(city.id());
         if (mine.stream().filter(b -> b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= MAX_SITES) return;
-        Demand demand = Demand.of(mine);
+        Demand demand = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city).demand;
         Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
         Set<TilePos> tiles = city.tiles();
         List<ZoneType> order = new ArrayList<>(ZoneType.PAINTABLE);
@@ -466,15 +466,13 @@ public final class TownGrowth {
     private static void review(ServerLevel level, City city, LandData land) {
         List<Building> mine = land.buildingsOf(city.id());
         if (mine.isEmpty()) return;
-        RoadNetwork roads = RoadNetwork.get(level);
-        Demand demand = Demand.of(mine);
+        com.cloudkingtv.townstead.sim.TownModel model = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city);
         double speed = speed();
         long upgrading = mine.stream().filter(b -> b.upgrading).count();
-        com.cloudkingtv.townstead.service.Utilities.State util = com.cloudkingtv.townstead.service.Utilities.compute(mine, roads);
         for (Building b : mine) {
             boolean built = b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED;
             if (!built) continue;
-            Component trouble = Progression.trouble(b, mine, roads, demand, city.tiles(), util);
+            Component trouble = Progression.trouble(b, model);
             int before = b.trouble;
             // Capped, so recovery takes the same time however long the trouble lasted.
             if (trouble != null) b.trouble = Math.min(Progression.ABANDON_AFTER, b.trouble + (int) Math.round(REVIEW_INTERVAL * speed));
@@ -489,7 +487,7 @@ public final class TownGrowth {
                 continue;
             }
             if (b.state == Building.State.ACTIVE && trouble == null && upgrading < MAX_UPGRADES
-                    && Progression.canLevel(Progression.nextLevel(b, mine, roads, level.getGameTime(), speed, util))) {
+                    && Progression.canLevel(Progression.nextLevel(b, model, level.getGameTime(), speed))) {
                 upgrade(level, city, b);
                 upgrading++;
             }

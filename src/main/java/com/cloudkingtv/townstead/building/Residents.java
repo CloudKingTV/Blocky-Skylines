@@ -14,14 +14,25 @@ import org.jspecify.annotations.Nullable;
 /**
  * The people of a town, generated deterministically from its buildings so client and server agree without
  * sending them: households with names and ages for every home, and jobs filled from those adults in building
- * order. Phase 4 turns these into simulated citizens; the names stay.
+ * order. Each person has an education level (0 unschooled to 3 highly educated) from their seed; a school in reach
+ * of their home lifts it by one. Jobs that need education (offices, the clinic, the school) go to those who have it.
  */
 public final class Residents {
     public enum Stage { CHILD, TEEN, ADULT, SENIOR }
 
-    public record Person(String first, String last, int age, Stage stage) {
+    /** {@code education}: 0 unschooled, 1 schooled, 2 well educated, 3 highly educated (before any school in reach). */
+    public record Person(String first, String last, int age, Stage stage, int education) {
         public String name() { return first + " " + last; }
+
+        /** Education counting a school in reach of home: children go to it, adults take its evening classes. */
+        public int education(boolean schooled) {
+            return schooled ? Math.min(MAX_EDUCATION, education + 1) : education;
+        }
     }
+
+    public static final int MAX_EDUCATION = 3;
+    /** Education a well-paid job asks for. */
+    public static final int SKILLED = 2;
 
     public record Household(String surname, List<Person> members) {}
 
@@ -66,7 +77,13 @@ public final class Residents {
                 int r = mix(b.seed, 1000 + i * 16 + m);
                 int age = m == 0 ? 22 + r % 40 : m == 1 ? 20 + r % 44 : m == 4 ? 66 + r % 20 : 1 + r % 17;
                 Stage stage = age < 13 ? Stage.CHILD : age < 18 ? Stage.TEEN : age < 65 ? Stage.ADULT : Stage.SENIOR;
-                members.add(new Person(FIRST[mix(b.seed, 2000 + i * 16 + m) % FIRST.length], last, age, stage));
+                int e = mix(b.seed, 3000 + i * 16 + m) % 20;
+                int education = switch (stage) {
+                    case CHILD -> 0;
+                    case TEEN -> 1;
+                    default -> e < 6 ? 0 : e < 15 ? 1 : e < 19 ? 2 : 3; // 30% / 45% / 20% / 5%
+                };
+                members.add(new Person(FIRST[mix(b.seed, 2000 + i * 16 + m) % FIRST.length], last, age, stage, education));
             }
             out.add(new Household(last, members));
         }
@@ -78,29 +95,70 @@ public final class Residents {
         return LAST[mix(b.seed, 7) % LAST.length];
     }
 
-    /** Fills every working workplace's jobs with working-age residents, homes and workplaces in id order. */
+    /** Fills every working workplace's jobs with working-age residents (no school counted). */
     public static Map<Integer, List<Job>> employment(Collection<Building> town) {
+        return employment(town, java.util.Set.of());
+    }
+
+    /**
+     * Fills every working workplace's jobs with working-age residents. Skilled jobs are filled first, from the
+     * educated; then the rest, homes and workplaces in id order, so the result is the same on client and server.
+     * {@code schooled}: ids of homes with a school in reach.
+     */
+    public static Map<Integer, List<Job>> employment(Collection<Building> town, java.util.Set<Integer> schooled) {
         List<Building> sorted = new ArrayList<>(town);
         sorted.sort(Comparator.comparingInt(b -> b.id));
         List<Person> adults = new ArrayList<>();
         List<Integer> homes = new ArrayList<>();
+        List<Integer> edu = new ArrayList<>();
         for (Building b : sorted) {
             if (!b.working() || !b.zone.residential()) continue;
+            boolean school = schooled.contains(b.id);
             for (Household h : households(b)) {
-                for (Person p : h.members()) if (p.stage() == Stage.ADULT) { adults.add(p); homes.add(b.id); }
+                for (Person p : h.members()) {
+                    if (p.stage() != Stage.ADULT) continue;
+                    adults.add(p);
+                    homes.add(b.id);
+                    edu.add(p.education(school));
+                }
+            }
+        }
+        boolean[] taken = new boolean[adults.size()];
+        Map<Integer, Job[]> filled = new HashMap<>();
+        for (int need = MAX_EDUCATION; need >= 0; need--) {
+            int next = 0;
+            for (Building w : sorted) {
+                if (!w.working() || w.zone.residential()) continue;
+                Job[] slots = filled.computeIfAbsent(w.id, k -> new Job[w.jobs]);
+                for (int slot = 0; slot < w.jobs; slot++) {
+                    if (slots[slot] != null || required(w, slot) != need) continue;
+                    while (next < adults.size() && (taken[next] || edu.get(next) < need)) next++;
+                    if (next >= adults.size()) break;
+                    taken[next] = true;
+                    slots[slot] = new Job(adults.get(next), homes.get(next), w.id, trade(w, slot));
+                }
             }
         }
         Map<Integer, List<Job>> out = new HashMap<>();
-        int next = 0;
         for (Building w : sorted) {
-            if (!w.working() || w.zone.residential()) continue;
+            Job[] slots = filled.get(w.id);
+            if (slots == null) continue;
             List<Job> jobs = new ArrayList<>();
-            for (int slot = 0; slot < w.jobs && next < adults.size(); slot++, next++) {
-                jobs.add(new Job(adults.get(next), homes.get(next), w.id, trade(w, slot)));
-            }
+            for (Job j : slots) if (j != null) jobs.add(j);
             out.put(w.id, jobs);
         }
         return out;
+    }
+
+    /** Education a job slot asks for: offices and the clinic and school want the well educated, a market's merchant some schooling. */
+    public static int required(Building w, int slot) {
+        return switch (w.zone) {
+            case OFFICE -> SKILLED;
+            case CIVIC -> w.serviceType() == com.cloudkingtv.townstead.service.ServiceType.CLINIC
+                    || w.serviceType() == com.cloudkingtv.townstead.service.ServiceType.SCHOOL ? SKILLED : 0;
+            case COMMERCIAL_HIGH -> slot == 0 ? 1 : 0;
+            default -> 0;
+        };
     }
 
     /** Where each person works, keyed by "homeId:name". */
@@ -130,9 +188,25 @@ public final class Residents {
         };
     }
 
+    /** Workstation blocks per building (id, level, seed): reading them means generating the plan, so it's kept. */
+    private static final Map<String, List<Block>> STATIONS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static List<Block> stations(Building w) {
+        if (STATIONS.size() > 4096) STATIONS.clear();
+        return STATIONS.computeIfAbsent(w.id + ":" + w.level + ":" + w.seed + ":" + w.style, k -> {
+            List<Block> out = new ArrayList<>();
+            for (BuildingGenerator.Step s : BuildingGenerator.plan(w).steps()) {
+                Block block = s.state().getBlock();
+                if (block == Blocks.SMOKER || block == Blocks.BLAST_FURNACE || block == Blocks.SMITHING_TABLE || block == Blocks.FLETCHING_TABLE
+                        || block == Blocks.CARTOGRAPHY_TABLE || block == Blocks.LOOM || block == Blocks.LECTERN || block == Blocks.BREWING_STAND
+                        || block == Blocks.GRINDSTONE) out.add(block);
+            }
+            return out;
+        });
+    }
+
     private static String stationTrade(Building w, @Nullable Block a, @Nullable Block b) {
-        for (BuildingGenerator.Step s : BuildingGenerator.plan(w).steps()) {
-            Block block = s.state().getBlock();
+        for (Block block : stations(w)) {
             if (a != null && (block == a || block == b)) return block == Blocks.SMOKER ? "butcher" : "armorer";
             if (a == null) {
                 if (block == Blocks.SMITHING_TABLE) return "toolsmith";
