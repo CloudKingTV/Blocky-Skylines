@@ -221,6 +221,17 @@ disasters, monuments) is next. See the roadmap.
 
 ## Screenshots (from the headless playtests)
 
+Phase 6: the traffic info view, drawing a coach line and the line on the map, a coach with its
+passengers, a hay cart, a stop by the road, the budget with fares and a Transport line, and a
+citizen who says who they are.
+
+| | |
+|---|---|
+| ![Traffic info view: roads by load, traffic flow](docs/screenshots/phase6-traffic.png) | ![Drawing a coach line: stops and route](docs/screenshots/phase6-line-draft.png) |
+| ![The Red line on the map, with its numbers](docs/screenshots/phase6-lines.png) | ![A coach: two horses and passengers](docs/screenshots/phase6-coach.png) |
+| ![A mule cart with hay, keeping right](docs/screenshots/phase6-cart.png) | ![A coach stop: post, banner and bench](docs/screenshots/phase6-stop.png) |
+| ![Budget: coach fares and Transport upkeep](docs/screenshots/phase6-budget.png) | ![A citizen: home, work and mood](docs/screenshots/phase6-citizen.png) |
+
 Phase 5: reaching Worthy Village (the planner's milestone banner), the milestone panel (U),
 buying a tile with the Land tool, locked services, and the first landmark: the Founders'
 Fountain, announced by a resident's chirp.

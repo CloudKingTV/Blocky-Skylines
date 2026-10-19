@@ -497,7 +497,7 @@
   "milestone.townstead.banner_unlocks": "Now you can build: %s",
   "entity.townstead.citizen": "Citizen",
   "citizen.townstead.hello": "%s (%s) · lives at the %s",
-  "citizen.townstead.works": "Works as a %s at the %s",
+  "citizen.townstead.works": "%s at the %s",
   "citizen.townstead.school": "Goes to school",
   "citizen.townstead.no_school": "There's no school in reach of home",
   "citizen.townstead.retired": "Retired",
