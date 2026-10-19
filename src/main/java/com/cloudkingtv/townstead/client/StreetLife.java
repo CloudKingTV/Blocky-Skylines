@@ -55,8 +55,8 @@ public final class StreetLife {
     private static final double RADIUS = 112;
     /** At most this many carts at once. */
     private static final int MAX_CARTS = 36;
-    /** Blocks of road per cart at full capacity. */
-    private static final double BLOCKS_PER_CART = 26;
+    /** Trips a day behind each cart on a 64-block road. */
+    private static final double TRIPS_PER_CART = 6;
     /** Ticks a coach waits at a stop. */
     private static final int DWELL = 50;
     private static final BlockState[] CARGO = {Blocks.HAY_BLOCK.defaultBlockState(), Blocks.BARREL.defaultBlockState(),
@@ -67,6 +67,9 @@ public final class StreetLife {
     private static final Map<Integer, List<Vehicle>> COACHES = new HashMap<>();
     private static final List<Drawn> DRAWN = new ArrayList<>();
     private static final RandomSource RANDOM = RandomSource.create();
+    /** Puppets need ids (renderers seed animations with them); negative ones never clash with real entities. */
+    private static int nextId = -1_000_000;
+    private static boolean warned;
     private static @Nullable Object modelKey, coachKey;
     private static @Nullable TownModel model;
     private static @Nullable ClientLevel lastLevel;
@@ -272,7 +275,7 @@ public final class StreetLife {
             }
             List<Vehicle> list = new ArrayList<>();
             for (int i = 0; i < stats.coaches(); i++) {
-                Minecart cart = new Minecart(EntityTypes.MINECART, level);
+                Minecart cart = puppet(new Minecart(EntityTypes.MINECART, level));
                 cart.setCustomDisplayBlockState(Optional.of(net.minecraft.world.level.block.Blocks.CARPET.pick(line.color()).defaultBlockState()));
                 cart.setDisplayOffset(22);
                 AbstractHorse[] team = {horse(level, EntityTypes.HORSE, i), horse(level, EntityTypes.HORSE, i + 3)};
@@ -300,11 +303,11 @@ public final class StreetLife {
             double mx = s.curve().x(0.5), mz = s.curve().z(0.5);
             if (Math.hypot(mx - cam.x, mz - cam.z) > RADIUS) continue;
             near.add(s);
-            double ratio = Math.min(1.2, m.traffic.ratio(s));
-            want += ratio * router.length(id) / BLOCKS_PER_CART;
+            double flow = Math.min(m.traffic.flow(id), 1.2 * com.cloudkingtv.townstead.sim.Traffic.capacity(s.type()));
+            want += flow / TRIPS_PER_CART * router.length(id) / 64;
             weight += m.traffic.flow(id);
         }
-        int target = Math.min(MAX_CARTS, (int) Math.round(want));
+        int target = Math.min(MAX_CARTS, Math.max(want > 0 ? 1 : 0, (int) Math.round(want)));
         if (CARTS.size() >= target || near.isEmpty() || weight <= 0 || RANDOM.nextInt(4) != 0) return;
         // Pick a road by its flow, a place and a direction on it, then wander the graph from there.
         double pick = RANDOM.nextDouble() * weight;
@@ -327,7 +330,7 @@ public final class StreetLife {
         if (path.total < 6) return;
         int seed = RANDOM.nextInt(1000);
         EntityType<? extends AbstractHorse> kind = seed % 5 == 0 ? EntityTypes.DONKEY : seed % 7 == 0 ? EntityTypes.MULE : EntityTypes.HORSE;
-        Minecart cart = new Minecart(EntityTypes.MINECART, level);
+        Minecart cart = puppet(new Minecart(EntityTypes.MINECART, level));
         cart.setCustomDisplayBlockState(Optional.of(CARGO[seed % CARGO.length]));
         Villager[] driver = seed % 3 == 0 ? new Villager[] {villager(level, seed)} : new Villager[0];
         CARTS.add(new Vehicle(path, new AbstractHorse[] {horse(level, kind, seed)}, cart, driver, 0.16 + RANDOM.nextDouble() * 0.06, 0, new double[0]));
@@ -348,8 +351,13 @@ public final class StreetLife {
         return options.getLast();
     }
 
+    private static <E extends Entity> E puppet(E e) {
+        e.setId(nextId--);
+        return e;
+    }
+
     private static AbstractHorse horse(ClientLevel level, EntityType<? extends AbstractHorse> type, int seed) {
-        AbstractHorse h = type.create(level, net.minecraft.world.entity.EntitySpawnReason.LOAD);
+        AbstractHorse h = puppet(type.create(level, net.minecraft.world.entity.EntitySpawnReason.LOAD));
         if (h instanceof net.minecraft.world.entity.animal.equine.Horse horse) {
             horse.setComponent(net.minecraft.core.component.DataComponents.HORSE_VARIANT, Variant.values()[Math.floorMod(seed, Variant.values().length)]);
         }
@@ -357,7 +365,7 @@ public final class StreetLife {
     }
 
     private static Villager villager(ClientLevel level, int seed) {
-        Villager v = new Villager(EntityTypes.VILLAGER, level);
+        Villager v = puppet(new Villager(EntityTypes.VILLAGER, level));
         var types = List.of(VillagerType.PLAINS, VillagerType.TAIGA, VillagerType.SAVANNA);
         var jobs = List.of(VillagerProfession.FARMER, VillagerProfession.LIBRARIAN, VillagerProfession.CLERIC, VillagerProfession.FLETCHER,
                 VillagerProfession.SHEPHERD, VillagerProfession.NONE, VillagerProfession.MASON, VillagerProfession.CARTOGRAPHER);
@@ -389,7 +397,13 @@ public final class StreetLife {
         for (List<Vehicle> l : COACHES.values()) all.addAll(l);
         for (Vehicle v : all) {
             if (v.cart.tickCount == 0 || Math.hypot(v.cart.getX() - cam.x, v.cart.getZ() - cam.z) > RADIUS + 8) continue;
-            for (Entity e : v.parts()) DRAWN.add(new Drawn(dispatcher.extractEntity(e, partial)));
+            try {
+                for (Entity e : v.parts()) DRAWN.add(new Drawn(dispatcher.extractEntity(e, partial)));
+            } catch (RuntimeException ex) {
+                // Street life is decoration: never let it take the game down.
+                if (!warned) { Townstead.LOGGER.warn("Couldn't draw a street vehicle", ex); warned = true; }
+                CARTS.remove(v);
+            }
         }
     }
 
