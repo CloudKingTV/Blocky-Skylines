@@ -161,8 +161,17 @@ public final class PlannerWorldRenderer {
             if (PlannerClient.STROKE.contains(e.getKey())) continue;
             cellQuad(p, buf, cam, e.getKey(), cellY(level, e.getKey()), ARGB.color(zoning ? 0x66 : 0x38, e.getValue().type().rgb), 0.5);
         }
+        if (PlannerScreen.districtsActive()) {
+            // Districts in their colours, the selected one brighter.
+            var selected = DistrictTool.selected(city);
+            for (var d : city.districts()) {
+                int alpha = selected != null && selected.id() == d.id() ? Math.round(0x60 + 0x30 * pulse) : 0x48;
+                for (long key : d.cells()) if (!PlannerClient.STROKE.contains(key)) cellQuad(p, buf, cam, key, cellY(level, key) + 1, ARGB.color(alpha, d.rgb()), 0);
+            }
+        }
         int brush = PlannerClient.zoneBrush;
-        int strokeColor = brush < ZoneType.PAINTABLE.size() ? ARGB.color(0x99, ZoneType.PAINTABLE.get(brush).rgb) : 0x70FF5050;
+        int strokeColor = PlannerScreen.districtsActive() ? (DistrictTool.mode == 2 ? 0x80FF5050 : 0x90FFFFFF)
+                : brush < ZoneType.PAINTABLE.size() ? ARGB.color(0x99, ZoneType.PAINTABLE.get(brush).rgb) : 0x70FF5050;
         for (long key : PlannerClient.STROKE) cellQuad(p, buf, cam, key, cellY(level, key), strokeColor, 0.3);
         Building doomed = PlannerScreen.bulldozing() ? PlannerClient.hoveredBuilding() : null;
         if (doomed != null) {

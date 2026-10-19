@@ -44,10 +44,12 @@ public final class Traffic {
     private final Map<Integer, LineStats> lines = new LinkedHashMap<>();
     private final Map<Integer, RoadRouter.Access> access = new HashMap<>();
     private int flowPercent = 100;
+    private final boolean freeCoaches;
     private int trips, riders;
 
     Traffic(TownModel m, List<CoachLine> coachLines) {
         this.router = new RoadRouter(m.roads, m.city);
+        this.freeCoaches = m.civics.policies().contains(com.cloudkingtv.townstead.district.Policy.FREE_COACHES);
         Map<Integer, Building> byId = new HashMap<>();
         for (Building b : m.town) byId.put(b.id, b);
         boolean depot = m.town.stream().anyMatch(b -> b.state == Building.State.ACTIVE && ServiceType.COACH_HOUSE.key().equals(b.service));
@@ -153,7 +155,8 @@ public final class Traffic {
             int near = nearestStop(home, line), far = nearestStop(work, line);
             if (near < 0 || far < 0 || near == far) continue;
             // Not everyone takes the coach: a steady share, by name, so the same people ride every day.
-            if (Math.floorMod(who.hashCode(), 100) < RIDER_SHARE * 100 * Math.min(1.25, strength)) return line.id();
+            double share = RIDER_SHARE * Math.min(1.25, strength) * (freeCoaches ? 1.4 : 1);
+            if (Math.floorMod(who.hashCode(), 100) < share * 100) return line.id();
         }
         return null;
     }

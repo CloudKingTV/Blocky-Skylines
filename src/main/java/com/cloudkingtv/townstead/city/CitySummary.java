@@ -19,12 +19,19 @@ import net.minecraft.world.level.Level;
 public record CitySummary(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension,
                           BlockPos townHall, List<TilePos> tiles, long treasury, Map<Identifier, Integer> stock,
                           com.cloudkingtv.townstead.economy.Budget budget, int milestone,
-                          List<com.cloudkingtv.townstead.transit.CoachLine> lines) {
+                          List<com.cloudkingtv.townstead.transit.CoachLine> lines,
+                          List<com.cloudkingtv.townstead.district.District> districts,
+                          java.util.Set<com.cloudkingtv.townstead.district.Policy> policies) {
     public static final StreamCodec<ByteBuf, CitySummary> STREAM_CODEC = new StreamCodec<>() {
         private final StreamCodec<ByteBuf, List<TilePos>> tilesCodec = ByteBufCodecs.collection(ArrayList::new, TilePos.STREAM_CODEC);
         private final StreamCodec<ByteBuf, ResourceKey<Level>> dimCodec = ResourceKey.streamCodec(Registries.DIMENSION);
         private final StreamCodec<ByteBuf, List<com.cloudkingtv.townstead.transit.CoachLine>> linesCodec =
                 ByteBufCodecs.collection(ArrayList::new, com.cloudkingtv.townstead.transit.CoachLine.STREAM_CODEC);
+        private final StreamCodec<ByteBuf, List<com.cloudkingtv.townstead.district.District>> districtsCodec =
+                ByteBufCodecs.collection(ArrayList::new, com.cloudkingtv.townstead.district.District.STREAM_CODEC);
+        private final StreamCodec<ByteBuf, java.util.Set<com.cloudkingtv.townstead.district.Policy>> policiesCodec =
+                ByteBufCodecs.VAR_INT.<com.cloudkingtv.townstead.district.Policy>map(o -> com.cloudkingtv.townstead.district.Policy.values()[o], Enum::ordinal)
+                        .apply(ByteBufCodecs.collection(java.util.HashSet::new));
         private final StreamCodec<ByteBuf, Map<Identifier, Integer>> stockCodec =
                 ByteBufCodecs.map(HashMap::new, Identifier.STREAM_CODEC, ByteBufCodecs.VAR_INT);
 
@@ -33,7 +40,8 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             return new CitySummary(UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf),
                     UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), dimCodec.decode(buf),
                     BlockPos.STREAM_CODEC.decode(buf), tilesCodec.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), stockCodec.decode(buf),
-                    com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), linesCodec.decode(buf));
+                    com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), linesCodec.decode(buf),
+                    districtsCodec.decode(buf), policiesCodec.decode(buf));
         }
 
         @Override
@@ -50,8 +58,15 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.encode(buf, c.budget());
             ByteBufCodecs.VAR_INT.encode(buf, c.milestone());
             linesCodec.encode(buf, c.lines());
+            districtsCodec.encode(buf, c.districts());
+            policiesCodec.encode(buf, c.policies());
         }
     };
+
+    /** Lines, districts and policies as the town's model reads them. */
+    public com.cloudkingtv.townstead.district.Civics civics() {
+        return new com.cloudkingtv.townstead.district.Civics(lines, districts, policies);
+    }
 
     public boolean contains(int blockX, int blockZ) {
         return tiles.contains(TilePos.ofBlock(blockX, blockZ));

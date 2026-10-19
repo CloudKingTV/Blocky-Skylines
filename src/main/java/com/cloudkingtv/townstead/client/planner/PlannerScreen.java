@@ -83,8 +83,9 @@ public class PlannerScreen extends Screen {
             new Tool("landmarks", new ItemStack(Items.BEACON), true),
             new Tool("land", new ItemStack(Items.FILLED_MAP), true),
             new Tool("info", new ItemStack(Items.COMPASS), true),
+            new Tool("districts", new ItemStack(Items.PAINTING), true),
             new Tool("bulldoze", new ItemStack(Items.IRON_SHOVEL), true));
-    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, TRANSPORT = 5, PARKS = 6, LANDMARKS = 7, LAND = 8, INFO = 9, BULLDOZE = 10;
+    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, TRANSPORT = 5, PARKS = 6, LANDMARKS = 7, LAND = 8, INFO = 9, DISTRICTS = 10, BULLDOZE = 11;
 
     /** What the utilities / services / parks tools can place. */
     private static List<ServiceType> placeList(int tool) {
@@ -126,6 +127,11 @@ public class PlannerScreen extends Screen {
         return selectedTool == TRANSPORT;
     }
 
+    /** Whether the districts tool is out (the world renderer tints the districts then). */
+    public static boolean districtsActive() {
+        return selectedTool == DISTRICTS;
+    }
+
     /** Whether the info tool is out (the world renderer colours buildings then). */
     public static boolean infoActive() {
         return selectedTool == INFO;
@@ -143,6 +149,9 @@ public class PlannerScreen extends Screen {
     /** Tool sub-panels: roads (three sizes, gap, two modes), zoning (three zones, gap, clear). */
     private static final int SUB_GAP = 6;
     private static final List<ItemStack> MODE_ICONS = List.of(new ItemStack(Items.RAIL), new ItemStack(Items.POWERED_RAIL));
+    /** Districts sub-panel: a new district, paint into the selected one, erase, select. */
+    private static final List<ItemStack> DISTRICT_ICONS = List.of(new ItemStack(Items.PAINTING), new ItemStack(Items.BRUSH),
+            new ItemStack(Items.SPONGE), new ItemStack(Items.SPYGLASS));
     /** Transport sub-panel: the coach house, draw a line, remove a line. */
     private static final List<ItemStack> TRANSPORT_ICONS = List.of(new ItemStack(Items.SADDLE), new ItemStack(Items.BANNER.pick(net.minecraft.world.item.DyeColor.RED)), new ItemStack(Items.SHEARS));
 
@@ -229,7 +238,13 @@ public class PlannerScreen extends Screen {
             });
             return true;
         }
-        if ((placing() || selectedTool == INFO || selectedTool == TRANSPORT) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
+        if (key == InputConstants.KEY_P) {
+            PolicyPanel.townOpen = !PolicyPanel.townOpen;
+            if (PolicyPanel.townOpen) { BudgetPanel.open = false; MilestonePanel.open = false; }
+            click(PolicyPanel.townOpen ? 1.2f : 0.8f);
+            return true;
+        }
+        if ((placing() || selectedTool == INFO || selectedTool == TRANSPORT || selectedTool == DISTRICTS) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
             pickSub(key - InputConstants.KEY_1);
             return true;
         }
@@ -281,9 +296,10 @@ public class PlannerScreen extends Screen {
 
     /** Esc / right-click: drop the road being drawn or the selection, then the tool, and only then leave (like CS). */
     private void cancelOrExit() {
-        if (BudgetPanel.open || MilestonePanel.open) {
+        if (BudgetPanel.open || MilestonePanel.open || PolicyPanel.townOpen) {
             BudgetPanel.open = false;
             MilestonePanel.open = false;
+            PolicyPanel.townOpen = false;
             click(0.8f);
         } else if (panelBuilding >= 0) {
             panelBuilding = -1;
@@ -333,6 +349,7 @@ public class PlannerScreen extends Screen {
         updateHover((int) event.x(), (int) event.y());
         if (BudgetPanel.click(event.x(), event.y())) return true;
         if (MilestonePanel.contains(event.x(), event.y())) return true;
+        if (PolicyPanel.click(event.x(), event.y())) return true;
         for (Object[] hit : chirpHits) {
             int[] r = (int[]) hit[0];
             if (event.x() >= r[0] && event.x() < r[2] && event.y() >= r[1] && event.y() < r[3]) {
@@ -369,7 +386,15 @@ public class PlannerScreen extends Screen {
             return true;
         }
         if (placing()) { placeClick(); return true; }
-        if (selectedTool == ZONING) {
+        if (selectedTool == DISTRICTS && DistrictTool.mode == 3) {
+            BlockPos cell = PlannerClient.hoverCell;
+            var d = cell == null ? null : PlannerClient.city().map(c -> c.civics().district(
+                    ZoneRules.cellKey(Math.floorDiv(cell.getX(), TilePos.CELL), Math.floorDiv(cell.getZ(), TilePos.CELL)))).orElse(null);
+            DistrictTool.selected = d == null ? -1 : d.id();
+            click(d == null ? 0.7f : 1.2f);
+            return true;
+        }
+        if (selectedTool == ZONING || selectedTool == DISTRICTS) {
             painting = true;
             PlannerClient.STROKE.clear();
             strokeAdd();
@@ -395,7 +420,17 @@ public class PlannerScreen extends Screen {
     @Override
     public boolean mouseReleased(MouseButtonEvent event) {
         if (event.button() == InputConstants.MOUSE_BUTTON_MIDDLE) orbiting = false;
-        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && painting) {
+        if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && painting && selectedTool == DISTRICTS) {
+            painting = false;
+            if (!PlannerClient.STROKE.isEmpty()) {
+                int target = DistrictTool.strokeTarget();
+                DistrictTool.painted(PlannerClient.STROKE.iterator().next());
+                PlannerClient.city().ifPresent(c -> ClientPacketDistributor.sendToServer(
+                        new com.cloudkingtv.townstead.network.DistrictPayloads.Paint(c.id(), target, new ArrayList<>(PlannerClient.STROKE))));
+                click(1.2f);
+            }
+            strokeSentAt = Util.getMillis();
+        } else if (event.button() == InputConstants.MOUSE_BUTTON_LEFT && painting) {
             painting = false;
             if (!PlannerClient.STROKE.isEmpty()) {
                 int zone = PlannerClient.zoneBrush == PlannerClient.CLEAR_BRUSH ? -1 : PlannerClient.zoneBrush;
@@ -467,7 +502,9 @@ public class PlannerScreen extends Screen {
         if (cell == null) return;
         int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
         boolean clearing = PlannerClient.zoneBrush == PlannerClient.CLEAR_BRUSH;
-        if (!clearing && PlannerClient.zonable(cx, cz) == null) return;
+        if (selectedTool == DISTRICTS) {
+            if (!PlannerClient.city().map(c -> c.contains(cx * TilePos.CELL, cz * TilePos.CELL)).orElse(false)) return;
+        } else if (!clearing && PlannerClient.zonable(cx, cz) == null) return;
         if (PlannerClient.STROKE.add(ZoneRules.cellKey(cx, cz)) && PlannerClient.STROKE.size() % 2 == 1) {
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.6f, 0.15f));
         }
@@ -634,6 +671,11 @@ public class PlannerScreen extends Screen {
             click(0.6f);
             return;
         }
+        if (selectedTool == DISTRICTS) {
+            DistrictTool.mode = i;
+            click(1.1f);
+            return;
+        }
         if (selectedTool == TRANSPORT) {
             LineTool.mode = i;
             LineTool.reset();
@@ -669,7 +711,7 @@ public class PlannerScreen extends Screen {
 
     private void pickTool(int tool) {
         if (TOOLS.get(tool).available()) {
-            if (tool != selectedTool) { PlannerClient.ROADS.reset(); LineTool.reset(); }
+            if (tool != selectedTool) { PlannerClient.ROADS.reset(); LineTool.reset(); DistrictTool.reset(); }
             selectedTool = tool;
             if (placing() && !placeList(tool).contains(PlannerClient.placing)) PlannerClient.placing = placeList(tool).getFirst();
             PlannerClient.selectedCell = null;
@@ -741,6 +783,7 @@ public class PlannerScreen extends Screen {
         PlannerClient.hoveredBuildingId = -1;
         if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || overPanel(mouseX, mouseY)
                 || BudgetPanel.contains(mouseX, mouseY) || MilestonePanel.contains(mouseX, mouseY) || overChirp(mouseX, mouseY)
+                || PolicyPanel.contains(mouseX, mouseY)
                 || minecraft.level == null) {
             PlannerClient.hoverCell = null;
             return;
@@ -834,7 +877,7 @@ public class PlannerScreen extends Screen {
         Building hovered = PlannerClient.hoveredBuilding();
         // The bars and their buttons have their own tooltips: no cursor readout over them.
         boolean overBars = mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0;
-        if (selectedTool == TRANSPORT && panelBuilding < 0 && !BudgetPanel.open && !MilestonePanel.open) drawLinesPanel(g, city);
+        if (selectedTool == TRANSPORT && panelBuilding < 0 && !BudgetPanel.open && !MilestonePanel.open && !PolicyPanel.townOpen) drawLinesPanel(g, city);
         if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
         else if (!overBars) {
             if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
@@ -849,6 +892,12 @@ public class PlannerScreen extends Screen {
         drawFlash(g, subCount() > 0 ? subY() : barY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
+        drawDistrictNames(g, city);
+        if (panelBuilding < 0 && !BudgetPanel.open && !MilestonePanel.open) {
+            PolicyPanel.draw(g, font, selectedTool == DISTRICTS && city != null ? DistrictTool.selected(city) : null, TOP_BAR_H, mouseX, mouseY);
+        } else {
+            PolicyPanel.draw(g, font, null, TOP_BAR_H, -1, -1); // keeps its hit area cleared
+        }
         BudgetPanel.draw(g, font, width, height, TOP_BAR_H, barY, mouseX, mouseY);
         MilestonePanel.draw(g, font, width, TOP_BAR_H, barY, mouseX, mouseY);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
@@ -1121,6 +1170,7 @@ public class PlannerScreen extends Screen {
             case ROADS -> RoadType.values().length + RoadTool.Mode.values().length;
             case ZONING -> PlannerClient.CLEAR_BRUSH + 1;
             case INFO -> PlannerClient.INFO_VIEWS.size();
+            case DISTRICTS -> 4;
             case TRANSPORT -> 3;
             default -> placeList(selectedTool).size();
         };
@@ -1165,6 +1215,9 @@ public class PlannerScreen extends Screen {
             if (roads) {
                 on = i < types ? tool.type.ordinal() == i : tool.mode.ordinal() == i - types;
                 icon = i < types ? RoadType.values()[i].icon() : MODE_ICONS.get(i - types);
+            } else if (selectedTool == DISTRICTS) {
+                on = DistrictTool.mode == i;
+                icon = DISTRICT_ICONS.get(i);
             } else if (selectedTool == TRANSPORT) {
                 on = LineTool.mode == i;
                 icon = TRANSPORT_ICONS.get(i);
@@ -1194,7 +1247,9 @@ public class PlannerScreen extends Screen {
         }
         if (hovered >= 0) {
             Component name;
-            if (selectedTool == TRANSPORT) {
+            if (selectedTool == DISTRICTS) {
+                name = Component.translatable("district.townstead.mode." + hovered);
+            } else if (selectedTool == TRANSPORT) {
                 name = Component.translatable("transit.townstead.mode." + hovered);
             } else if (placing()) {
                 ServiceType st = placeList(selectedTool).get(hovered);
@@ -1431,6 +1486,37 @@ public class PlannerScreen extends Screen {
      * Cities: Skylines status icons over buildings that have a problem: no power, no water, waiting for a
      * material, abandoned. Projected from the world through the camera's near plane.
      */
+    /** District names over the map, at each district's middle (bolder while the districts tool is out). */
+    private void drawDistrictNames(GuiGraphicsExtractor g, @Nullable CitySummary city) {
+        if (city == null || city.districts().isEmpty() || minecraft.level == null) return;
+        Camera camera = minecraft.gameRenderer.mainCamera();
+        Camera.NearPlane plane = camera.getNearPlane(camera.getFov());
+        Vec3 tl = plane.getTopLeft(), tr = plane.getTopRight(), bl = plane.getBottomLeft(), br = plane.getBottomRight();
+        Vec3 fwd = tl.add(tr).add(bl).add(br).scale(0.25), up = tl.subtract(bl).scale(0.5), left = tl.subtract(tr).scale(0.5);
+        Vec3 cam = camera.position();
+        boolean tool = selectedTool == DISTRICTS;
+        for (var d : city.districts()) {
+            double sx = 0, sz = 0;
+            for (long c : d.cells()) { sx += com.cloudkingtv.townstead.road.RoadRaster.keyX(c) * 8 + 4; sz += com.cloudkingtv.townstead.road.RoadRaster.keyZ(c) * 8 + 4; }
+            int n = d.cells().size();
+            if (n == 0) continue;
+            double x = sx / n, z = sz / n;
+            int y = minecraft.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, (int) Math.floor(x), (int) Math.floor(z)) + 4;
+            Vec3 dv = new Vec3(x, y, z).subtract(cam);
+            double f = dv.dot(fwd);
+            if (f <= 0.1) continue;
+            double t = fwd.lengthSqr() / f;
+            double ny = dv.dot(up) * t / up.lengthSqr(), nx = -dv.dot(left) * t / left.lengthSqr();
+            if (Math.abs(nx) > 1 || Math.abs(ny) > 1) continue;
+            int px = (int) Math.round((nx + 1) / 2 * width), py = (int) Math.round((1 - ny) / 2 * height);
+            if (py < TOP_BAR_H + 8 || py > height - 60) continue;
+            Component name = Component.literal(d.name());
+            int w = font.width(name);
+            if (tool) g.fill(px - w / 2 - 3, py - 2, px + w / 2 + 3, py + font.lineHeight, 0x90000000 | (d.rgb() & 0xFFFFFF) & 0x90FFFFFF);
+            g.centeredText(font, name, px, py, tool ? 0xFFFFFFFF : 0xC0FFFFFF | 0xC0000000);
+        }
+    }
+
     private void drawStatusIcons(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
         if (city == null || minecraft.level == null || !showIcons) return;
         Camera camera = minecraft.gameRenderer.mainCamera();

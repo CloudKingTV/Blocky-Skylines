@@ -33,8 +33,20 @@ public final class City {
             com.cloudkingtv.townstead.economy.Budget.CODEC.optionalFieldOf("budget").forGetter(c -> java.util.Optional.of(c.budget)),
             Codec.INT.optionalFieldOf("milestone", 0).forGetter(c -> c.milestone),
             com.cloudkingtv.townstead.transit.CoachLine.CODEC.listOf().optionalFieldOf("lines", List.of()).forGetter(c -> List.copyOf(c.lines)),
-            Codec.INT.optionalFieldOf("next_line", 1).forGetter(c -> c.nextLineId)
+            Codec.INT.optionalFieldOf("next_line", 1).forGetter(c -> c.nextLineId),
+            Planning.CODEC.optionalFieldOf("planning", Planning.EMPTY).forGetter(c -> new Planning(List.copyOf(c.districts), c.nextDistrictId, List.copyOf(c.policies)))
     ).apply(i, City::new));
+
+    /** Districts and policies (one field, to keep the codec within its limit). */
+    record Planning(List<com.cloudkingtv.townstead.district.District> districts, int nextDistrict,
+                    List<com.cloudkingtv.townstead.district.Policy> policies) {
+        static final Planning EMPTY = new Planning(List.of(), 1, List.of());
+        static final Codec<Planning> CODEC = RecordCodecBuilder.create(i -> i.group(
+                com.cloudkingtv.townstead.district.District.CODEC.listOf().optionalFieldOf("districts", List.of()).forGetter(Planning::districts),
+                Codec.INT.optionalFieldOf("next_district", 1).forGetter(Planning::nextDistrict),
+                com.cloudkingtv.townstead.district.Policy.CODEC.listOf().optionalFieldOf("policies", List.of()).forGetter(Planning::policies)
+        ).apply(i, Planning::new));
+    }
 
     final UUID id;
     String name;
@@ -55,11 +67,20 @@ public final class City {
     /** Coach lines, in the order they were drawn. Mutate through {@link CityManager}. */
     final List<com.cloudkingtv.townstead.transit.CoachLine> lines;
     int nextLineId;
+    /** Districts, in the order they were painted. Mutate through {@link CityManager}. */
+    final List<com.cloudkingtv.townstead.district.District> districts;
+    int nextDistrictId;
+    /** Town-wide policies. */
+    final java.util.Set<com.cloudkingtv.townstead.district.Policy> policies;
 
     City(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension, BlockPos townHall,
          List<TilePos> tiles, long treasury, long foundedGameTime, Map<Identifier, Integer> stock, List<BlockPos> storehouses,
          java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget, int milestone,
-         List<com.cloudkingtv.townstead.transit.CoachLine> lines, int nextLineId) {
+         List<com.cloudkingtv.townstead.transit.CoachLine> lines, int nextLineId, Planning planning) {
+        this.districts = new ArrayList<>(planning.districts());
+        this.nextDistrictId = planning.nextDistrict();
+        this.policies = java.util.EnumSet.noneOf(com.cloudkingtv.townstead.district.Policy.class);
+        this.policies.addAll(planning.policies());
         this.milestone = milestone;
         this.lines = new ArrayList<>(lines);
         this.nextLineId = nextLineId;
@@ -91,12 +112,18 @@ public final class City {
     public com.cloudkingtv.townstead.economy.Budget budget() { return budget; }
     public int milestone() { return milestone; }
     public List<com.cloudkingtv.townstead.transit.CoachLine> lines() { return java.util.Collections.unmodifiableList(lines); }
+    public List<com.cloudkingtv.townstead.district.District> districts() { return java.util.Collections.unmodifiableList(districts); }
+    public java.util.Set<com.cloudkingtv.townstead.district.Policy> policies() { return java.util.Collections.unmodifiableSet(policies); }
+    /** Lines, districts and policies as the town's model reads them. */
+    public com.cloudkingtv.townstead.district.Civics civics() {
+        return new com.cloudkingtv.townstead.district.Civics(lines, districts, policies);
+    }
 
     public boolean contains(BlockPos pos) {
         return tiles.contains(TilePos.of(pos));
     }
 
     public CitySummary summary() {
-        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone, List.copyOf(lines));
+        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone, List.copyOf(lines), List.copyOf(districts), java.util.Set.copyOf(policies));
     }
 }

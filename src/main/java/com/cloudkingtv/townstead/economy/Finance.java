@@ -24,7 +24,7 @@ public final class Finance {
     /** Fare per coach rider per day, and a coach's running cost at a 100% transport budget. */
     public static final int FARE = 4, COACH_UPKEEP = 120;
 
-    public record Report(long[] taxes, long[] upkeep, long roads, long loans, long fares) {
+    public record Report(long[] taxes, long[] upkeep, long roads, long loans, long fares, long policies) {
         public long income() {
             long n = fares;
             for (long t : taxes) n += t;
@@ -32,7 +32,7 @@ public final class Finance {
         }
 
         public long expenses() {
-            long n = roads + loans;
+            long n = roads + loans + policies;
             for (long u : upkeep) n += u;
             return n;
         }
@@ -53,7 +53,7 @@ public final class Finance {
             }
             if (!b.working()) continue;
             int kind = Happiness.taxKind(b);
-            taxes[kind] += Math.round(value(b, m) * m.budget.tax(kind) / 100.0);
+            taxes[kind] += Math.round(value(b, m) * m.budget.tax(kind) / 100.0 * taxShare(b, m));
         }
         long roads = 0;
         for (RoadSegment s : m.roads.segments()) {
@@ -66,8 +66,40 @@ public final class Finance {
         for (var line : m.traffic.lines().values()) {
             upkeep[transport] += (long) line.coaches() * COACH_UPKEEP * m.budget.budget(ServiceType.Department.TRANSPORT) / 100;
         }
-        long fares = (long) m.traffic.riders() * FARE;
-        return new Report(taxes, upkeep, roads, loans, fares);
+        long fares = m.civics.policies().contains(com.cloudkingtv.townstead.district.Policy.FREE_COACHES) ? 0 : (long) m.traffic.riders() * FARE;
+        return new Report(taxes, upkeep, roads, loans, fares, policyCost(m));
+    }
+
+    /** How much of its tax a building pays under the town's policies and its specialisation. */
+    static double taxShare(Building b, TownModel m) {
+        double share = 1;
+        if (b.zone.need == ZoneType.Need.WORKSHOPS && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.CRAFT_RELIEF)) share *= 0.5;
+        if (b.zone.need == ZoneType.Need.SHOPS && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.QUIET_NIGHTS)) share *= 0.9;
+        if (com.cloudkingtv.townstead.district.Specialization.byKey(b.spec) == com.cloudkingtv.townstead.district.Specialization.LEISURE) share *= 1.3;
+        return share;
+    }
+
+    /** What the town's policies cost a day: smoke hoods per workshop job, lanterns per block of road, flowers per household, classes per adult. */
+    public static long policyCost(TownModel m) {
+        double cost = 0;
+        for (Building b : m.town) {
+            if (!b.working()) continue;
+            if (b.zone.need == ZoneType.Need.WORKSHOPS && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.CLEAN_HEARTHS)) cost += 3.0 * m.staff(b);
+            if (b.zone.residential()) {
+                if (m.civics.has(b, com.cloudkingtv.townstead.district.Policy.GARDEN_TOWN)) cost += b.households;
+                if (m.civics.has(b, com.cloudkingtv.townstead.district.Policy.EVENING_CLASSES)) {
+                    for (var h : com.cloudkingtv.townstead.building.Residents.households(b)) {
+                        for (var p : h.members()) if (p.stage() == com.cloudkingtv.townstead.building.Residents.Stage.ADULT) cost += 2;
+                    }
+                }
+            }
+        }
+        for (RoadSegment s : m.roads.segments()) {
+            if (!s.city().equals(m.city)) continue;
+            long mid = com.cloudkingtv.townstead.zone.ZoneRules.cellKey(Math.floorDiv((int) s.curve().x(0.5), 8), Math.floorDiv((int) s.curve().z(0.5), 8));
+            if (m.civics.has(mid, com.cloudkingtv.townstead.district.Policy.LANTERN_STREETS)) cost += 0.5 * s.curve().length();
+        }
+        return Math.round(cost);
     }
 
     /** Taxable value of a building per day, before the rate. */

@@ -259,12 +259,12 @@ public final class StreetLife {
     }
 
     private static TownModel model(CitySummary city) {
-        Object key = List.of(ClientLand.version(), ClientRoads.version(), city.id(), city.lines(), city.budget().budgets.clone().length,
+        Object key = List.of(ClientLand.version(), ClientRoads.version(), city.id(), city.lines(), city.districts(), city.policies(), city.budget().budgets.clone().length,
                 java.util.Arrays.hashCode(city.budget().budgets), city.treasury() < 0);
         if (model == null || !key.equals(modelKey)) {
             modelKey = key;
             model = TownModel.of(city.id(), ClientLand.get().buildingsOf(city.id()), ClientRoads.network(), city.budget(), city.treasury(),
-                    city.tiles(), city.townHall(), city.lines());
+                    city.tiles(), city.townHall(), city.civics());
         }
         return model;
     }

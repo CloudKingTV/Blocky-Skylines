@@ -53,7 +53,7 @@ public final class PlannerClient {
         if (model == null || !key.equals(modelKey)) {
             modelKey = key;
             model = com.cloudkingtv.townstead.sim.TownModel.of(city.id(), ClientLand.get().buildingsOf(city.id()), ClientRoads.network(),
-                    city.budget(), city.treasury(), city.tiles(), city.townHall(), city.lines());
+                    city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics());
         }
         return model;
     }

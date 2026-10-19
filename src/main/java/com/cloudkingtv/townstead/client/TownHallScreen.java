@@ -73,7 +73,7 @@ public class TownHallScreen extends Screen {
         if (day == null || net.minecraft.util.Util.getMillis() - dayAt > 1000) {
             dayAt = net.minecraft.util.Util.getMillis();
             day = Finance.daily(TownModel.of(city.id(), ClientLand.get().buildingsOf(city.id()), ClientRoads.network(), city.budget(),
-                    city.treasury(), city.tiles(), city.townHall(), city.lines()));
+                    city.treasury(), city.tiles(), city.townHall(), city.civics()));
         }
         Finance.Report day = this.day;
         g.text(font, Component.translatable("screen.townstead.town_hall.daily", Budget.signed(day.income()), Budget.signed(-day.expenses()),

@@ -58,6 +58,9 @@ public final class Building {
         b.service = extra.service();
         b.wide = Math.max(1, extra.wide());
         b.deep = Math.max(1, extra.deep());
+        b.spec = extra.spec();
+        b.fire = extra.fire();
+        b.burned = extra.burned();
         b.state = state;
         b.progress = progress;
         b.households = hh;
@@ -103,13 +106,19 @@ public final class Building {
      * {@code deep} cells back from it. The anchor ({@link #cellX}, {@link #cellZ}) is the front-left cell.
      */
     public int wide = 1, deep = 1;
+    /** The district specialisation it was started under ("" for none; see {@link com.cloudkingtv.townstead.district.Specialization}). */
+    public String spec = "";
+    /** Ticks it has been burning (0: not on fire). */
+    public int fire;
+    /** Burned out: a charred shell until people rebuild it. */
+    public boolean burned;
 
     public static final int MAX_LEVEL = 3;
 
     /** Bookkeeping that grew after the first save format; saved as one compound. */
     record Extra(int level, String style, long activeSince, int trouble, int owed, boolean upgrading, boolean repairing, String service,
-                 int wide, int deep) {
-        static final Extra DEFAULT = new Extra(1, "plains", 0L, 0, 0, false, false, "", 1, 1);
+                 int wide, int deep, String spec, int fire, boolean burned) {
+        static final Extra DEFAULT = new Extra(1, "plains", 0L, 0, 0, false, false, "", 1, 1, "", 0, false);
         static final Codec<Extra> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.optionalFieldOf("level", 1).forGetter(Extra::level),
                 Codec.STRING.optionalFieldOf("style", "plains").forGetter(Extra::style),
@@ -120,12 +129,15 @@ public final class Building {
                 Codec.BOOL.optionalFieldOf("repairing", false).forGetter(Extra::repairing),
                 Codec.STRING.optionalFieldOf("service", "").forGetter(Extra::service),
                 Codec.INT.optionalFieldOf("wide", 1).forGetter(Extra::wide),
-                Codec.INT.optionalFieldOf("deep", 1).forGetter(Extra::deep)
+                Codec.INT.optionalFieldOf("deep", 1).forGetter(Extra::deep),
+                Codec.STRING.optionalFieldOf("spec", "").forGetter(Extra::spec),
+                Codec.INT.optionalFieldOf("fire", 0).forGetter(Extra::fire),
+                Codec.BOOL.optionalFieldOf("burned", false).forGetter(Extra::burned)
         ).apply(i, Extra::new));
     }
 
     Extra extra() {
-        return new Extra(level, style, activeSince, trouble, owed, upgrading, repairing, service, wide, deep);
+        return new Extra(level, style, activeSince, trouble, owed, upgrading, repairing, service, wide, deep, spec, fire, burned);
     }
 
     public Building(int id, UUID city, ZoneType zone, int cellX, int cellZ, Direction front, int baseY, long seed, long started, int setback) {
@@ -196,6 +208,9 @@ public final class Building {
         b.service = service;
         b.wide = wide;
         b.deep = deep;
+        b.spec = spec;
+        b.fire = fire;
+        b.burned = burned;
         return b;
     }
 

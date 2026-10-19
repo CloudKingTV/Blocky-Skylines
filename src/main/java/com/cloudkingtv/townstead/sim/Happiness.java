@@ -48,6 +48,8 @@ public record Happiness(int total, List<Factor> factors) {
             if (delay > 1.25) f.add(new Factor(Component.translatable("happy.townstead.traffic", Math.round((delay - 1) * 100)),
                     -Math.min(12, (int) Math.round((delay - 1) * 20))));
             if (m.traffic.nearStop(b, m.lines)) f.add(factor("coach_stop", 3));
+            if (m.civics.has(b, com.cloudkingtv.townstead.district.Policy.GARDEN_TOWN)) f.add(factor("garden_town", 3));
+            if (m.civics.has(b, com.cloudkingtv.townstead.district.Policy.OLD_TOWN)) f.add(factor("old_town", 3));
         }
         int kind = taxKind(b);
         int tax = m.budget.tax(kind);
@@ -60,7 +62,7 @@ public record Happiness(int total, List<Factor> factors) {
             if (b.jobs > 0 && staff < b.jobs) f.add(new Factor(Component.translatable("happy.townstead.short_staffed", staff, b.jobs),
                     -Math.round(20f * (b.jobs - staff) / b.jobs)));
             if (b.zone.need == com.cloudkingtv.townstead.zone.ZoneType.Need.SHOPS) {
-                boolean busy = m.residentsNear(b, 32) >= 10;
+                boolean busy = m.residentsNear(b, 32) >= 10 || m.civics.has(b, com.cloudkingtv.townstead.district.Policy.MARKET_DAYS);
                 f.add(factor(busy ? "customers" : "few_customers", busy ? 5 : -5));
             }
         }

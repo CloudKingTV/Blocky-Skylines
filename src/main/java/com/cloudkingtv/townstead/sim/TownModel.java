@@ -36,6 +36,8 @@ public final class TownModel {
     public final Fields fields;
     /** Coach lines, as drawn. */
     public final List<com.cloudkingtv.townstead.transit.CoachLine> lines;
+    /** Districts and policies. */
+    public final com.cloudkingtv.townstead.district.Civics civics;
     /** Who drives where, how jammed each road is, and who rides the coaches. */
     public final Traffic traffic;
     /** Homes with a school in reach. */
@@ -48,20 +50,25 @@ public final class TownModel {
     private final Map<Integer, Happiness> happiness = new HashMap<>();
 
     private TownModel(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury, Set<TilePos> tiles, BlockPos townHall,
-                      List<com.cloudkingtv.townstead.transit.CoachLine> lines) {
+                      com.cloudkingtv.townstead.district.Civics civics) {
         this.city = city;
         this.town = List.copyOf(town);
         this.roads = roads;
         this.budget = budget;
         this.treasury = treasury;
         this.tiles = tiles;
-        this.lines = List.copyOf(lines);
+        this.civics = civics;
+        this.lines = civics.lines();
         this.util = Utilities.compute(this.town, roads, this::strength);
-        for (Building b : this.town) if (b.zone.residential() && covered(b, ServiceType.SCHOOL)) schooled.add(b.id);
+        for (Building b : this.town) {
+            if (b.zone.residential() && (covered(b, ServiceType.SCHOOL) || civics.has(b, com.cloudkingtv.townstead.district.Policy.EVENING_CLASSES))) {
+                schooled.add(b.id);
+            }
+        }
         this.employment = Residents.employment(this.town, schooled);
         this.jobsByPerson = Residents.jobsByPerson(employment);
         this.traffic = new Traffic(this, this.lines);
-        this.fields = Fields.of(city, this.town, roads, townHall, this::radius, traffic);
+        this.fields = Fields.of(city, this.town, roads, townHall, this::radius, traffic, civics);
         int a = 0, e = 0;
         for (Building b : this.town) {
             if (!b.working() || !b.zone.residential()) continue;
@@ -77,12 +84,14 @@ public final class TownModel {
         this.adults = a;
         this.educated = e;
         this.unemployed = Math.max(0, a - jobsByPerson.size());
-        this.demand = Demand.of(this.town, e, budget.taxes);
+        this.demand = Demand.of(this.town, e, budget.taxes,
+                civics.anywhere(com.cloudkingtv.townstead.district.Policy.MARKET_DAYS) ? 15 : 0,
+                civics.anywhere(com.cloudkingtv.townstead.district.Policy.CRAFT_RELIEF) ? 15 : 0);
     }
 
     public static TownModel of(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury,
-                               Collection<TilePos> tiles, BlockPos townHall, List<com.cloudkingtv.townstead.transit.CoachLine> lines) {
-        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, lines);
+                               Collection<TilePos> tiles, BlockPos townHall, com.cloudkingtv.townstead.district.Civics civics) {
+        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, civics);
     }
 
     /** In debt: services and utilities run at half strength until the treasury is back above zero. */

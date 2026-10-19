@@ -23,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "8";
+    private static final String PROTOCOL = "9";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -77,6 +77,25 @@ public final class TownsteadNetwork {
                     .ifPresent(city -> StorehouseService.withdraw(player, city, msg.item(), msg.count()));
         });
         r.playToClient(ChirpPayload.TYPE, ChirpPayload.STREAM_CODEC);
+        r.playToServer(DistrictPayloads.Paint.TYPE, DistrictPayloads.Paint.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
+                    .ifPresent(city -> com.cloudkingtv.townstead.district.DistrictEditor.paint(player, city, msg.district(), msg.cells()));
+        });
+        r.playToServer(DistrictPayloads.SetPolicy.TYPE, DistrictPayloads.SetPolicy.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            if (msg.policy() < 0 || msg.policy() >= com.cloudkingtv.townstead.district.Policy.values().length) return;
+            plannerCity(player, msg.cityId()).ifPresent(city -> com.cloudkingtv.townstead.district.DistrictEditor.setPolicy(player, city, msg.district(),
+                    com.cloudkingtv.townstead.district.Policy.values()[msg.policy()], msg.on()));
+        });
+        r.playToServer(DistrictPayloads.SetSpec.TYPE, DistrictPayloads.SetSpec.STREAM_CODEC, (msg, ctx) -> {
+            if (!(ctx.player() instanceof ServerPlayer player)) return;
+            if (msg.spec() >= com.cloudkingtv.townstead.district.Specialization.values().length) return;
+            plannerCity(player, msg.cityId()).ifPresent(city -> {
+                if (msg.spec() < 0) com.cloudkingtv.townstead.district.DistrictEditor.delete(player, city, msg.district());
+                else com.cloudkingtv.townstead.district.DistrictEditor.setSpec(player, city, msg.district(),
+                        com.cloudkingtv.townstead.district.Specialization.values()[msg.spec()]);
+            });
+        });
         r.playToServer(TransitPayloads.CreateLine.TYPE, TransitPayloads.CreateLine.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
                     .ifPresent(city -> com.cloudkingtv.townstead.transit.CoachLines.create(player, city, msg.stops()));

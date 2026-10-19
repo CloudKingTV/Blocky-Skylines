@@ -72,7 +72,7 @@ final class BudgetPanel {
 
         w = Math.min(MAX_W, screenW - 12);
         int col = (w - PAD * 3) / 2;
-        int rows = 2 + 1 + Math.max(TAX_ZONES.length + 2 + Loan.Offer.values().length + 1, ServiceType.Department.values().length + 3);
+        int rows = 2 + 1 + Math.max(TAX_ZONES.length + 2 + Loan.Offer.values().length + 1, ServiceType.Department.values().length + 4);
         int graphH = 26;
         h = PAD * 2 + rows * ROW + graphH + 6;
         if (h > bottom - topBar - 4) { graphH = 0; h = PAD * 2 + rows * ROW; }
@@ -149,6 +149,8 @@ final class BudgetPanel {
         plain(g, font, rx, ry, col, Component.translatable("budget.townstead.roads"), Budget.signed(-day.roads()), day.roads() == 0 ? DIM : BAD);
         ry += ROW;
         plain(g, font, rx, ry, col, Component.translatable("budget.townstead.loan_payments"), Budget.signed(-day.loans()), day.loans() == 0 ? DIM : BAD);
+        ry += ROW;
+        plain(g, font, rx, ry, col, Component.translatable("budget.townstead.policies"), Budget.signed(-day.policies()), day.policies() == 0 ? DIM : BAD);
 
         if (graphH > 0) ledger(g, font, left + PAD, top + h - PAD - graphH, w - PAD * 2, graphH, b.ledger, mouseX, mouseY);
     }

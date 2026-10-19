@@ -40,6 +40,7 @@ public final class Progression {
     public static List<Factor> nextLevel(Building b, TownModel m, long now, double speed) {
         List<Factor> out = new ArrayList<>();
         if (b.level >= Building.MAX_LEVEL || b.civic()) return out;
+        if (b.level >= 2 && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.OLD_TOWN)) return out; // Old Town: no further
         Collection<Building> town = m.town;
         int next = b.level + 1;
         long need = (long) (LEVEL_TIME[b.level] / speed);

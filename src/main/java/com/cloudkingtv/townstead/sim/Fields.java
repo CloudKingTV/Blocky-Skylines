@@ -37,12 +37,14 @@ public final class Fields {
 
     private final List<Source> pollution = new ArrayList<>(), noise = new ArrayList<>(), roadNoise = new ArrayList<>(), value = new ArrayList<>();
     private final Map<Long, int[]> cache = new HashMap<>();
+    private com.cloudkingtv.townstead.district.Civics civics = com.cloudkingtv.townstead.district.Civics.NONE;
 
     /**
      * @param radius how far each active service reaches (its department budget scales it)
      */
     public static Fields of(UUID city, Collection<Building> town, RoadNetwork roads, BlockPos townHall, ToDoubleFunction<ServiceType> radius,
-                            Traffic traffic) {
+                            Traffic traffic, com.cloudkingtv.townstead.district.Civics civics) {
+        Fields f0 = null; // placeholder = civics;
         Fields f = new Fields();
         f.value.add(new Source(townHall.getX() + 0.5, townHall.getZ() + 0.5, 12, 72));
         for (Building b : town) {
@@ -66,12 +68,19 @@ public final class Fields {
             }
             switch (b.zone.need) {
                 case WORKSHOPS -> {
-                    f.pollution.add(new Source(x, z, 30 + 15 * l, 24 + 8 * l));
-                    f.noise.add(new Source(x, z, 15, 20));
+                    double dirty = civics.has(b, com.cloudkingtv.townstead.district.Policy.CLEAN_HEARTHS) ? 0.5 : 1;
+                    double quiet = civics.has(b, com.cloudkingtv.townstead.district.Policy.QUIET_NIGHTS) ? 0.6 : 1;
+                    var spec = com.cloudkingtv.townstead.district.Specialization.byKey(b.spec);
+                    if (spec == com.cloudkingtv.townstead.district.Specialization.FARMING) dirty *= 0.15;
+                    if (spec == com.cloudkingtv.townstead.district.Specialization.FORESTRY) dirty *= 0.6;
+                    f.pollution.add(new Source(x, z, (30 + 15 * l) * dirty, 24 + 8 * l));
+                    f.noise.add(new Source(x, z, 15 * quiet, 20));
                 }
                 case SHOPS -> {
                     boolean big = b.zone == ZoneType.COMMERCIAL_HIGH;
-                    f.noise.add(new Source(x, z, big ? 20 : 12, big ? 24 : 16));
+                    double loud = (civics.has(b, com.cloudkingtv.townstead.district.Policy.QUIET_NIGHTS) ? 0.6 : 1) * (civics.has(b, com.cloudkingtv.townstead.district.Policy.MARKET_DAYS) ? 1.4 : 1)
+                            * (com.cloudkingtv.townstead.district.Specialization.byKey(b.spec) == com.cloudkingtv.townstead.district.Specialization.LEISURE ? 1.5 : 1);
+                    f.noise.add(new Source(x, z, (big ? 20 : 12) * loud, big ? 24 : 16));
                     f.value.add(new Source(x, z, 4, 24));
                 }
                 default -> {}
@@ -82,6 +91,8 @@ public final class Fields {
             // Busier roads are louder: an empty road makes 40% of its noise, a jammed one up to 160%.
             double busy = Mth.clamp(traffic.ratio(s), 0, 1.5);
             double loud = (s.type() == RoadType.AVENUE ? 16 : s.type() == RoadType.STREET ? 8 : 3) * (0.4 + 0.8 * busy);
+            long mid = ZoneRules.cellKey(Math.floorDiv((int) s.curve().x(0.5), ZoneRules.CELL), Math.floorDiv((int) s.curve().z(0.5), ZoneRules.CELL));
+            if (civics.has(mid, com.cloudkingtv.townstead.district.Policy.QUIET_NIGHTS)) loud *= 0.6;
             double reach = s.type().halfWidth() + (s.type() == RoadType.AVENUE ? 10 : s.type() == RoadType.STREET ? 7 : 4);
             int n = Math.max(1, (int) Math.ceil(s.curve().length() / 4));
             for (int i = 0; i <= n; i++) {
@@ -102,6 +113,11 @@ public final class Fields {
             for (Source s : roadNoise) road = Math.max(road, s.at(x, z));
             n += road;
             for (Source s : value) v += s.at(x, z);
+            // Policies on the cell's district (or the town): lanterns, gardens and the old town's charm.
+            long key = ZoneRules.cellKey(cx, cz);
+            if (civics.has(key, com.cloudkingtv.townstead.district.Policy.LANTERN_STREETS)) v += 6;
+            if (civics.has(key, com.cloudkingtv.townstead.district.Policy.GARDEN_TOWN)) v += 3;
+            if (civics.has(key, com.cloudkingtv.townstead.district.Policy.OLD_TOWN)) v += 8;
             int pi = Mth.clamp((int) Math.round(p), 0, 100), ni = Mth.clamp((int) Math.round(n), 0, 100);
             int vi = Mth.clamp((int) Math.round(v - 0.6 * pi - 0.4 * ni), 0, 100);
             return new int[] {pi, ni, vi};

@@ -276,6 +276,9 @@ public final class TownGrowth {
         b.wide = wide;
         b.deep = deep;
         b.style = Palette.styleAt(level, BlockPos.containing(b.centerX(), baseY, b.centerZ()));
+        // A district's specialisation shapes the workshops (or shops) started in it.
+        var spec = city.civics().spec(ZoneRules.cellKey(cx, cz));
+        if (spec.need != null && spec.need == zone.need) b.spec = spec.key();
         BuildingGenerator.Plan plan = plan(b);
         b.households = plan.households();
         b.jobs = plan.jobs();
