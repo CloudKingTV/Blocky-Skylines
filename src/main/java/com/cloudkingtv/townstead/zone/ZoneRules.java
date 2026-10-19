@@ -100,6 +100,46 @@ public final class ZoneRules {
         };
     }
 
+    /**
+     * Whether a cell can be zoned: it faces a road ({@link #frontage}), or it lies right behind a cell that does
+     * (the back half of a deep lot). Returns the direction the lot faces, or null.
+     */
+    public static @Nullable Direction zonable(int cellX, int cellZ, Map<Long, RoadRaster.Cell> roads, Set<TilePos> tiles) {
+        Direction f = frontage(cellX, cellZ, roads, tiles);
+        if (f != null) return f;
+        if (!tiles.contains(TilePos.ofBlock(cellX * CELL, cellZ * CELL)) || hasRoad(cellX, cellZ, roads)) return null;
+        for (Direction d : Direction.Plane.HORIZONTAL) {
+            if (frontage(cellX + d.getStepX(), cellZ + d.getStepZ(), roads, tiles) == d) return d;
+        }
+        return null;
+    }
+
+    /** Whether any road column crosses the cell. */
+    public static boolean hasRoad(int cellX, int cellZ, Map<Long, RoadRaster.Cell> roads) {
+        for (int x = cellX * CELL; x < cellX * CELL + CELL; x++) {
+            for (int z = cellZ * CELL; z < cellZ * CELL + CELL; z++) if (roads.containsKey(RoadRaster.key(x, z))) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether a lot anchored at (cellX, cellZ) facing {@code front} fits: its front row of cells all face the road the
+     * same way, its back row has no road through it, and everything is town land. {@code free} says whether a cell
+     * may be used (unbuilt, zoned right...).
+     */
+    public static boolean lotFits(int cellX, int cellZ, Direction front, int wide, int deep, Map<Long, RoadRaster.Cell> roads,
+                                  Set<TilePos> tiles, java.util.function.LongPredicate free) {
+        Direction right = front.getCounterClockWise(), back = front.getOpposite();
+        for (int d = 0; d < deep; d++) {
+            for (int a = 0; a < wide; a++) {
+                int x = cellX + right.getStepX() * a + back.getStepX() * d, z = cellZ + right.getStepZ() * a + back.getStepZ() * d;
+                if (!free.test(cellKey(x, z)) || !tiles.contains(TilePos.ofBlock(x * CELL, z * CELL))) return false;
+                if (d == 0 ? frontage(x, z, roads, tiles) != front : hasRoad(x, z, roads)) return false;
+            }
+        }
+        return true;
+    }
+
     public static @Nullable Direction frontage(int cellX, int cellZ, RoadNetwork net, CitySummary city) {
         return frontage(cellX, cellZ, roadColumns(net, city.id()), Set.copyOf(city.tiles()));
     }

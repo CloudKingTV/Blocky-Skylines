@@ -153,25 +153,56 @@ public final class TownGrowth {
                 lots.add(new long[] {e.getKey(), dx * dx + dz * dz});
             }
             lots.sort(Comparator.comparingLong(l -> l[1]));
+            java.util.function.LongPredicate free = k -> {
+                LandData.Zoned z = land.zone(k);
+                return z != null && z.city().equals(city.id()) && z.type() == zone && land.buildingAt(k) == null;
+            };
             for (long[] lot : lots) {
                 int cx = RoadRaster.keyX(lot[0]), cz = RoadRaster.keyZ(lot[0]);
                 Direction front = ZoneRules.frontage(cx, cz, roads, tiles);
                 if (front == null) continue;
-                level.getChunk(cx >> 1, cz >> 1); // loads it if nobody is near: towns grow while you're away
-                Integer baseY = siteHeight(level, cx, cz, roads);
-                if (baseY == null) continue;
-                startSite(level, city, land, zone, "", cx, cz, front, baseY, roads);
-                return;
+                // A lot shape for this zone (a cottage plot, a wide farmhouse plot, a deep yard...), then smaller ones.
+                for (int[] shape : shapes(zone, lot[0] * 31 + land.buildings().size())) {
+                    if (!ZoneRules.lotFits(cx, cz, front, shape[0], shape[1], roads, tiles, free)) continue;
+                    List<Long> cells = Building.lotCells(cx, cz, front, shape[0], shape[1]);
+                    for (long k : cells) level.getChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1); // towns grow while you're away
+                    Integer baseY = siteHeight(level, cells, roads);
+                    if (baseY == null) continue;
+                    startSite(level, city, land, zone, "", cx, cz, front, shape[0], shape[1], baseY, roads);
+                    return;
+                }
             }
         }
     }
 
+    /** Lot shapes ({wide, deep}) to try for a zone, the weighted pick first, then smaller ones down to a single cell. */
+    static List<int[]> shapes(ZoneType zone, long seed) {
+        int[][] all = {{2, 2}, {2, 1}, {1, 2}, {1, 1}};
+        int[] weights = switch (zone) {
+            case RESIDENTIAL -> new int[] {10, 30, 20, 40};
+            case RESIDENTIAL_HIGH -> new int[] {35, 45, 10, 10};
+            case COMMERCIAL -> new int[] {0, 35, 15, 50};
+            case COMMERCIAL_HIGH -> new int[] {40, 45, 0, 15};
+            case INDUSTRIAL -> new int[] {35, 40, 15, 10};
+            case OFFICE -> new int[] {40, 45, 0, 15};
+            case CIVIC -> new int[] {0, 0, 0, 1};
+        };
+        int total = 0;
+        for (int w : weights) total += w;
+        int r = (int) Math.floorMod(seed * 0x9E3779B97F4A7C15L >>> 17, (long) total), pick = 0;
+        for (int i = 0; i < weights.length; i++) { if (r < weights[i]) { pick = i; break; } r -= weights[i]; }
+        List<int[]> out = new ArrayList<>();
+        out.add(all[pick]);
+        for (int i = pick + 1; i < all.length; i++) if (weights[i] > 0 || i == all.length - 1) out.add(all[i]);
+        return out;
+    }
+
     /** Floor level for a lot, or null if the ground is too steep, too wet, or something's in the way. */
-    private static @Nullable Integer siteHeight(ServerLevel level, int cx, int cz, Map<Long, RoadRaster.Cell> roads) {
-        int[] ys = new int[64];
+    private static @Nullable Integer siteHeight(ServerLevel level, List<Long> cells, Map<Long, RoadRaster.Cell> roads) {
+        int[] ys = new int[64 * cells.size()];
         int wet = 0, i = 0;
-        for (int x = cx * 8; x < cx * 8 + 8; x++) {
-            for (int z = cz * 8; z < cz * 8 + 8; z++) {
+        for (long cell : cells) for (int x = RoadRaster.keyX(cell) * 8; x < RoadRaster.keyX(cell) * 8 + 8; x++) {
+            for (int z = RoadRaster.keyZ(cell) * 8; z < RoadRaster.keyZ(cell) * 8 + 8; z++) {
                 if (roads.containsKey(RoadRaster.key(x, z))) continue;
                 int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
                 BlockPos p = new BlockPos(x, top, z);
@@ -187,7 +218,7 @@ public final class TownGrowth {
                 ys[i++] = top;
             }
         }
-        if (wet > 8 || i < 40) return null;
+        if (wet > 8 * cells.size() || i < 40 * cells.size()) return null;
         ys = Arrays.copyOf(ys, i);
         Arrays.sort(ys);
         if (ys[i - 1 - i / 8] - ys[i / 8] > MAX_SLOPE) return null;
@@ -204,12 +235,24 @@ public final class TownGrowth {
         if (land.buildingAt(ZoneRules.cellKey(cx, cz)) != null) return "service.townstead.lot_taken";
         Direction front = ZoneRules.frontage(cx, cz, roads, city.tiles());
         if (front == null) return "zone.townstead.no_frontage";
-        level.getChunk(cx >> 1, cz >> 1);
-        if (service == com.cloudkingtv.townstead.service.ServiceType.WATERMILL && !waterNear(level, cx, cz)) return "service.townstead.needs_water";
-        Integer baseY = siteHeight(level, cx, cz, roads);
+        // The clicked cell anywhere along the front row of the service's lot.
+        Direction right = front.getCounterClockWise();
+        int ax = cx, az = cz;
+        boolean fits = false;
+        for (int shift = 0; shift < service.wide && !fits; shift++) {
+            ax = cx - right.getStepX() * shift;
+            az = cz - right.getStepZ() * shift;
+            fits = ZoneRules.lotFits(ax, az, front, service.wide, service.deep, roads, city.tiles(), k -> land.buildingAt(k) == null);
+        }
+        if (!fits) return "service.townstead.no_room";
+        List<Long> cells = Building.lotCells(ax, az, front, service.wide, service.deep);
+        for (long k : cells) level.getChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1);
+        if (service == com.cloudkingtv.townstead.service.ServiceType.WATERMILL
+                && cells.stream().noneMatch(k -> waterNear(level, RoadRaster.keyX(k), RoadRaster.keyZ(k)))) return "service.townstead.needs_water";
+        Integer baseY = siteHeight(level, cells, roads);
         if (baseY == null) return "service.townstead.bad_ground";
-        land.setZone(ZoneRules.cellKey(cx, cz), null); // a service replaces any zoning on its lot
-        return startSite(level, city, land, ZoneType.CIVIC, service.key(), cx, cz, front, baseY, roads);
+        for (long k : cells) land.setZone(k, null); // a service replaces any zoning on its lot
+        return startSite(level, city, land, ZoneType.CIVIC, service.key(), ax, az, front, service.wide, service.deep, baseY, roads);
     }
 
     /** Running water (a river or lake) within a few blocks of the lot, for a watermill. */
@@ -224,11 +267,14 @@ public final class TownGrowth {
     }
 
     private static Building startSite(ServerLevel level, City city, LandData land, ZoneType zone, String service, int cx, int cz, Direction front,
-                                      int baseY, Map<Long, RoadRaster.Cell> roads) {
-        Building b = new Building(land.newId(), city.id(), zone, cx, cz, front, baseY, level.getRandom().nextLong(), level.getGameTime(),
-                ZoneRules.setback(cx, cz, front, roads));
+                                      int wide, int deep, int baseY, Map<Long, RoadRaster.Cell> roads) {
+        int setback = 0;
+        for (long k : Building.lotCells(cx, cz, front, wide, 1)) setback = Math.max(setback, ZoneRules.setback(RoadRaster.keyX(k), RoadRaster.keyZ(k), front, roads));
+        Building b = new Building(land.newId(), city.id(), zone, cx, cz, front, baseY, level.getRandom().nextLong(), level.getGameTime(), setback);
         b.service = service;
-        b.style = Palette.styleAt(level, new BlockPos(cx * 8 + 4, baseY, cz * 8 + 4));
+        b.wide = wide;
+        b.deep = deep;
+        b.style = Palette.styleAt(level, BlockPos.containing(b.centerX(), baseY, b.centerZ()));
         BuildingGenerator.Plan plan = plan(b);
         b.households = plan.households();
         b.jobs = plan.jobs();
@@ -236,8 +282,8 @@ public final class TownGrowth {
         Map<Item, Integer> felled = new HashMap<>();
         BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState(), dirt = Blocks.DIRT.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
         Set<Long> siteRoads = new HashSet<>();
-        for (int x = cx * 8; x < cx * 8 + 8; x++) {
-            for (int z = cz * 8; z < cz * 8 + 8; z++) {
+        for (long cell : b.cellKeys()) for (int x = RoadRaster.keyX(cell) * 8; x < RoadRaster.keyX(cell) * 8 + 8; x++) {
+            for (int z = RoadRaster.keyZ(cell) * 8; z < RoadRaster.keyZ(cell) * 8 + 8; z++) {
                 if (roads.containsKey(RoadRaster.key(x, z))) { siteRoads.add(RoadRaster.key(x, z)); continue; } // never dig up a road
                 for (int y = baseY; y < baseY + SITE_CLEAR_HEIGHT; y++) {
                     BlockPos p = new BlockPos(x, y, z);
@@ -264,7 +310,7 @@ public final class TownGrowth {
         verge(level, plan, front, roads);
         land.putBuilding(b);
         markDirty();
-        BlockPos centre = new BlockPos(cx * 8 + 4, baseY, cz * 8 + 4);
+        BlockPos centre = BlockPos.containing(b.centerX(), baseY, b.centerZ());
         level.playSound(null, centre, SoundEvents.WOODEN_DOOR_OPEN, SoundSource.BLOCKS, 0.6f, 0.7f);
         tell(level, city, Component.translatable("building.townstead.site_started", kindName(plan)), true);
         return b;
@@ -313,8 +359,12 @@ public final class TownGrowth {
         return SITE_ROADS.computeIfAbsent(b.id, id -> {
             Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), b.city);
             Set<Long> out = new HashSet<>();
-            for (int x = b.cellX * 8; x < b.cellX * 8 + 8; x++) for (int z = b.cellZ * 8; z < b.cellZ * 8 + 8; z++) {
-                if (roads.containsKey(RoadRaster.key(x, z))) out.add(RoadRaster.key(x, z));
+            for (long cell : b.cellKeys()) {
+                for (int x = RoadRaster.keyX(cell) * 8; x < RoadRaster.keyX(cell) * 8 + 8; x++) {
+                    for (int z = RoadRaster.keyZ(cell) * 8; z < RoadRaster.keyZ(cell) * 8 + 8; z++) {
+                        if (roads.containsKey(RoadRaster.key(x, z))) out.add(RoadRaster.key(x, z));
+                    }
+                }
             }
             return out;
         });
@@ -368,7 +418,13 @@ public final class TownGrowth {
         if (step.state().getBlock() instanceof DoorBlock) {
             level.setBlock(step.pos().above(), step.state().setValue(DoorBlock.HALF, DoubleBlockHalf.UPPER), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
         }
-        level.setBlock(step.pos(), step.state(), Block.UPDATE_ALL);
+        // Connect to what's already there (fences, panes, stair corners); keep the planned state if that would drop it.
+        BlockState placed = step.state();
+        if (!(placed.getBlock() instanceof DoorBlock)) {
+            BlockState shaped = Block.updateFromNeighbourShapes(placed, level, step.pos());
+            if (shaped.is(placed.getBlock())) placed = shaped;
+        }
+        level.setBlock(step.pos(), placed, Block.UPDATE_ALL);
         if (!catchingUp) {
             SoundType sound = step.state().getSoundType();
             level.playSound(null, step.pos(), sound.getPlaceSound(), SoundSource.BLOCKS, (sound.getVolume() + 1f) / 4f, sound.getPitch() * 0.8f);

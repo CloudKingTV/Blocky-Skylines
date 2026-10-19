@@ -128,7 +128,7 @@ public final class TownModel {
         int n = 0;
         for (Building o : town) {
             if (!o.zone.residential() || !o.working()) continue;
-            if (Math.hypot((o.cellX - b.cellX) * ZoneRules.CELL, (o.cellZ - b.cellZ) * ZoneRules.CELL) <= radius) n += Residents.people(o);
+            if (o.distanceTo(b) <= radius) n += Residents.people(o);
         }
         return n;
     }

@@ -26,7 +26,8 @@ public enum Material {
     WORKSTATIONS("workstations", Items.BARREL),
     HAY("hay", Items.HAY_BLOCK),
     SANDSTONE("sandstone", Items.SANDSTONE),
-    TERRACOTTA("terracotta", Items.TERRACOTTA);
+    TERRACOTTA("terracotta", Items.TERRACOTTA),
+    BRICKS("bricks", Items.BRICKS);
 
     /** Everything the Town Storehouse accepts. */
     public static final TagKey<Item> BUILDING_MATERIALS = ItemTags.create(Townstead.id("building_materials"));

@@ -124,7 +124,7 @@ public final class Progression {
     // ---------------------------------------------------------------- helpers
 
     private static double dist(Building a, Building b) {
-        return Math.hypot((a.cellX - b.cellX) * ZoneRules.CELL, (a.cellZ - b.cellZ) * ZoneRules.CELL);
+        return a.distanceTo(b);
     }
 
     private static int nearby(Building b, Collection<Building> town, double radius, ZoneType.Need need) {

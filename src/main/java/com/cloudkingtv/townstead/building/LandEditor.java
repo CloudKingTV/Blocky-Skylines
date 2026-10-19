@@ -43,7 +43,7 @@ public final class LandEditor {
             if (standing != null && standing.civic()) continue; // services aren't zoned
             LandData.Zoned neu = null;
             if (zone != null) {
-                if (ZoneRules.frontage(RoadRaster.keyX(cell), RoadRaster.keyZ(cell), roads, city.tiles()) == null) continue;
+                if (ZoneRules.zonable(RoadRaster.keyX(cell), RoadRaster.keyZ(cell), roads, city.tiles()) == null) continue;
                 neu = new LandData.Zoned(city.id(), zone);
             }
             if (java.util.Objects.equals(old, neu)) continue;

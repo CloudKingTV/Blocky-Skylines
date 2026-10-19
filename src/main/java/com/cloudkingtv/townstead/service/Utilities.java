@@ -104,7 +104,7 @@ public final class Utilities {
     public static boolean covered(Building b, Collection<Building> town, ServiceType service, double radius) {
         for (Building s : town) {
             if (!s.civic() || s.state != Building.State.ACTIVE || !s.service.equals(service.key())) continue;
-            double d = Math.hypot((s.cellX - b.cellX) * ZoneRules.CELL, (s.cellZ - b.cellZ) * ZoneRules.CELL);
+            double d = s.distanceTo(b);
             if (d <= radius) return true;
         }
         return false;

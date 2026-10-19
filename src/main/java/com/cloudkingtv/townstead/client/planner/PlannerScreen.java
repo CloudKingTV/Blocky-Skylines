@@ -401,7 +401,7 @@ public class PlannerScreen extends Screen {
         if (cell == null) return;
         int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
         boolean clearing = PlannerClient.zoneBrush == PlannerClient.CLEAR_BRUSH;
-        if (!clearing && PlannerClient.frontage(cx, cz) == null) return;
+        if (!clearing && PlannerClient.zonable(cx, cz) == null) return;
         if (PlannerClient.STROKE.add(ZoneRules.cellKey(cx, cz)) && PlannerClient.STROKE.size() % 2 == 1) {
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK.value(), 1.6f, 0.15f));
         }
@@ -440,6 +440,10 @@ public class PlannerScreen extends Screen {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (ClientLand.get().buildingAt(ZoneRules.cellKey(cx, cz)) != null) return Component.translatable("service.townstead.lot_taken");
         if (PlannerClient.frontage(cx, cz) == null) return Component.translatable("zone.townstead.no_frontage");
+        var city = PlannerClient.city().orElse(null);
+        if (city != null && PlannerClient.lotFor(city, PlannerClient.placing, cx, cz) == null) {
+            return Component.translatable("service.townstead.no_room", PlannerClient.placing.wide, PlannerClient.placing.deep);
+        }
         if (PlannerClient.placing == ServiceType.WATERMILL && minecraft.level != null && !TownGrowth.waterNear(minecraft.level, cx, cz)) {
             return Component.translatable("service.townstead.needs_water");
         }
@@ -1115,7 +1119,7 @@ public class PlannerScreen extends Screen {
             int cx = Math.floorDiv(cell.getX(), TilePos.CELL), cz = Math.floorDiv(cell.getZ(), TilePos.CELL);
             var zoned = ClientLand.get().zone(ZoneRules.cellKey(cx, cz));
             if (zoned != null) { lines.add(Component.translatable("zone.townstead.cell_zoned", zoned.type().displayName())); colors.add(0xFFDDDDDD); }
-            if (PlannerClient.frontage(cx, cz) == null) { lines.add(Component.translatable("zone.townstead.no_frontage")); colors.add(0xFFFF9A7A); }
+            if (PlannerClient.zonable(cx, cz) == null) { lines.add(Component.translatable("zone.townstead.no_frontage")); colors.add(0xFFFF9A7A); }
         }
         lines.add(Component.translatable("zone.townstead.drag_hint"));
         colors.add(0xFFB8B8B8);

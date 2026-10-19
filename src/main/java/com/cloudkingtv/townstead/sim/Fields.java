@@ -46,7 +46,7 @@ public final class Fields {
         f.value.add(new Source(townHall.getX() + 0.5, townHall.getZ() + 0.5, 12, 72));
         for (Building b : town) {
             if (b.state != Building.State.ACTIVE && !b.upgrading) continue;
-            double x = b.cellX * ZoneRules.CELL + 4, z = b.cellZ * ZoneRules.CELL + 4;
+            double x = b.centerX(), z = b.centerZ();
             int l = b.level - 1;
             if (b.civic()) {
                 ServiceType s = b.serviceType();

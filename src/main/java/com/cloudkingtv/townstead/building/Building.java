@@ -56,6 +56,8 @@ public final class Building {
         b.upgrading = extra.upgrading();
         b.repairing = extra.repairing();
         b.service = extra.service();
+        b.wide = Math.max(1, extra.wide());
+        b.deep = Math.max(1, extra.deep());
         b.state = state;
         b.progress = progress;
         b.households = hh;
@@ -96,11 +98,18 @@ public final class Building {
     /** For civic buildings (zone CIVIC): which service or utility this is ({@link ServiceType} key), else empty. */
     public String service = "";
 
+    /**
+     * The lot: {@code wide} cells along the road (to the right of the anchor cell, seen from the road) and
+     * {@code deep} cells back from it. The anchor ({@link #cellX}, {@link #cellZ}) is the front-left cell.
+     */
+    public int wide = 1, deep = 1;
+
     public static final int MAX_LEVEL = 3;
 
     /** Bookkeeping that grew after the first save format; saved as one compound. */
-    record Extra(int level, String style, long activeSince, int trouble, int owed, boolean upgrading, boolean repairing, String service) {
-        static final Extra DEFAULT = new Extra(1, "plains", 0L, 0, 0, false, false, "");
+    record Extra(int level, String style, long activeSince, int trouble, int owed, boolean upgrading, boolean repairing, String service,
+                 int wide, int deep) {
+        static final Extra DEFAULT = new Extra(1, "plains", 0L, 0, 0, false, false, "", 1, 1);
         static final Codec<Extra> CODEC = RecordCodecBuilder.create(i -> i.group(
                 Codec.INT.optionalFieldOf("level", 1).forGetter(Extra::level),
                 Codec.STRING.optionalFieldOf("style", "plains").forGetter(Extra::style),
@@ -109,12 +118,14 @@ public final class Building {
                 Codec.INT.optionalFieldOf("owed", 0).forGetter(Extra::owed),
                 Codec.BOOL.optionalFieldOf("upgrading", false).forGetter(Extra::upgrading),
                 Codec.BOOL.optionalFieldOf("repairing", false).forGetter(Extra::repairing),
-                Codec.STRING.optionalFieldOf("service", "").forGetter(Extra::service)
+                Codec.STRING.optionalFieldOf("service", "").forGetter(Extra::service),
+                Codec.INT.optionalFieldOf("wide", 1).forGetter(Extra::wide),
+                Codec.INT.optionalFieldOf("deep", 1).forGetter(Extra::deep)
         ).apply(i, Extra::new));
     }
 
     Extra extra() {
-        return new Extra(level, style, activeSince, trouble, owed, upgrading, repairing, service);
+        return new Extra(level, style, activeSince, trouble, owed, upgrading, repairing, service, wide, deep);
     }
 
     public Building(int id, UUID city, ZoneType zone, int cellX, int cellZ, Direction front, int baseY, long seed, long started, int setback) {
@@ -134,6 +145,40 @@ public final class Building {
         return com.cloudkingtv.townstead.zone.ZoneRules.cellKey(cellX, cellZ);
     }
 
+    /** Every cell of the lot. */
+    public java.util.List<Long> cellKeys() {
+        return lotCells(cellX, cellZ, front, wide, deep);
+    }
+
+    /** Cells of a lot anchored at (cx, cz): {@code wide} along the road to the right, {@code deep} away from it. */
+    public static java.util.List<Long> lotCells(int cx, int cz, Direction front, int wide, int deep) {
+        Direction right = front.getCounterClockWise(), back = front.getOpposite();
+        java.util.List<Long> out = new java.util.ArrayList<>(wide * deep);
+        for (int d = 0; d < deep; d++) {
+            for (int a = 0; a < wide; a++) {
+                out.add(com.cloudkingtv.townstead.zone.ZoneRules.cellKey(cx + right.getStepX() * a + back.getStepX() * d,
+                        cz + right.getStepZ() * a + back.getStepZ() * d));
+            }
+        }
+        return out;
+    }
+
+    /** Centre of the lot in block coordinates. */
+    public double centerX() {
+        Direction right = front.getCounterClockWise(), back = front.getOpposite();
+        return cellX * 8 + 4 + 8 * (right.getStepX() * (wide - 1) + back.getStepX() * (deep - 1)) / 2.0;
+    }
+
+    public double centerZ() {
+        Direction right = front.getCounterClockWise(), back = front.getOpposite();
+        return cellZ * 8 + 4 + 8 * (right.getStepZ() * (wide - 1) + back.getStepZ() * (deep - 1)) / 2.0;
+    }
+
+    /** Distance between two lots' centres, in blocks. */
+    public double distanceTo(Building o) {
+        return Math.hypot(o.centerX() - centerX(), o.centerZ() - centerZ());
+    }
+
     public Building copy() {
         Building b = new Building(id, city, zone, cellX, cellZ, front, baseY, seed, started, setback);
         b.state = state;
@@ -149,6 +194,8 @@ public final class Building {
         b.upgrading = upgrading;
         b.repairing = repairing;
         b.service = service;
+        b.wide = wide;
+        b.deep = deep;
         return b;
     }
 

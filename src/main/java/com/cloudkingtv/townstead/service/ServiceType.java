@@ -57,10 +57,19 @@ public enum ServiceType implements StringRepresentable {
     public final Department department;
     /** Running cost at a 100% budget, in hundredths of an emerald per day. */
     public final int upkeep;
+    /** Lot size in cells: along the road and back from it. */
+    public final int wide, deep;
 
     ServiceType(String key, Kind kind, Item icon, int capacity, int radius, int jobs, Department department, int upkeep) {
         this.department = department;
         this.upkeep = upkeep;
+        int[] lot = switch (key) {
+            case "watermill", "clinic", "fire_station", "compost_yard", "park" -> new int[] {2, 1};
+            case "school" -> new int[] {2, 2};
+            default -> new int[] {1, 1};
+        };
+        this.wide = lot[0];
+        this.deep = lot[1];
         this.key = key;
         this.kind = kind;
         this.icon = icon;

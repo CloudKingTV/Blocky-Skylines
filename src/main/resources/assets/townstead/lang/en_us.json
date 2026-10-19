@@ -408,5 +408,16 @@
   "status.townstead.unhappy": "Unhappy",
   "trouble.townstead.no_educated": "not enough well-educated workers",
   "trouble.townstead.unhappy": "unhappy (%s)",
-  "screen.townstead.town_hall.available": "You can take %s (a 25 reserve and loans stay)"
+  "screen.townstead.town_hall.available": "You can take %s (a 25 reserve and loans stay)",
+  "material.townstead.bricks": "Bricks",
+  "building.townstead.kind.farmhouse": "Farmhouse",
+  "building.townstead.kind.manor": "Manor",
+  "building.townstead.kind.terrace": "Terrace",
+  "building.townstead.kind.townhouse": "Townhouse",
+  "building.townstead.kind.courtyard": "Court",
+  "building.townstead.kind.inn": "Inn",
+  "building.townstead.kind.market_square": "Market Square",
+  "building.townstead.kind.works": "Works",
+  "building.townstead.kind.counting_house": "Counting House",
+  "service.townstead.no_room": "Needs a %s by %s plot of free lots along the road here"
 }

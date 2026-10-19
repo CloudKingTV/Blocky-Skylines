@@ -96,14 +96,14 @@ public final class LandData extends SavedData {
 
     public void putBuilding(Building b) {
         buildings.put(b.id, b);
-        buildingByCell.put(b.cellKey(), b.id);
+        for (long cell : b.cellKeys()) buildingByCell.put(cell, b.id);
         nextId = Math.max(nextId, b.id + 1);
         setDirty();
     }
 
     public void removeBuilding(int id) {
         Building b = buildings.remove(id);
-        if (b != null) buildingByCell.remove(b.cellKey());
+        if (b != null) for (long cell : b.cellKeys()) buildingByCell.remove(cell, id);
         setDirty();
     }
 

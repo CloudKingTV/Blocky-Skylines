@@ -98,7 +98,7 @@ public final class PlannerWorldRenderer {
             for (TilePos t : city.tiles()) {
                 for (int cx = t.minBlockX() / TilePos.CELL; cx < (t.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
                     for (int cz = t.minBlockZ() / TilePos.CELL; cz < (t.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
-                        if (PlannerClient.frontage(cx, cz) != null) out.add(ZoneRules.cellKey(cx, cz));
+                        if (PlannerClient.zonable(cx, cz) != null) out.add(ZoneRules.cellKey(cx, cz));
                     }
                 }
             }
@@ -120,7 +120,7 @@ public final class PlannerWorldRenderer {
         for (long key : PlannerClient.STROKE) cellQuad(p, buf, cam, key, cellY(level, key), strokeColor, 0.3);
         Building doomed = PlannerScreen.bulldozing() ? PlannerClient.hoveredBuilding() : null;
         if (doomed != null) {
-            cellQuad(p, buf, cam, doomed.cellKey(), doomed.baseY - 1, ARGB.color(Math.round(0x50 + 0x40 * pulse), 255, 70, 60), 0);
+            for (long k : doomed.cellKeys()) cellQuad(p, buf, cam, k, doomed.baseY - 1, ARGB.color(Math.round(0x50 + 0x40 * pulse), 255, 70, 60), 0);
         }
     }
 
@@ -135,7 +135,7 @@ public final class PlannerWorldRenderer {
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             if (b.state == Building.State.ACTIVE) continue;
             int color = b.state == Building.State.PAUSED ? scale(0xFFFF6B5B, pulse) : 0xFFFFD36B;
-            cellOutline(p, buf, cam, b.cellKey(), b.baseY + 0.05, color, w * 2.5f, 0.2);
+            lotOutline(p, buf, cam, b, b.baseY + 0.05, color, w * 2.5f);
         }
     }
 
@@ -147,6 +147,20 @@ public final class PlannerWorldRenderer {
         buf.addVertex(p, (float) (x0 - cam.x), fy, (float) (z1 - cam.z)).setColor(color);
         buf.addVertex(p, (float) (x1 - cam.x), fy, (float) (z1 - cam.z)).setColor(color);
         buf.addVertex(p, (float) (x1 - cam.x), fy, (float) (z0 - cam.z)).setColor(color);
+    }
+
+    /** The outline of a whole lot (one or more cells). */
+    private static void lotOutline(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, Building b, double y, int color, float w) {
+        int x0 = Integer.MAX_VALUE, z0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z1 = Integer.MIN_VALUE;
+        for (long k : b.cellKeys()) {
+            x0 = Math.min(x0, RoadRaster.keyX(k)); z0 = Math.min(z0, RoadRaster.keyZ(k));
+            x1 = Math.max(x1, RoadRaster.keyX(k)); z1 = Math.max(z1, RoadRaster.keyZ(k));
+        }
+        double ax = x0 * TilePos.CELL + 0.2, az = z0 * TilePos.CELL + 0.2, bx = (x1 + 1) * TilePos.CELL - 0.2, bz = (z1 + 1) * TilePos.CELL - 0.2;
+        line(p, buf, cam, ax, y, az, bx, y, az, color, w);
+        line(p, buf, cam, bx, y, az, bx, y, bz, color, w);
+        line(p, buf, cam, bx, y, bz, ax, y, bz, color, w);
+        line(p, buf, cam, ax, y, bz, ax, y, az, color, w);
     }
 
     private static void cellOutline(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, long key, double y, int color, float w, double inset) {
@@ -170,7 +184,10 @@ public final class PlannerWorldRenderer {
             int cx = Math.floorDiv(hover.getX(), TilePos.CELL), cz = Math.floorDiv(hover.getZ(), TilePos.CELL);
             long key = ZoneRules.cellKey(cx, cz);
             boolean ok = PlannerScreen.placeProblem(cx, cz) == null;
-            cellQuad(p, buf, cam, key, cellY(level, key), ok ? ARGB.color(Math.round(0x50 + 0x30 * pulse), 120, 230, 110) : 0x80FF5050, 0.2);
+            Building lot = ok ? PlannerClient.lotFor(city, PlannerClient.placing, cx, cz) : null;
+            int color = ok ? ARGB.color(Math.round(0x50 + 0x30 * pulse), 120, 230, 110) : 0x80FF5050;
+            if (lot == null) cellQuad(p, buf, cam, key, cellY(level, key), color, 0.2);
+            else for (long k : lot.cellKeys()) cellQuad(p, buf, cam, k, cellY(level, k), color, 0.1);
         }
         if (!PlannerScreen.infoActive()) return;
         String view = view();
@@ -210,7 +227,7 @@ public final class PlannerWorldRenderer {
                 };
                 color = has ? GOOD : BAD;
             }
-            cellQuad(p, buf, cam, b.cellKey(), b.baseY - 1, color, 0.3);
+            for (long k : b.cellKeys()) cellQuad(p, buf, cam, k, b.baseY - 1, color, 0.3);
         }
     }
 
@@ -268,7 +285,7 @@ public final class PlannerWorldRenderer {
             if (!b.civic() || b.serviceType() != shown) continue;
             int color = b.state == Building.State.ACTIVE ? 0xFF6EC8FF : 0xFFFFD36B; // blue, or amber while building
             var m = PlannerClient.model();
-            ring(p, buf, cam, b.cellX * TilePos.CELL + 4, b.cellZ * TilePos.CELL + 4, m == null ? shown.radius : m.radius(shown), color, w * 2f);
+            ring(p, buf, cam, b.centerX(), b.centerZ(), m == null ? shown.radius : m.radius(shown), color, w * 2f);
         }
     }
 

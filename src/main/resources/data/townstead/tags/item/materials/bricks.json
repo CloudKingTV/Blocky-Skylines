@@ -1,0 +1,11 @@
+{
+  "values": [
+    "minecraft:bricks",
+    "minecraft:mud_bricks",
+    "minecraft:packed_mud",
+    {
+      "id": "#c:bricks",
+      "required": false
+    }
+  ]
+}

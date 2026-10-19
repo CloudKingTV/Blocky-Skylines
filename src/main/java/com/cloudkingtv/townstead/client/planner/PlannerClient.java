@@ -118,15 +118,47 @@ public final class PlannerClient {
         return ZoneRules.frontage(cellX, cellZ, roadColumns, java.util.Set.copyOf(city.tiles()));
     }
 
+    /** Whether a cell can be zoned: it faces a road or lies behind one that does (cached per road update). */
+    public static net.minecraft.core.@Nullable Direction zonable(int cellX, int cellZ) {
+        CitySummary city = city().orElse(null);
+        if (city == null || frontage(cellX, cellZ) != null) return frontage(cellX, cellZ);
+        return ZoneRules.zonable(cellX, cellZ, roadColumns, java.util.Set.copyOf(city.tiles()));
+    }
+
+    /**
+     * Where a service of this type would stand if placed at the hovered cell: its anchor cell and frontage, with the
+     * hovered cell anywhere along its front row. Null if it doesn't fit there.
+     */
+    public static @Nullable Building lotFor(CitySummary city, com.cloudkingtv.townstead.service.ServiceType service, int cx, int cz) {
+        net.minecraft.core.Direction front = frontage(cx, cz);
+        if (front == null) return null;
+        net.minecraft.core.Direction right = front.getCounterClockWise();
+        var land = ClientLand.get();
+        java.util.Set<com.cloudkingtv.townstead.city.TilePos> tiles = java.util.Set.copyOf(city.tiles());
+        for (int shift = 0; shift < service.wide; shift++) {
+            int ax = cx - right.getStepX() * shift, az = cz - right.getStepZ() * shift;
+            if (ZoneRules.lotFits(ax, az, front, service.wide, service.deep, roadColumns, tiles, k -> land.buildingAt(k) == null)) {
+                Building b = new Building(-1, city.id(), ZoneType.CIVIC, ax, az, front, 0, 0L, 0L, ZoneRules.setback(ax, az, front, roadColumns));
+                b.service = service.key();
+                b.wide = service.wide;
+                b.deep = service.deep;
+                return b;
+            }
+        }
+        return null;
+    }
+
     /** A stand-in for the service the placing tool would put on a lot, to price it before the click. */
     public static @Nullable Building previewCivic(CitySummary city, com.cloudkingtv.townstead.service.ServiceType service, int cx, int cz) {
-        net.minecraft.core.Direction front = frontage(cx, cz);
         Minecraft mc = Minecraft.getInstance();
-        if (front == null || mc.level == null) return null;
-        int x = cx * ZoneRules.CELL + 4, z = cz * ZoneRules.CELL + 4;
+        Building lot = lotFor(city, service, cx, cz);
+        if (lot == null || mc.level == null) return null;
+        int x = (int) lot.centerX(), z = (int) lot.centerZ();
         int y = mc.level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-        Building b = new Building(-1, city.id(), ZoneType.CIVIC, cx, cz, front, y, 0L, 0L, ZoneRules.setback(cx, cz, front, roadColumns));
+        Building b = new Building(-1, city.id(), ZoneType.CIVIC, lot.cellX, lot.cellZ, lot.front, y, 0L, 0L, lot.setback);
         b.service = service.key();
+        b.wide = lot.wide;
+        b.deep = lot.deep;
         b.style = com.cloudkingtv.townstead.building.Palette.styleAt(mc.level, new BlockPos(x, y, z));
         return b;
     }

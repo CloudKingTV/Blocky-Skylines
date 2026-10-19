@@ -13,6 +13,7 @@
     "#townstead:materials/workstations",
     "#townstead:materials/hay",
     "#townstead:materials/sandstone",
-    "#townstead:materials/terracotta"
+    "#townstead:materials/terracotta",
+    "#townstead:materials/bricks"
   ]
 }
