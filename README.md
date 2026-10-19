@@ -196,6 +196,16 @@ traffic and bus lines) is next. See the roadmap.
 
 ## Screenshots (from the headless playtests)
 
+Phase 5: reaching Worthy Village (the planner's milestone banner), the milestone panel (U),
+buying a tile with the Land tool, locked services, and the first landmark: the Founders'
+Fountain, announced by a resident's chirp.
+
+| | |
+|---|---|
+| ![Milestone reached: Worthy Village](docs/screenshots/phase5-milestone-banner.png) | ![Milestones and what each unlocks](docs/screenshots/phase5-milestones.png) |
+| ![Buying a tile: price and allowance](docs/screenshots/phase5-buy-land.png) | ![Services locked until Worthy Village](docs/screenshots/phase5-locked.png) |
+| ![A chirp about the new fountain](docs/screenshots/phase5-chirp-fountain.png) | ![The Founders' Fountain](docs/screenshots/phase5-founders-fountain.png) |
+
 Buildings, revised: lots of one to four cells, timber framing, mixed roofs, gardens and landmarks.
 
 | | |

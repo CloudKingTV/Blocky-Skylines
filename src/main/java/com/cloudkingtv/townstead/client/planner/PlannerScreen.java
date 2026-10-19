@@ -739,14 +739,18 @@ public class PlannerScreen extends Screen {
         if (banner == null || BudgetPanel.open || MilestonePanel.open) drawChirps(g, mouseX, mouseY);
         else chirpHits.clear();
         Building hovered = PlannerClient.hoveredBuilding();
-        if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
-        else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
-        else if (selectedTool == ZONING) drawZoningInfo(g, city, mouseX, mouseY);
-        else if (selectedTool == LAND) drawLandInfo(g, city, mouseX, mouseY);
-        else if (placing()) drawPlaceInfo(g, city, mouseX, mouseY);
-        else if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
-        else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
-        else drawCursorInfo(g, city);
+        // The bars and their buttons have their own tooltips: no cursor readout over them.
+        boolean overBars = mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0;
+        if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
+        else if (!overBars) {
+            if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
+            else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
+            else if (selectedTool == ZONING) drawZoningInfo(g, city, mouseX, mouseY);
+            else if (selectedTool == LAND) drawLandInfo(g, city, mouseX, mouseY);
+            else if (placing()) drawPlaceInfo(g, city, mouseX, mouseY);
+            else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
+            else drawCursorInfo(g, city);
+        }
         drawFlash(g, subCount() > 0 ? subY() : barY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
