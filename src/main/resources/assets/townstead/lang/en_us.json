@@ -419,5 +419,6 @@
   "building.townstead.kind.market_square": "Market Square",
   "building.townstead.kind.works": "Works",
   "building.townstead.kind.counting_house": "Counting House",
-  "service.townstead.no_room": "Needs a %s by %s plot of free lots along the road here"
+  "service.townstead.no_room": "Needs a %s by %s plot of free lots along the road here",
+  "help.townstead.icons": "V: show or hide the status icons over buildings"
 }

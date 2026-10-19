@@ -114,6 +114,8 @@ public class PlannerScreen extends Screen {
     private final long openedAt = Util.getMillis();
     private final float[] hover = new float[TOOLS.size()];
     private static int selectedTool = INSPECT;
+    /** Status icons over buildings (V toggles them, for a clear view of the town). */
+    private static boolean showIcons = true;
     private boolean orbiting, showHelp, ctrlHeld;
     private boolean flashOk = true;
     private boolean painting;
@@ -181,6 +183,7 @@ public class PlannerScreen extends Screen {
         if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
         if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
+        if (key == InputConstants.KEY_V) { showIcons = !showIcons; click(showIcons ? 1.2f : 0.8f); return true; }
         if (key == InputConstants.KEY_L) { BudgetPanel.open = !BudgetPanel.open; click(BudgetPanel.open ? 1.2f : 0.8f); return true; }
         if ((placing() || selectedTool == INFO) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
             pickSub(key - InputConstants.KEY_1);
@@ -761,7 +764,7 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
                     Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.zoning"),
-                    Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"),
+                    Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"), Component.translatable("help.townstead.icons"),
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
@@ -1066,7 +1069,7 @@ public class PlannerScreen extends Screen {
      * material, abandoned. Projected from the world through the camera's near plane.
      */
     private void drawStatusIcons(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
-        if (city == null || minecraft.level == null) return;
+        if (city == null || minecraft.level == null || !showIcons) return;
         Camera camera = minecraft.gameRenderer.mainCamera();
         Camera.NearPlane plane = camera.getNearPlane(camera.getFov());
         Vec3 tl = plane.getTopLeft(), tr = plane.getTopRight(), bl = plane.getBottomLeft(), br = plane.getBottomRight();

@@ -30,6 +30,7 @@ you designed.
    | Place a service | Utilities / Services / Parks tool, **1–5** pick, click a lot |
    | Info views | Info tool, **1–9** pick a view (or click) |
    | Town budget | **L**, or click the treasury |
+   | Hide status icons | **V** |
    | Building panel | Inspect tool, click a building (Esc closes) |
    | Undo / redo | **Ctrl+Z** / **Ctrl+Y** (or **Ctrl+Shift+Z**) |
    | Leave the planner | **M**, or **Esc** with nothing selected |
