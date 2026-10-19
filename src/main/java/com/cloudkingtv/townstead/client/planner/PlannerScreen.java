@@ -527,8 +527,7 @@ public class PlannerScreen extends Screen {
         click(1.3f);
     }
 
-    /** Why the chosen service can't go on this lot, or null. Mirrors the server's checks. */
-    /** Why the placing tool's service can't go on this lot, or null if it can. */
+    /** Why the placing tool's service can't go on this lot, or null if it can. Mirrors the server's checks. */
     public static @Nullable Component placeProblem(int cx, int cz) {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (ClientLand.get().buildingAt(ZoneRules.cellKey(cx, cz)) != null) return Component.translatable("service.townstead.lot_taken");
@@ -734,6 +733,8 @@ public class PlannerScreen extends Screen {
         g.pose().popMatrix();
 
         if (!painting && strokeSentAt > 0 && Util.getMillis() - strokeSentAt > 1500) { PlannerClient.STROKE.clear(); strokeSentAt = 0; }
+        drawChirps(g, mouseX, mouseY);
+        drawBanner(g, city);
         Building hovered = PlannerClient.hoveredBuilding();
         if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
         else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
@@ -746,7 +747,6 @@ public class PlannerScreen extends Screen {
         drawFlash(g, subCount() > 0 ? subY() : barY);
         drawStatusIcons(g, city, mouseX, mouseY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
-        drawChirps(g, mouseX, mouseY);
         drawPanel(g, mouseX, mouseY);
         BudgetPanel.draw(g, font, width, height, TOP_BAR_H, barY, mouseX, mouseY);
         MilestonePanel.draw(g, font, width, TOP_BAR_H, barY, mouseX, mouseY);
@@ -926,6 +926,61 @@ public class PlannerScreen extends Screen {
         float alpha = age < FLASH_MILLIS - 400 ? 1f : (FLASH_MILLIS - age) / 400f;
         int a = Math.round(alpha * 255);
         g.centeredText(font, flash, width / 2, toolbarY - font.lineHeight - 4, flashOk ? ARGB.color(a, 140, 230, 120) : ARGB.color(a, 255, 214, 120));
+    }
+
+    // ---------------------------------------------------------------- milestone banner
+
+    private static final long BANNER_MILLIS = 6500;
+    private static java.util.@Nullable UUID bannerCity;
+    private static int seenMilestone = -1;
+    private static long bannerAt;
+    private static com.cloudkingtv.townstead.progress.@Nullable Milestone banner;
+
+    /**
+     * The title Minecraft shows on reaching a milestone is hidden under the planner, so the planner shows its own:
+     * the new title, the reward and everything it unlocks. Also shown on opening the planner after one was reached
+     * while it was closed.
+     */
+    private void drawBanner(GuiGraphicsExtractor g, @Nullable CitySummary city) {
+        if (city == null) return;
+        long now = Util.getMillis();
+        if (!city.id().equals(bannerCity)) {
+            bannerCity = city.id();
+            seenMilestone = city.milestone();
+        } else if (city.milestone() > seenMilestone) {
+            seenMilestone = city.milestone();
+            banner = com.cloudkingtv.townstead.progress.Milestone.of(city.milestone());
+            bannerAt = now;
+        }
+        if (banner == null) return;
+        long age = now - bannerAt;
+        if (age > BANNER_MILLIS) { banner = null; return; }
+        float alpha = Math.min(1f, age / 300f) * (age > BANNER_MILLIS - 1000 ? (BANNER_MILLIS - age) / 1000f : 1f);
+        int a = Math.max(4, Math.round(alpha * 255));
+        List<Component> things = new ArrayList<>();
+        banner.roads.forEach(r -> things.add(r.displayName()));
+        banner.zones.forEach(z -> things.add(z.displayName()));
+        banner.services.forEach(sv -> things.add(sv.displayName()));
+        net.minecraft.network.chat.MutableComponent list = Component.empty();
+        for (int i = 0; i < things.size(); i++) { if (i > 0) list.append(", "); list.append(things.get(i)); }
+        var unlockLines = things.isEmpty() ? List.<net.minecraft.util.FormattedCharSequence>of()
+                : font.split(Component.translatable("milestone.townstead.banner_unlocks", list), 260);
+        int w = 280, h = 16 + 20 + 12 + unlockLines.size() * (font.lineHeight + 1) + 10;
+        int x = (width - w) / 2, y = TOP_BAR_H + 26;
+        g.fill(x, y, x + w, y + h, ARGB.color(Math.round(alpha * 0xD0), 20, 18, 14));
+        g.fill(x, y, x + w, y + 1, ARGB.color(a, 255, 210, 90));
+        g.fill(x, y + h - 1, x + w, y + h, ARGB.color(a, 255, 210, 90));
+        g.centeredText(font, Component.translatable("milestone.townstead.banner"), width / 2, y + 6, ARGB.color(a, 255, 210, 90));
+        g.pose().pushMatrix();
+        g.pose().translate(width / 2f, y + 18);
+        g.pose().scale(2f, 2f);
+        g.centeredText(font, banner.displayName(), 0, 0, ARGB.color(a, 255, 255, 255));
+        g.pose().popMatrix();
+        g.centeredText(font, Component.translatable("milestone.townstead.banner_reward", banner.reward, banner.tiles), width / 2, y + 38,
+                ARGB.color(a, 140, 230, 120));
+        for (int i = 0; i < unlockLines.size(); i++) {
+            g.centeredText(font, unlockLines.get(i), width / 2, y + 50 + i * (font.lineHeight + 1), ARGB.color(a, 230, 230, 230));
+        }
     }
 
     /** One-line reminder that fades after a few seconds; H toggles the full control list. */

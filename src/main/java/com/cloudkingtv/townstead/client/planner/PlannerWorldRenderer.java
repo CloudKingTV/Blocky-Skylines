@@ -67,15 +67,19 @@ public final class PlannerWorldRenderer {
             roadQuads(p, buf, cam, city, pulse);
             landQuads(p, buf, level, cam, city, pulse);
             serviceQuads(p, buf, level, cam, city, pulse);
-            TilePos hoverTile = PlannerClient.hoverTile;
-            if (PlannerScreen.landActive() && hoverTile != null && !city.tiles().contains(hoverTile)) {
-                boolean ok = PlannerScreen.landProblem(city, hoverTile) == null;
-                int color = ok ? ARGB.color(Math.round(0x40 + 0x30 * pulse), 255, 210, 90) : 0x50FF5050;
-                for (int cx = hoverTile.minBlockX() / TilePos.CELL; cx < (hoverTile.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
-                    for (int cz = hoverTile.minBlockZ() / TilePos.CELL; cz < (hoverTile.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
-                        long key = ZoneRules.cellKey(cx, cz);
-                        cellQuad(p, buf, cam, key, cellY(level, key), color, 0);
+            if (PlannerScreen.landActive()) {
+                // A faint wash over every tile for sale, stronger (or red) under the cursor.
+                TilePos hoverTile = PlannerClient.hoverTile;
+                Set<TilePos> owned = new HashSet<>(city.tiles()), done = new HashSet<>();
+                for (TilePos t : city.tiles()) {
+                    for (TilePos n : new TilePos[] {t.offset(1, 0), t.offset(-1, 0), t.offset(0, 1), t.offset(0, -1)}) {
+                        if (owned.contains(n) || !done.add(n) || n.equals(hoverTile) || PlannerScreen.landProblem(city, n) != null) continue;
+                        tileQuads(p, buf, level, cam, n, ARGB.color(Math.round(0x14 + 0x10 * pulse), 255, 210, 90));
                     }
+                }
+                if (hoverTile != null && !owned.contains(hoverTile)) {
+                    boolean ok = PlannerScreen.landProblem(city, hoverTile) == null;
+                    tileQuads(p, buf, level, cam, hoverTile, ok ? ARGB.color(Math.round(0x40 + 0x30 * pulse), 255, 210, 90) : 0x50FF5050);
                 }
             }
         });
@@ -83,7 +87,16 @@ public final class PlannerWorldRenderer {
 
     // ---------------------------------------------------------------- land for sale
 
-    /** Gold borders round the tiles next to the town that could be bought (red where they can't, for now). */
+    private static void tileQuads(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, TilePos tile, int color) {
+        for (int cx = tile.minBlockX() / TilePos.CELL; cx < (tile.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
+            for (int cz = tile.minBlockZ() / TilePos.CELL; cz < (tile.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
+                long key = ZoneRules.cellKey(cx, cz);
+                cellQuad(p, buf, cam, key, cellY(level, key), color, 0);
+            }
+        }
+    }
+
+    /** Gold borders round the tiles next to the town that could be bought, dim gold when it can't afford them yet, red where it never can. */
     private static void landForSale(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city, float w, float pulse) {
         Set<TilePos> owned = new HashSet<>(city.tiles()), done = new HashSet<>();
         for (TilePos t : owned) {

@@ -491,5 +491,8 @@
   "chirp.townstead.solvent.1": "The books balance again in %s. Phew.",
   "chirp.townstead.trouble.0": "Trouble at the %s: %s.",
   "chirp.townstead.trouble.1": "Not happy at the %s, %s. #fixit",
-  "chirp.townstead.trouble.2": "Can someone look at the %s? %s."
+  "chirp.townstead.trouble.2": "Can someone look at the %s? %s.",
+  "milestone.townstead.banner": "Milestone reached",
+  "milestone.townstead.banner_reward": "+%s emeralds for the treasury · +%s land to buy",
+  "milestone.townstead.banner_unlocks": "Now you can build: %s"
 }

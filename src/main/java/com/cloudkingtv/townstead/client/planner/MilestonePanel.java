@@ -22,7 +22,7 @@ import net.minecraft.world.item.ItemStack;
  */
 final class MilestonePanel {
     private static final Identifier PANEL = Townstead.id("planner/panel");
-    private static final int ROW = 30, PAD = 7, W = 340;
+    private static final int ROW = 23, PAD = 7, W = 340;
     static boolean open;
     private static int left, top, h;
 
@@ -53,8 +53,8 @@ final class MilestonePanel {
             g.text(font, info, left + PAD + 120, y, reached ? 0xFF8FB080 : 0xFFB8B8B8, true);
             if (next) {
                 int bw = 100, fill = (int) Math.min(bw, (long) bw * people / Math.max(1, ms.population));
-                g.fill(left + PAD + 12, y + 11, left + PAD + 12 + bw, y + 14, 0x80303030);
-                g.fill(left + PAD + 12, y + 11, left + PAD + 12 + fill, y + 14, 0xFF9EE37D);
+                g.fill(left + PAD + 12, y + 11, left + PAD + 12 + bw, y + 13, 0x80303030);
+                g.fill(left + PAD + 12, y + 11, left + PAD + 12 + fill, y + 13, 0xFF9EE37D);
             }
             // What it unlocks, as icons.
             List<Object> things = new ArrayList<>();
