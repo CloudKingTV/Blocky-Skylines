@@ -195,7 +195,8 @@ slower.
 
 24. **Traffic.** Everyone who works drives to work, households run errands to the nearest shop
     and workshops deliver to shops. These trips are routed over your road network and pile up
-    on its roads: lanes carry about 40 trips a day before they slow, streets 100, avenues 260.
+    on its roads: lanes carry about 30 trips a day before they slow, streets 80, avenues 200. A
+    single lane joining two busy streets jams by around 70 people; carts on a jammed road crawl.
     The **traffic info view** (Info tool, **8**) colours every road green, yellow or red and
     shows the town's *traffic flow* (100% means nobody is held up). Jammed commutes make people
     unhappy, and busier roads are louder.
@@ -206,7 +207,8 @@ slower.
     People who live and work near stops of the same line ride it instead of driving: that takes
     trips off the roads and earns fares, while the coaches cost upkeep from the new Transport
     budget line. Homes near a stop are a little happier. The panel at the top left lists each
-    line's stops, coaches, riders and length; **3** removes a line and its stops.
+    line's stops, coaches, riders and length; **3** removes a line and its stops. Bulldozing a
+    road takes its stops down too.
 26. **Carts and coaches on the streets.** Horse, donkey and mule carts loaded with hay, barrels,
     logs and produce drive the roads, more on busier ones, keeping to the right. Coaches in
     their line's colours (two horses, passengers aboard) run every line and wait at each stop.
@@ -221,13 +223,15 @@ disasters, monuments) is next. See the roadmap.
 
 ## Screenshots (from the headless playtests)
 
-Phase 6: the traffic info view, drawing a coach line and the line on the map, a coach with its
+Phase 6: a jammed lane in the traffic info view and the same town after a second street,
+drawing a coach line and the line on the map, a coach with its
 passengers, a hay cart, a stop by the road, the budget with fares and a Transport line, and a
 citizen who says who they are.
 
 | | |
 |---|---|
-| ![Traffic info view: roads by load, traffic flow](docs/screenshots/phase6-traffic.png) | ![Drawing a coach line: stops and route](docs/screenshots/phase6-line-draft.png) |
+| ![Traffic info view: a jammed lane (red) carrying all cross-town traffic, flow 83%](docs/screenshots/phase6-traffic.png) | ![After a second street: flow back to 94%](docs/screenshots/phase6-traffic-relieved.png) |
+| ![Drawing a coach line: stops and route](docs/screenshots/phase6-line-draft.png) | ![Carts on the busy lane](docs/screenshots/phase6-lane-carts.png) |
 | ![The Red line on the map, with its numbers](docs/screenshots/phase6-lines.png) | ![A coach: two horses and passengers](docs/screenshots/phase6-coach.png) |
 | ![A mule cart with hay, keeping right](docs/screenshots/phase6-cart.png) | ![A coach stop: post, banner and bench](docs/screenshots/phase6-stop.png) |
 | ![Budget: coach fares and Transport upkeep](docs/screenshots/phase6-budget.png) | ![A citizen: home, work and mood](docs/screenshots/phase6-citizen.png) |

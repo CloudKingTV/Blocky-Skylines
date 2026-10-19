@@ -500,19 +500,23 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   segment to a point on another, leaving and entering segments part-way. Shared by traffic, coach
   lines and the vehicles drawn on the streets. Speeds: lane 1.0, street 1.3, avenue 1.8.
 - **Traffic** (`sim.Traffic`, part of the shared `TownModel`): trips are commutes (each filled job,
-  home to workplace), errands (half a trip per household to the nearest shop) and deliveries (0.3
-  per workshop job to the nearest shop). Identical trips merge; each is assigned a quarter at a
+  home to workplace and back: 2 trips), errands (a round trip per two households to the nearest
+  shop: 1 trip per household) and deliveries (0.6 per workshop job to the nearest shop). Identical trips merge; each is assigned a quarter at a
   time over four rounds, every round routing on travel times that include the previous rounds'
-  congestion (BPR: t = t0 × (1 + 0.15 (v/c)^4)). Capacities per day: lane 40, street 100, avenue
-  260. Outputs: flow and v/c per segment, each home's commute delay, and the town's *traffic flow*
+  congestion (BPR: t = t0 × (1 + 0.15 (v/c)^4)). Capacities per day: lane 30, street 80, avenue
+  200 (tuned after the first playtest, where a 50-person town never passed a third of any road's
+  capacity; now a lane carrying a town's cross traffic jams at around 70 people). Outputs: flow and v/c per segment, each home's commute delay, and the town's *traffic flow*
   (free-flow time over actual time, as in Cities: Skylines).
+- **Carts crawl in jams:** a cart's speed is divided by the same BPR factor as the road it's on.
 - **Effects:** homes whose commutes take over 25% longer lose up to 12 happiness ("Stuck in
   traffic"); road noise now scales with load (40% of the old figure on an empty road, up to 160%
   jammed); the traffic info view colours roads by v/c and reads out a hovered road's trips.
 - **Coach lines** (`transit.CoachLine`, `transit.CoachLines`): loops of 2–24 stops drawn with the
   Transport tool, up to 8 per town, 0.5 emerald a stop. Stops are real blocks: a spruce post with a
   standing banner in the line colour and a spruce-stair bench, removed with the line. Stops keep
-  their post position, so a road split by a new junction or rebuilt is found again by position.
+  their post position, so a road split by a new junction or rebuilt is found again by position. When
+  a road is bulldozed (or its building undone), stops that went with it come down and leave their
+  line; a line left with fewer than two stops is removed.
   The **Coach House** (2×1 lot, a timber stable with two coach doors and a paddock; unlocked at
   Worthy Village; new Transport department) is needed for coaches to run. A line runs one coach
   per 90 blocks of route at a 100% budget. A commuter rides when home and work are each within 40

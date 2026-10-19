@@ -93,8 +93,13 @@ public final class CoachLines {
         for (CoachLine line : List.copyOf(city.lines())) {
             List<CoachLine.Stop> kept = new ArrayList<>();
             for (int i = 0; i < line.stops().size(); i++) {
-                if (line.access(router, i) != null) kept.add(line.stops().get(i));
-                else clearStop(level, line.stops().get(i));
+                CoachLine.Stop s = line.stops().get(i);
+                // Gone with its road: its segment no longer exists and its post went with the sidewalk (or no road
+                // is near it at all). A segment merely split by a junction keeps its post, and the stop.
+                boolean segmentGone = router.network().segment(s.segment()) == null;
+                boolean postGone = !s.marker().equals(s.bench()) && !level.getBlockState(s.marker()).is(Blocks.SPRUCE_FENCE);
+                if (line.access(router, i) == null || segmentGone && postGone) clearStop(level, s);
+                else kept.add(s);
             }
             if (kept.size() == line.stops().size()) continue;
             if (kept.size() < 2) {
