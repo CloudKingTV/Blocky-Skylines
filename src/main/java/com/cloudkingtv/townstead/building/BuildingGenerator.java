@@ -1638,12 +1638,12 @@ public final class BuildingGenerator {
             int z0 = c.zf + 2;
             Box box = new Box(1, z0, 10, Math.min(c.D - 2, z0 + 5));
             c.foundation(box, c.p.foundation().defaultBlockState(), floor);
-            // Two coach doors, three blocks wide and three high, under a hay loft.
+            // One tall stable storey: two coach doors, three blocks wide and as high as the walls, the hay loft in the roof.
             for (int x : new int[] {2, 3, 4, 7, 8, 9}) { c.doorway(x, 0, box.z0); c.doorway(x, 1, box.z0); }
-            int top = c.walls(box, 0, 2, w, c.p.floor().defaultBlockState());
+            int top = c.walls(box, 0, 1, w, c.p.floor().defaultBlockState());
             c.roof(box, top, true, c.p.foundation().defaultBlockState());
-            c.put(3, 4, box.z0, Blocks.HAY_BLOCK, FIT);
-            c.put(8, 4, box.z0, Blocks.HAY_BLOCK, FIT);
+            // Lintels over the doors.
+            for (int x : new int[] {2, 3, 4, 7, 8, 9}) c.put(x, 3, box.z0, c.log(c.p.post(), Direction.Axis.X), FIT);
             // Stalls inside: hay and troughs along the back wall.
             for (int x = box.x0 + 1; x < box.x1; x++) {
                 if (x % 3 == 0) c.put(x, 0, box.z1 - 1, Blocks.HAY_BLOCK, FIT);
