@@ -404,3 +404,25 @@ replacing it.
 - **Deferred to Phase 4:** upkeep and budgets for services, service capacity (patients,
   pupils), garbage and fire as events, and land value effects of parks.
 
+## 14. Buildings, revised (after playtest feedback)
+
+Feedback: buildings were all one size and grew upward; the town looked stacked and basic. Changes:
+
+- **Lots of 1–4 cells.** A building's lot is 1×1, 2×1 (along the road), 1×2 (deep) or 2×2 cells.
+  Each zone draws a lot shape by weight (homes mostly 1×1 and 2×1; high density, markets,
+  industry and offices mostly 2×1 and 2×2) and falls back to smaller lots. Services have fixed
+  footprints (school 2×2; clinic, fire station, compost yard, park, watermill 2×1). Cells right
+  behind a road-facing cell are zonable for deep lots.
+- **Composed architecture** (`BuildingGenerator`): buildings are masses (main block, wings, bays,
+  lean-tos) with timber framing on a stone plinth, symmetric windows (tall on the ground floor,
+  flanking doors), open-trapdoor shutters, jettied upper floors on brackets, gable roofs with
+  eaves and attic windows, hipped roofs, dormers, brick chimneys with smoke, porches, door hoods,
+  and lots dressed with hedges, flowers, paths, fences and gates, trees, vegetable plots, lamps
+  and benches. Plains and taiga towns mix roof colours (dark oak, spruce, brick).
+- **Build order and shapes.** Steps go ground work, frame, roof, fittings, garden, so lanterns and
+  torches always have something to hang on; each placed block takes its shape from its
+  neighbours (fences and panes join up, stair corners turn).
+- **Levels spread out:** wings, porches, lean-tos, dormers and gardens come with levels, not just
+  storeys.
+- A **Bricks** material joins the storehouse groups (chimneys, fire stations, brick roofs).
+

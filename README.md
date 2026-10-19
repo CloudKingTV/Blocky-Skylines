@@ -78,22 +78,27 @@ for free, and the server config option `freeBuild` turns materials off for every
    Hall and the building goes up **one block at a time** from the Town Storehouse, with
    scaffolding. If a material runs out, the site pauses and says what it needs.
 
+   Buildings take whole lots of one to four cells (one lot along the road, two side by side, two
+   deep, or a block of four), so streets mix small cottages with farmhouses and big halls. Cells
+   right behind a road-facing cell can be zoned too, for deep lots.
+
    | Zone | Builds | Look |
    |---|---|---|
-   | Homes (low) | cottages | footing, corner posts, plank walls, glass panes, gable roof, door light, flowers, a path |
-   | Homes (high) | village towers | a stone podium, 3–5 timber storeys with front balconies, a lantern-lit crown |
-   | Shops (low) | shops | a workstation behind a glass shop front, a striped awning |
-   | Shops (high) | market halls | glass on three sides at street level, several stalls, 2–4 storeys |
-   | Industry | workshops | stone walls, flat roof, smoking chimneys, hay and barrels |
-   | Offices | guild halls | all stone, tall windows, lecterns and map tables, a railed roof terrace |
+   | Homes (low) | cottages, houses with back gardens, farmhouses, manors | timber-framed walls on a stone plinth, shuttered windows, gable roofs in mixed colours, jettied upper floors, dormers, brick chimneys, porches, hedges, flower gardens, vegetable plots, trees, fences and gates |
+   | Homes (high) | terraces, townhouses, courtyard blocks | rows of narrow houses with their own doors, wall colours and roof heights; three ranges round a shared garden with a gateway |
+   | Shops (low) | shops, inns | glazed shop fronts under striped awnings, trade banners, crates out front; inns with a cafe terrace of tables and chairs |
+   | Shops (high) | market halls, market squares | stone arcades of stalls under a hall, a bell cupola; a paved square with stalls, a fountain and trees |
+   | Industry | workshops, works | stone ground floor and timber loft, wide doors, a forge with a tall smoking chimney, a fenced yard of timber, hay and barrels, a warehouse |
+   | Offices | counting houses, guild halls | stone ground floor with tall windows, steps to double doors, banners, hipped roof and cupola; a corner tower and garden on a big lot |
 
    **Biome styles:** each building takes the village style of its lot's biome: plains (oak and
    birch), desert (sandstone, flat roofs), savanna (acacia), taiga (spruce, mossy stone) or
    snowy (spruce and stone bricks). A town that spreads across biomes changes style at the
    border.
 10. **Levels.** Buildings have levels 1–3. When a building meets everything its next level
-    needs, it is rebuilt bigger in place: cottages gain a storey, then a chimney; towers and
-    halls gain storeys; shops and workshops gain floors, stalls and chimneys. What a building
+    needs, it is rebuilt bigger in place: cottages gain a jettied upper floor and a lean-to, then
+    a chimney, dormer and lamp; farmhouses a porch; terraces a storey; shops a flat above; halls
+    a cupola. What a building
     needs is plain and checkable: time to settle in, a shop nearby for homes, customers nearby
     for shops, shops to sell to for workshops, a big enough town for offices, and a street or
     avenue for level 3. Level 2 also needs power and water; level 3 needs services in reach

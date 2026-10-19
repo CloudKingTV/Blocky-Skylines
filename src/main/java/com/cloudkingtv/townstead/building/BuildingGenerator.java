@@ -236,8 +236,9 @@ public final class BuildingGenerator {
                     if (!box.edge(x, z)) continue;
                     boolean alongX = z == box.z0 || z == box.z1;
                     int i = alongX ? x - box.x0 : z - box.z0, len = alongX ? box.w() : box.d();
-                    boolean post = box.corner(x, z) || w.framed() && postAt(i, len);
-                    boolean window = !post && windowAt(i, len);
+                    int door = s == 0 && y0 == 0 ? doorOnWall(box, alongX, alongX ? z : x) : -1;
+                    boolean post = box.corner(x, z) || w.framed() && door < 0 && postAt(i, len);
+                    boolean window = !post && (door < 0 ? windowAt(i, len) : beside(i, door, len));
                     for (int y = base; y < base + 3; y++) {
                         if (doorways.contains(key(x, y, z)) || doorways.contains(key(x, y - 1, z)) && y == base + 1) continue;
                         BlockState st;
@@ -259,6 +260,23 @@ public final class BuildingGenerator {
             int top = y0 + storeys * STOREY - 1;
             masses.add(new int[] {box.x0, box.z0, box.x1, box.z1, top});
             return top;
+        }
+
+        /** Position along a wall of a doorway in it (ground floor), or -1. */
+        private int doorOnWall(Box box, boolean alongX, int fixed) {
+            int len = alongX ? box.w() : box.d();
+            for (int i = 1; i < len - 1; i++) {
+                int x = alongX ? box.x0 + i : fixed, z = alongX ? fixed : box.z0 + i;
+                if (doorways.contains(key(x, 0, z))) return i;
+            }
+            return -1;
+        }
+
+        /** Windows on a wall with a door: either side of it on a short wall, in pairs stepping away from it on a long one. */
+        static boolean beside(int i, int door, int len) {
+            if (i <= 0 || i >= len - 1 || i == door) return false;
+            int d = Math.abs(i - door);
+            return len <= 7 ? d == 1 || d == 3 : d >= 2 && d % 2 == 0;
         }
 
         /** Windows spaced evenly and symmetrically along a wall: one per three blocks of wall. */
@@ -394,9 +412,24 @@ public final class BuildingGenerator {
             return y + 1;
         }
 
-        /** The roof the style uses over a box (flat in the desert). */
+        /** The roof the style uses over a box (flat in the desert, with a shaded terrace). */
         int roof(Box box, int y, boolean alongX, BlockState gableFill) {
-            if (p.flatRoof()) return flat(box, y, p.stone().defaultBlockState(), Style.wall(p).defaultBlockState(), p.trim().defaultBlockState());
+            if (p.flatRoof()) {
+                int top = flat(box, y, p.stone().defaultBlockState(), Style.wall(p).defaultBlockState(), p.trim().defaultBlockState());
+                if (box.w() >= 4 && box.d() >= 4) {
+                    // A cloth canopy on poles over part of the roof, and potted plants along the parapet.
+                    DyeColor cloth = new DyeColor[] {DyeColor.WHITE, DyeColor.ORANGE, DyeColor.BLUE, DyeColor.RED}[(int) Math.floorMod(b.seed >>> 9, 4L)];
+                    int cx0 = box.x0 + 1, cx1 = Math.min(box.x1 - 1, box.x0 + 3), cz0 = box.z1 - 3, cz1 = box.z1 - 1;
+                    for (int x = cx0; x <= cx1; x++) for (int z = cz0; z <= cz1; z++) {
+                        boolean pole = (x == cx0 || x == cx1) && (z == cz0 || z == cz1);
+                        if (pole) { put(x, y + 1, z, Style.fence(p), ROOF); put(x, y + 2, z, Style.fence(p), ROOF); }
+                        put(x, y + 3, z, slab(Blocks.WOOL_SLAB.pick(cloth), SlabType.BOTTOM), ROOF);
+                    }
+                    put(box.x1 - 1, y + 1, box.z0 + 1, Blocks.POTTED_CACTUS, FIT);
+                    put(box.x0 + 1, y + 1, box.z0 + 1, Blocks.POTTED_DEAD_BUSH, FIT);
+                }
+                return top + 2;
+            }
             Block[] r = Style.roof(p, b.seed);
             return gable(box, y, alongX, r[0], r[1], gableFill);
         }
@@ -439,8 +472,14 @@ public final class BuildingGenerator {
             for (int x = box.x0 + 1; x < box.x1; x += every) put(x, y, box.z0 - 1, stairs(Style.stairsOf(p), back, true), FIT);
         }
 
-        /** A hood over a front door: slabs on brackets, and a lantern under it. */
+        /** A hood over a front door: slabs on brackets, and a lantern under it (a cloth canopy in the desert). */
         void doorHood(int x, int z) {
+            if (p.flatRoof()) {
+                DyeColor cloth = new DyeColor[] {DyeColor.WHITE, DyeColor.ORANGE, DyeColor.BLUE, DyeColor.RED}[(int) Math.floorMod(b.seed >>> 9, 4L)];
+                for (int dx = -1; dx <= 1; dx++) put(x + dx, 2, z - 1, stairs(Blocks.WOOL_STAIRS.pick(cloth), back, false), FIT);
+                put(x - 1, 1, z - 1, Blocks.WALL_TORCH.defaultBlockState().setValue(WallTorchBlock.FACING, front), FIT);
+                return;
+            }
             Block slabB = Style.roof(p, b.seed)[1];
             for (int dx = -1; dx <= 1; dx++) put(x + dx, 2, z - 1, slab(slabB, SlabType.BOTTOM), FIT);
             put(x + 1, 1, z - 1, lantern(true), FIT);
@@ -685,7 +724,7 @@ public final class BuildingGenerator {
             BlockState post = desert ? Blocks.CUT_SANDSTONE.defaultBlockState() : c.log(p.post(), Direction.Axis.Y);
             Block beam = desert ? Blocks.CUT_SANDSTONE : p.post();
             BlockState plinth = desert ? Blocks.SANDSTONE.defaultBlockState() : p.foundation().defaultBlockState();
-            return new Wall(post, beam, lower, upper, plinth, desert ? null : trapdoor(p), framed && !desert, false);
+            return new Wall(post, beam, lower, upper, plinth, trapdoor(p), framed && !desert, true);
         }
     }
 
@@ -807,7 +846,7 @@ public final class BuildingGenerator {
             int lv = c.level;
             Wall w = Style.wall(c, true);
             BlockState floor = c.p.floor().defaultBlockState();
-            int z0 = c.zf + 2;
+            int z0 = c.zf + 3;
             Box main = new Box(2, z0, 12, z0 + 5);
             Box wing = new Box(8, main.z1 + 1, 12, Math.min(c.D - 2, main.z1 + 7));
             c.foundation(main, w.plinth(), floor);
@@ -824,8 +863,17 @@ public final class BuildingGenerator {
                 if (lv >= 3) c.dormer(main, top, main.x1 - 2, w.upper());
             }
             c.door(door, main.z0, c.back, DoorHingeSide.LEFT);
-            if (lv >= 2) c.porch(new Box(door - 2, main.z0, door + 2, main.z1), 2);
-            else c.doorHood(door, main.z0);
+            // A projecting centre bay with its own gable facing the road, over the front door.
+            Box bay = new Box(door - 2, main.z0 - 2, door + 2, main.z0);
+            c.foundation(bay, w.plinth(), floor);
+            for (int z = bay.z0; z < main.z0; z++) for (int x = bay.x0; x <= bay.x1; x++) c.erase(x, 0, z);
+            c.doorway(door, 0, bay.z0);
+            int bayTop = c.walls(bay, 0, storeys, w, floor);
+            c.erase(door, 0, main.z0);
+            c.erase(door, 1, main.z0);
+            if (!c.p.flatRoof()) c.gable(bay, bayTop, false, Style.roof(c.p, c.b.seed)[0], Style.roof(c.p, c.b.seed)[1], w.upper());
+            c.door(door, bay.z0, c.back, DoorHingeSide.LEFT);
+            c.doorHood(door, bay.z0);
             c.chimney(main.x0 - 1, main.z0 + 2, ridge + 1);
             if (lv >= 3) c.chimney(main.x1 + 1, main.z0 + 2, ridge + 1);
             interior(c, main, door);
@@ -837,10 +885,10 @@ public final class BuildingGenerator {
                 c.flowers(gx0, gz0, gx1, gz1, 0.25f);
                 c.bench(gx1 - 1, gx1, gz0, c.back);
             }
-            c.path(door, c.zf, main.z0 - (lv >= 2 ? 3 : 1));
+            c.path(door, c.zf, main.z0 - 3);
             c.hedge(0, door - 2, c.zf);
             c.hedge(door + 2, c.W - 1, c.zf);
-            c.flowers(1, c.zf + 1, c.W - 2, z0 - 1, 0.3f);
+            c.flowers(1, c.zf + 1, c.W - 2, z0 - 3, 0.3f);
             c.lampPost(door - 2, c.zf + 1);
             c.lampPost(door + 2, c.zf + 1);
             c.fenceRun(0, main.z1 + 1, c.W - 1, c.D - 1, -1, -1);
