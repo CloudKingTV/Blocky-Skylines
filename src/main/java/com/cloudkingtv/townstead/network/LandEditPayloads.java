@@ -45,5 +45,15 @@ public final class LandEditPayloads {
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }
 
+    /** Client → server: buy the land tile at (tileX, tileZ) for the town. */
+    public record BuyTile(UUID cityId, int tileX, int tileZ) implements CustomPacketPayload {
+        public static final Type<BuyTile> TYPE = new Type<>(Townstead.id("buy_tile"));
+        public static final StreamCodec<ByteBuf, BuyTile> STREAM_CODEC = StreamCodec.composite(
+                UUIDUtil.STREAM_CODEC, BuyTile::cityId, ByteBufCodecs.VAR_INT, BuyTile::tileX, ByteBufCodecs.VAR_INT, BuyTile::tileZ, BuyTile::new);
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() { return TYPE; }
+    }
+
     private LandEditPayloads() {}
 }

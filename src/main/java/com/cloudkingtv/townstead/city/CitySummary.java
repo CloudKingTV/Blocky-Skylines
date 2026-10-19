@@ -18,7 +18,7 @@ import net.minecraft.world.level.Level;
 /** Client-visible snapshot of a city (treasury in hundredths of an emerald). */
 public record CitySummary(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension,
                           BlockPos townHall, List<TilePos> tiles, long treasury, Map<Identifier, Integer> stock,
-                          com.cloudkingtv.townstead.economy.Budget budget) {
+                          com.cloudkingtv.townstead.economy.Budget budget, int milestone) {
     public static final StreamCodec<ByteBuf, CitySummary> STREAM_CODEC = new StreamCodec<>() {
         private final StreamCodec<ByteBuf, List<TilePos>> tilesCodec = ByteBufCodecs.collection(ArrayList::new, TilePos.STREAM_CODEC);
         private final StreamCodec<ByteBuf, ResourceKey<Level>> dimCodec = ResourceKey.streamCodec(Registries.DIMENSION);
@@ -30,7 +30,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             return new CitySummary(UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf),
                     UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), dimCodec.decode(buf),
                     BlockPos.STREAM_CODEC.decode(buf), tilesCodec.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), stockCodec.decode(buf),
-                    com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf));
+                    com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf));
         }
 
         @Override
@@ -45,6 +45,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             ByteBufCodecs.VAR_LONG.encode(buf, c.treasury());
             stockCodec.encode(buf, c.stock());
             com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.encode(buf, c.budget());
+            ByteBufCodecs.VAR_INT.encode(buf, c.milestone());
         }
     };
 

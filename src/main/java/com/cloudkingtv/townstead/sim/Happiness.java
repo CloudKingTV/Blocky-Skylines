@@ -33,6 +33,9 @@ public record Happiness(int total, List<Factor> factors) {
         for (ServiceType s : wanted) {
             if (m.covered(b, s)) f.add(new Factor(Component.translatable("happy.townstead.service", s.displayName()), s == ServiceType.PARK ? 8 : 5));
         }
+        for (ServiceType s : ServiceType.LANDMARKS) {
+            if (m.covered(b, s)) f.add(new Factor(Component.translatable("happy.townstead.landmark", s.displayName()), 6));
+        }
         int lv = m.fields.landValue(b), pollution = m.fields.pollution(b), noise = m.fields.noise(b);
         if (home || b.zone.need == com.cloudkingtv.townstead.zone.ZoneType.Need.OFFICES) {
             if (pollution > 0) f.add(new Factor(Component.translatable("happy.townstead.pollution", pollution), -Math.round(pollution / 3f)));

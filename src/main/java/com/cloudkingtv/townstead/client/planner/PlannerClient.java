@@ -69,6 +69,23 @@ public final class PlannerClient {
     private static @Nullable Object frontageKey;
     private static java.util.Map<Long, RoadRaster.Cell> roadColumns = java.util.Map.of();
     private static @Nullable UUID cityId;
+    /** The land tile under the cursor while the land tool is out, or null. */
+    public static com.cloudkingtv.townstead.city.@Nullable TilePos hoverTile;
+
+    /** Whether a tile belongs to, or lies too close to, another town (client-side mirror of the server's check). */
+    public static boolean tileBlocked(CitySummary mine, com.cloudkingtv.townstead.city.TilePos tile) {
+        for (CitySummary other : ClientCityCache.all()) {
+            if (!other.dimension().equals(mine.dimension())) continue;
+            if (other.tiles().contains(tile)) return true;
+            if (other.id().equals(mine.id())) continue;
+            for (var t : other.tiles()) {
+                if (Math.abs(t.x() - tile.x()) <= com.cloudkingtv.townstead.city.CityManager.TOWN_SPACING_TILES
+                        && Math.abs(t.z() - tile.z()) <= com.cloudkingtv.townstead.city.CityManager.TOWN_SPACING_TILES) return true;
+            }
+        }
+        return false;
+    }
+
     /** Minimum corner of the 8x8 zone cell under the cursor (y = surface), or null. */
     public static @Nullable BlockPos hoverCell;
     public static @Nullable BlockPos selectedCell;

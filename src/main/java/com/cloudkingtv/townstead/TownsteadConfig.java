@@ -33,6 +33,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.growthSpeed")
             .defineInRange("growthSpeed", 1.0, 0.25, 20.0);
 
+    public static final ModConfigSpec.BooleanValue UNLOCK_ALL = SERVER
+            .comment("Everything is available from the start, whatever milestone a town has reached (for builders and testing)")
+            .translation("townstead.configuration.unlockAll")
+            .define("unlockAll", false);
+
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 
     private TownsteadConfig() {}

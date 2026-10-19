@@ -233,6 +233,7 @@ public final class TownGrowth {
         LandData land = LandData.get(level);
         Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
         if (land.buildingAt(ZoneRules.cellKey(cx, cz)) != null) return "service.townstead.lot_taken";
+        if (service.landmark() && land.buildingsOf(city.id()).stream().anyMatch(o -> service.key().equals(o.service))) return "service.townstead.only_one";
         Direction front = ZoneRules.frontage(cx, cz, roads, city.tiles());
         if (front == null) return "zone.townstead.no_frontage";
         // The clicked cell anywhere along the front row of the service's lot.
@@ -515,6 +516,12 @@ public final class TownGrowth {
         else tell(level, city, b.zone.residential()
                 ? Component.translatable("building.townstead.moved_in", kind, Residents.people(b))
                 : Component.translatable("building.townstead.opened", kind, b.jobs), true);
+        BlockPos where = BlockPos.containing(b.centerX(), b.baseY, b.centerZ());
+        if (repaired) com.cloudkingtv.townstead.progress.Chirps.post(level, city, "repaired", where, false, kind);
+        else if (upgrade) com.cloudkingtv.townstead.progress.Chirps.post(level, city, "levelled", where, false, kind, b.level);
+        else if (b.civic()) com.cloudkingtv.townstead.progress.Chirps.post(level, city, b.serviceType().landmark() ? "landmark" : "service", where,
+                b.serviceType().landmark(), kind, city.name());
+        else com.cloudkingtv.townstead.progress.Chirps.post(level, city, b.zone.residential() ? "moved_in" : "opened", where, false, kind);
     }
 
     // ---------------------------------------------------------------- levels and trouble
@@ -534,6 +541,10 @@ public final class TownGrowth {
             if (trouble != null) b.trouble = Math.min(Progression.ABANDON_AFTER, b.trouble + (int) Math.round(REVIEW_INTERVAL * speed));
             else b.trouble = Math.max(0, b.trouble - (int) Math.round(REVIEW_INTERVAL * 2 * speed));
             if (b.trouble != before) { land.setDirty(); markDirty(); }
+            if (before == 0 && b.trouble > 0 && trouble != null && b.state == Building.State.ACTIVE) {
+                com.cloudkingtv.townstead.progress.Chirps.post(level, city, "trouble", BlockPos.containing(b.centerX(), b.baseY, b.centerZ()), false,
+                        kindName(BuildingGenerator.plan(b)), trouble);
+            }
             if (b.state == Building.State.ACTIVE && b.trouble >= Progression.ABANDON_AFTER) {
                 abandon(level, city, b, trouble);
                 continue;
@@ -596,6 +607,8 @@ public final class TownGrowth {
         markDirty();
         level.playSound(null, plan.min(), SoundEvents.WOODEN_DOOR_CLOSE, SoundSource.BLOCKS, 0.8f, 0.6f);
         tell(level, city, Component.translatable("building.townstead.abandoned", kindName(plan), why == null ? Component.empty() : why), false);
+        com.cloudkingtv.townstead.progress.Chirps.post(level, city, "abandoned", BlockPos.containing(b.centerX(), b.baseY, b.centerZ()), true,
+                kindName(plan), why == null ? Component.empty() : why);
     }
 
     /** People come back: clear the cobwebs and boards and rebuild what's missing. */

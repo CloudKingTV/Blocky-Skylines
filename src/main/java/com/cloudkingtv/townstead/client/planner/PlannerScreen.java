@@ -80,9 +80,11 @@ public class PlannerScreen extends Screen {
             new Tool("services", new ItemStack(Items.BELL), true),
             new Tool("transport", new ItemStack(Items.MINECART), false),
             new Tool("parks", new ItemStack(Items.OAK_SAPLING), true),
+            new Tool("landmarks", new ItemStack(Items.BEACON), true),
+            new Tool("land", new ItemStack(Items.FILLED_MAP), true),
             new Tool("info", new ItemStack(Items.COMPASS), true),
             new Tool("bulldoze", new ItemStack(Items.IRON_SHOVEL), true));
-    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, PARKS = 6, INFO = 7, BULLDOZE = 8;
+    private static final int INSPECT = 0, ROADS = 1, ZONING = 2, UTILITIES = 3, SERVICES = 4, PARKS = 6, LANDMARKS = 7, LAND = 8, INFO = 9, BULLDOZE = 10;
 
     /** What the utilities / services / parks tools can place. */
     private static List<ServiceType> placeList(int tool) {
@@ -90,8 +92,27 @@ public class PlannerScreen extends Screen {
             case UTILITIES -> ServiceType.UTILITIES;
             case SERVICES -> ServiceType.SERVICES.stream().filter(t -> t != ServiceType.PARK).toList();
             case PARKS -> List.of(ServiceType.PARK);
+            case LANDMARKS -> ServiceType.LANDMARKS;
             default -> List.of();
         };
+    }
+
+    /** Whether the town hasn't reached the milestone that unlocks this road type, zone or service yet. */
+    static boolean locked(Object thing) {
+        return PlannerClient.city().map(c -> !com.cloudkingtv.townstead.progress.Milestone.unlocked(c.milestone(), thing)).orElse(false);
+    }
+
+    static Component lockedLine(Object thing) {
+        var m = com.cloudkingtv.townstead.progress.Milestone.unlocking(thing);
+        return Component.translatable("milestone.townstead.unlocks_at", m.displayName(), m.population);
+    }
+
+    /** The road type, zone or service behind a sub-panel button (null for modes and the clear brush). */
+    private static @Nullable Object subThing(int i) {
+        if (selectedTool == ROADS) return i < RoadType.values().length ? RoadType.values()[i] : null;
+        if (selectedTool == ZONING) return i < ZoneType.PAINTABLE.size() ? ZoneType.PAINTABLE.get(i) : null;
+        List<ServiceType> list = placeList(selectedTool);
+        return i < list.size() ? list.get(i) : null;
     }
 
     private static boolean placing() {
@@ -101,6 +122,11 @@ public class PlannerScreen extends Screen {
     /** Whether the info tool is out (the world renderer colours buildings then). */
     public static boolean infoActive() {
         return selectedTool == INFO;
+    }
+
+    /** Whether the land tool is out (the world renderer outlines tiles for sale then). */
+    public static boolean landActive() {
+        return selectedTool == LAND;
     }
 
     /** Whether a placing tool is out (the world renderer shows the lot ghost and coverage then). */
@@ -184,21 +210,21 @@ public class PlannerScreen extends Screen {
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
         if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
         if (key == InputConstants.KEY_V) { showIcons = !showIcons; click(showIcons ? 1.2f : 0.8f); return true; }
+        if (key == InputConstants.KEY_U) { MilestonePanel.open = !MilestonePanel.open; BudgetPanel.open = false; click(MilestonePanel.open ? 1.2f : 0.8f); return true; }
+        if (key == InputConstants.KEY_L) { MilestonePanel.open = false; }
         if (key == InputConstants.KEY_L) { BudgetPanel.open = !BudgetPanel.open; click(BudgetPanel.open ? 1.2f : 0.8f); return true; }
         if ((placing() || selectedTool == INFO) && key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + Math.min(9, subCount())) {
             pickSub(key - InputConstants.KEY_1);
             return true;
         }
         if (selectedTool == ZONING && key >= InputConstants.KEY_1 && key <= InputConstants.KEY_1 + PlannerClient.CLEAR_BRUSH) {
-            PlannerClient.zoneBrush = key - InputConstants.KEY_1;
-            click(1.1f);
+            pickSub(key - InputConstants.KEY_1);
             return true;
         }
         if (selectedTool == ROADS) {
             RoadTool roads = PlannerClient.ROADS;
             if (key >= InputConstants.KEY_1 && key < InputConstants.KEY_1 + RoadType.values().length) {
-                roads.type = RoadType.values()[key - InputConstants.KEY_1];
-                click(1.1f);
+                pickSub(key - InputConstants.KEY_1);
                 return true;
             }
             if (key == InputConstants.KEY_TAB) {
@@ -239,8 +265,9 @@ public class PlannerScreen extends Screen {
 
     /** Esc / right-click: drop the road being drawn or the selection, then the tool, and only then leave (like CS). */
     private void cancelOrExit() {
-        if (BudgetPanel.open) {
+        if (BudgetPanel.open || MilestonePanel.open) {
             BudgetPanel.open = false;
+            MilestonePanel.open = false;
             click(0.8f);
         } else if (panelBuilding >= 0) {
             panelBuilding = -1;
@@ -287,6 +314,16 @@ public class PlannerScreen extends Screen {
         // Re-aim at the click itself: the cursor may have moved since the last frame drew.
         updateHover((int) event.x(), (int) event.y());
         if (BudgetPanel.click(event.x(), event.y())) return true;
+        if (MilestonePanel.contains(event.x(), event.y())) return true;
+        for (Object[] hit : chirpHits) {
+            int[] r = (int[]) hit[0];
+            if (event.x() >= r[0] && event.x() < r[2] && event.y() >= r[1] && event.y() < r[3]) {
+                BlockPos at = (BlockPos) hit[1];
+                PlannerClient.CAMERA.reset(at.getX() + 0.5, at.getZ() + 0.5, PlannerClient.CAMERA.yaw());
+                click(1.3f);
+                return true;
+            }
+        }
         if (overTreasury(event.x(), event.y())) { BudgetPanel.open = !BudgetPanel.open; click(1.2f); return true; }
 
         if (overPanel(event.x(), event.y())) {
@@ -305,6 +342,7 @@ public class PlannerScreen extends Screen {
         }
         if (selectedTool == ROADS) { roadClick(); return true; }
         if (selectedTool == BULLDOZE) { bulldozeClick(); return true; }
+        if (selectedTool == LAND) { landClick(); return true; }
         if (placing()) { placeClick(); return true; }
         if (selectedTool == ZONING) {
             painting = true;
@@ -426,6 +464,58 @@ public class PlannerScreen extends Screen {
         return list;
     }
 
+    /** Why the hovered tile can't be bought, or null. */
+    static @Nullable String landProblem(CitySummary city, TilePos tile) {
+        return com.cloudkingtv.townstead.city.TownActions.buyProblem(java.util.Set.copyOf(city.tiles()), city.milestone(), city.treasury(), tile,
+                t -> PlannerClient.tileBlocked(city, t));
+    }
+
+    private void landClick() {
+        TilePos tile = PlannerClient.hoverTile;
+        CitySummary city = PlannerClient.city().orElse(null);
+        if (tile == null || city == null) return;
+        String problem = landProblem(city, tile);
+        if (problem != null) { flash(Component.translatable(problem)); click(0.5f); return; }
+        ClientPacketDistributor.sendToServer(new LandEditPayloads.BuyTile(city.id(), tile.x(), tile.z()));
+        click(1.3f);
+    }
+
+    private void drawLandInfo(GuiGraphicsExtractor g, @Nullable CitySummary city, int mouseX, int mouseY) {
+        if (city == null) return;
+        List<Component> lines = new ArrayList<>();
+        List<Integer> colors = new ArrayList<>();
+        int allowed = com.cloudkingtv.townstead.progress.Milestone.tileAllowance(city.milestone());
+        lines.add(Component.translatable("land.townstead.title", city.tiles().size(), allowed));
+        colors.add(0xFFFFE9B0);
+        TilePos tile = PlannerClient.hoverTile;
+        if (tile != null) {
+            String problem = landProblem(city, tile);
+            long price = com.cloudkingtv.townstead.city.TownActions.tilePrice(city.tiles().size());
+            lines.add(Component.translatable("land.townstead.tile", tile.x(), tile.z()));
+            colors.add(0xFFDDDDDD);
+            if (problem == null) {
+                lines.add(Component.translatable("land.townstead.price", price));
+                colors.add(0xFF9EE37D);
+                lines.add(Component.translatable("land.townstead.click"));
+                colors.add(0xFFB8B8B8);
+            } else {
+                lines.add(Component.translatable(problem));
+                colors.add(problem.equals("land.townstead.owned") ? 0xFF9EE37D : 0xFFFF9A7A);
+                if (problem.equals("land.townstead.need_milestone")) {
+                    var next = com.cloudkingtv.townstead.progress.Milestone.of(city.milestone()).next();
+                    if (next != null) {
+                        lines.add(Component.translatable("land.townstead.next", next.displayName(), next.population, next.tiles));
+                        colors.add(0xFFB8B8B8);
+                    }
+                } else if (problem.equals("land.townstead.too_poor")) {
+                    lines.add(Component.translatable("land.townstead.price", price));
+                    colors.add(0xFFB8B8B8);
+                }
+            }
+        }
+        cursorPanel(g, lines, colors, mouseX, mouseY);
+    }
+
     private void placeClick() {
         BlockPos cell = PlannerClient.hoverCell;
         CitySummary city = PlannerClient.city().orElse(null);
@@ -443,7 +533,12 @@ public class PlannerScreen extends Screen {
         net.minecraft.client.Minecraft minecraft = net.minecraft.client.Minecraft.getInstance();
         if (ClientLand.get().buildingAt(ZoneRules.cellKey(cx, cz)) != null) return Component.translatable("service.townstead.lot_taken");
         if (PlannerClient.frontage(cx, cz) == null) return Component.translatable("zone.townstead.no_frontage");
+        if (locked(PlannerClient.placing)) return lockedLine(PlannerClient.placing);
         var city = PlannerClient.city().orElse(null);
+        if (city != null && PlannerClient.placing.landmark()
+                && ClientLand.get().buildingsOf(city.id()).stream().anyMatch(o -> PlannerClient.placing.key().equals(o.service))) {
+            return Component.translatable("service.townstead.only_one");
+        }
         if (city != null && PlannerClient.lotFor(city, PlannerClient.placing, cx, cz) == null) {
             return Component.translatable("service.townstead.no_room", PlannerClient.placing.wide, PlannerClient.placing.deep);
         }
@@ -454,6 +549,12 @@ public class PlannerScreen extends Screen {
     }
 
     private void pickSub(int i) {
+        Object thing = subThing(i);
+        if (thing != null && locked(thing)) {
+            flash(Component.translatable("milestone.townstead.locked_short", lockedLine(thing)));
+            click(0.6f);
+            return;
+        }
         if (placing()) {
             List<ServiceType> list = placeList(selectedTool);
             if (i < list.size()) PlannerClient.placing = list.get(i);
@@ -548,10 +649,12 @@ public class PlannerScreen extends Screen {
     // ---------------------------------------------------------------- cursor
 
     private void updateHover(int mouseX, int mouseY) {
+        PlannerClient.hoverTile = null;
         PlannerClient.hoveredSegmentId = -1;
         PlannerClient.hoveredBuildingId = -1;
         if (mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0 || overPanel(mouseX, mouseY)
-                || BudgetPanel.contains(mouseX, mouseY) || minecraft.level == null) {
+                || BudgetPanel.contains(mouseX, mouseY) || MilestonePanel.contains(mouseX, mouseY) || overChirp(mouseX, mouseY)
+                || minecraft.level == null) {
             PlannerClient.hoverCell = null;
             return;
         }
@@ -570,6 +673,11 @@ public class PlannerScreen extends Screen {
         if (selectedTool == ROADS) {
             PlannerClient.hoverCell = null;
             PlannerClient.ROADS.hover(at.x, at.z, ctrlHeld);
+            return;
+        }
+        if (selectedTool == LAND) {
+            PlannerClient.hoverCell = null;
+            PlannerClient.hoverTile = TilePos.ofBlock((int) Math.floor(at.x), (int) Math.floor(at.z));
             return;
         }
         // Buildings first: the cell under the cursor (inspect and bulldoze pick them out).
@@ -630,15 +738,18 @@ public class PlannerScreen extends Screen {
         if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
         else if (selectedTool == BULLDOZE) drawBulldozeInfo(g, city, mouseX, mouseY);
         else if (selectedTool == ZONING) drawZoningInfo(g, city, mouseX, mouseY);
+        else if (selectedTool == LAND) drawLandInfo(g, city, mouseX, mouseY);
         else if (placing()) drawPlaceInfo(g, city, mouseX, mouseY);
         else if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
         else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
         else drawCursorInfo(g, city);
         drawFlash(g, subCount() > 0 ? subY() : barY);
         drawStatusIcons(g, city, mouseX, mouseY);
-        if (!BudgetPanel.open) drawHints(g);
+        if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
+        drawChirps(g, mouseX, mouseY);
         drawPanel(g, mouseX, mouseY);
         BudgetPanel.draw(g, font, width, height, TOP_BAR_H, barY, mouseX, mouseY);
+        MilestonePanel.draw(g, font, width, TOP_BAR_H, barY, mouseX, mouseY);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
     }
 
@@ -653,7 +764,21 @@ public class PlannerScreen extends Screen {
             // Pencil-ish quill marks the name as editable.
             g.item(new ItemStack(Items.WRITABLE_BOOK), NAME_X + font.width(city.name()) + 3, 3);
             // Anchor the tooltip under the bar so it never covers the name it describes.
+            var reached = com.cloudkingtv.townstead.progress.Milestone.of(city.milestone());
+            var next = reached.next();
+            var model = PlannerClient.model();
+            int people = model == null ? 0 : model.demand.population();
+            int barW = Math.max(60, font.width(city.name()));
+            g.fill(NAME_X, TOP_BAR_H - 4, NAME_X + barW, TOP_BAR_H - 2, 0x80202020);
+            if (next != null) {
+                int prev = reached.population;
+                int fill = (int) Math.max(0, Math.min(barW, (long) barW * (people - prev) / Math.max(1, next.population - prev)));
+                g.fill(NAME_X, TOP_BAR_H - 4, NAME_X + fill, TOP_BAR_H - 2, 0xFF9EE37D);
+            } else g.fill(NAME_X, TOP_BAR_H - 4, NAME_X + barW, TOP_BAR_H - 2, 0xFFFFD36B);
             if (hot) g.setTooltipForNextFrame(font, List.of(Component.translatable("hud.townstead.rename_hint").getVisualOrderText(),
+                    (next == null ? Component.translatable("milestone.townstead.top", reached.displayName())
+                            : Component.translatable("milestone.townstead.progress", reached.displayName(), people, next.population, next.displayName()))
+                            .getVisualOrderText(),
                     Component.translatable("hud.townstead.tiles", city.tiles().size()).getVisualOrderText()), mouseX, TOP_BAR_H + 14);
         }
         int x = width - 8;
@@ -693,6 +818,45 @@ public class PlannerScreen extends Screen {
             g.setTooltipForNextFrame(font, Component.translatable("hud.townstead.treasury_tip"), mouseX, TOP_BAR_H + 14);
         }
         drawDemand(g, x - 4, demand, mouseX, mouseY);
+    }
+
+    /** Click areas of the chirps drawn this frame: {int[] x0, y0, x1, y1}, BlockPos. */
+    private final List<Object[]> chirpHits = new ArrayList<>();
+
+    private boolean overChirp(double x, double y) {
+        for (Object[] hit : chirpHits) {
+            int[] r = (int[]) hit[0];
+            if (x >= r[0] && x < r[2] && y >= r[1] && y < r[3]) return true;
+        }
+        return false;
+    }
+
+    /** The latest chirps, top right, fading after twenty seconds; click one to fly there. */
+    private void drawChirps(GuiGraphicsExtractor g, int mouseX, int mouseY) {
+        chirpHits.clear();
+        if (BudgetPanel.open || MilestonePanel.open || showHelp) return;
+        var all = com.cloudkingtv.townstead.client.ClientChirps.all();
+        long now = Util.getMillis();
+        int w = 190, x = width - w - 6, y = TOP_BAR_H + 18, shown = 0;
+        for (int i = all.size() - 1; i >= 0 && shown < 4; i--) {
+            var e = all.get(i);
+            long age = now - e.at();
+            if (age > 20_000) break;
+            float alpha = age > 17_000 ? (20_000 - age) / 3000f : Math.min(1f, age / 200f);
+            var lines = font.split(e.chirp().text(), w - 12);
+            int h = 6 + font.lineHeight + 2 + lines.size() * (font.lineHeight + 1) + 3;
+            boolean hot = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+            g.fill(x, y, x + w, y + h, ARGB.color(Math.round(alpha * (hot ? 0xE0 : 0xB8)), 24, 22, 20));
+            g.fill(x, y, x + 2, y + h, ARGB.color(Math.round(alpha * 255), 110, 200, 255));
+            g.text(font, Component.literal("@" + e.chirp().author().replace(' ', '_')), x + 6, y + 4, ARGB.color(Math.round(alpha * 255), 120, 210, 255), true);
+            for (int k = 0; k < lines.size(); k++) {
+                g.text(font, lines.get(k), x + 6, y + 6 + font.lineHeight + 2 + k * (font.lineHeight + 1), ARGB.color(Math.round(alpha * 255), 236, 236, 236), true);
+            }
+            chirpHits.add(new Object[] {new int[] {x, y, x + w, y + h}, e.chirp().at()});
+            if (hot) g.setTooltipForNextFrame(font, Component.translatable("chirp.townstead.fly"), mouseX, mouseY);
+            y += h + 3;
+            shown++;
+        }
     }
 
     private int treasuryX0, treasuryX1;
@@ -764,7 +928,8 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.zoom"), Component.translatable("help.townstead.tilt"),
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
                     Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.zoning"),
-                    Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"), Component.translatable("help.townstead.icons"),
+                    Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"), Component.translatable("help.townstead.milestones"),
+                    Component.translatable("help.townstead.icons"),
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
@@ -846,9 +1011,16 @@ public class PlannerScreen extends Screen {
                 icon = i < ZoneType.PAINTABLE.size() ? ZoneType.PAINTABLE.get(i).icon() : new ItemStack(Items.BRUSH);
             }
             int bx = subButtonX(i), by = y + TOOLBAR_PAD;
-            g.blitSprite(RenderPipelines.GUI_TEXTURED, on ? BUTTON_SELECTED : i == hovered ? BUTTON_HOVER : BUTTON, bx + 1, by + 1, SLOT - 2, SLOT - 2);
+            Object thing = subThing(i);
+            boolean isLocked = thing != null && locked(thing);
+            g.blitSprite(RenderPipelines.GUI_TEXTURED, on ? BUTTON_SELECTED : i == hovered ? BUTTON_HOVER : BUTTON, bx + 1, by + 1, SLOT - 2, SLOT - 2,
+                    isLocked ? 0xFF8A8A8A : 0xFFFFFFFF);
             if (selectedTool == ZONING && i < ZoneType.PAINTABLE.size()) g.fill(bx + 3, by + SLOT - 5, bx + SLOT - 3, by + SLOT - 3, 0xFF000000 | ZoneType.PAINTABLE.get(i).rgb);
             g.item(icon, bx + 4, by + 4);
+            if (isLocked) {
+                g.fill(bx + 2, by + 2, bx + SLOT - 2, by + SLOT - 2, 0x99101010);
+                g.text(font, "\u2716", bx + SLOT - 9, by + 2, 0xFFE0A060, true);
+            }
             if ((!roads || i < types) && i < 9) g.text(font, String.valueOf(i + 1), bx + SLOT - 7, by + SLOT - 10, 0xFFFFFFFF, true);
         }
         if (hovered >= 0) {
@@ -866,7 +1038,12 @@ public class PlannerScreen extends Screen {
             } else {
                 name = hovered < ZoneType.PAINTABLE.size() ? ZoneType.PAINTABLE.get(hovered).displayName() : Component.translatable("zone.townstead.clear");
             }
-            g.setTooltipForNextFrame(font, name, mouseX, mouseY);
+            Object thing = subThing(hovered);
+            if (thing != null && locked(thing)) {
+                g.setTooltipForNextFrame(font, List.of(name.getVisualOrderText(), lockedLine(thing).getVisualOrderText()), mouseX, mouseY);
+            } else {
+                g.setTooltipForNextFrame(font, name, mouseX, mouseY);
+            }
         }
     }
 

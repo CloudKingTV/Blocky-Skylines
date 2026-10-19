@@ -23,7 +23,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "6";
+    private static final String PROTOCOL = "7";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {
@@ -75,6 +75,11 @@ public final class TownsteadNetwork {
         r.playToServer(StorehousePayloads.Withdraw.TYPE, StorehousePayloads.Withdraw.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) StorehouseService.access(player, msg.pos())
                     .ifPresent(city -> StorehouseService.withdraw(player, city, msg.item(), msg.count()));
+        });
+        r.playToClient(ChirpPayload.TYPE, ChirpPayload.STREAM_CODEC);
+        r.playToServer(LandEditPayloads.BuyTile.TYPE, LandEditPayloads.BuyTile.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) plannerCity(player, msg.cityId())
+                    .ifPresent(city -> TownActions.buyTile(player, city, new com.cloudkingtv.townstead.city.TilePos(msg.tileX(), msg.tileZ())));
         });
         r.playToClient(EconomyPayloads.OpenTownHall.TYPE, EconomyPayloads.OpenTownHall.STREAM_CODEC);
         r.playToServer(EconomyPayloads.Edit.TYPE, EconomyPayloads.Edit.STREAM_CODEC, (msg, ctx) -> {

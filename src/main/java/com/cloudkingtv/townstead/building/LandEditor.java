@@ -33,6 +33,11 @@ public final class LandEditor {
     /** Paints (or with a null zone, clears) cells. Only cells with road frontage on the town's land take a zone. */
     public static void paint(ServerPlayer player, City city, @Nullable ZoneType zone, List<Long> cells) {
         ServerLevel level = player.level();
+        if (zone != null && !com.cloudkingtv.townstead.progress.Milestone.unlocked(city.milestone(), zone)) {
+            RoadEditor.notify(player, Component.translatable("milestone.townstead.locked", zone.displayName(),
+                    com.cloudkingtv.townstead.progress.Milestone.unlocking(zone).displayName()), false);
+            return;
+        }
         LandData land = LandData.get(level);
         var roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
         Map<Long, LandData.Zoned> before = new HashMap<>(), after = new HashMap<>();
@@ -67,6 +72,11 @@ public final class LandEditor {
     /** Places a service or utility on a lot; undo takes it down again with a full refund. */
     public static void placeService(ServerPlayer player, City city, com.cloudkingtv.townstead.service.ServiceType service, long cell) {
         ServerLevel level = player.level();
+        if (!com.cloudkingtv.townstead.progress.Milestone.unlocked(city.milestone(), service)) {
+            RoadEditor.notify(player, Component.translatable("milestone.townstead.locked", service.displayName(),
+                    com.cloudkingtv.townstead.progress.Milestone.unlocking(service).displayName()), false);
+            return;
+        }
         Object result = TownGrowth.placeCivic(level, city, service, RoadRaster.keyX(cell), RoadRaster.keyZ(cell));
         if (result instanceof String reason) {
             RoadEditor.notify(player, Component.translatable(reason), false);

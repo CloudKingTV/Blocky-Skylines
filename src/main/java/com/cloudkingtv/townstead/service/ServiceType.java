@@ -24,7 +24,11 @@ public enum ServiceType implements StringRepresentable {
     GUARD_HOUSE("guard_house", Kind.SERVICE, Items.IRON_SWORD, 0, 56, 4, Department.POLICE, 450),
     SCHOOL("school", Kind.SERVICE, Items.BOOKSHELF, 0, 64, 5, Department.EDUCATION, 600),
     COMPOST_YARD("compost_yard", Kind.SERVICE, Items.COMPOSTER, 0, 80, 3, Department.GARBAGE, 350),
-    PARK("park", Kind.SERVICE, Items.OAK_SAPLING, 0, 32, 1, Department.PARKS, 150);
+    PARK("park", Kind.SERVICE, Items.OAK_SAPLING, 0, 32, 1, Department.PARKS, 150),
+    // Landmarks: one of each per town, unlocked by milestones; they lift land value and spirits around them.
+    FOUNDERS_FOUNTAIN("founders_fountain", Kind.SERVICE, Items.HEART_OF_THE_SEA, 0, 48, 1, Department.PARKS, 200),
+    CLOCK_TOWER("clock_tower", Kind.SERVICE, Items.CLOCK, 0, 80, 2, Department.PARKS, 400),
+    CHAPEL("chapel", Kind.SERVICE, Items.BELL, 0, 64, 2, Department.PARKS, 300);
 
     public enum Kind { POWER, WATER, SERVICE }
 
@@ -44,7 +48,8 @@ public enum ServiceType implements StringRepresentable {
 
     public static final Codec<ServiceType> CODEC = StringRepresentable.fromEnum(ServiceType::values);
     public static final List<ServiceType> UTILITIES = Arrays.stream(values()).filter(s -> s.kind != Kind.SERVICE).toList();
-    public static final List<ServiceType> SERVICES = Arrays.stream(values()).filter(s -> s.kind == Kind.SERVICE).toList();
+    public static final List<ServiceType> SERVICES = Arrays.stream(values()).filter(s -> s.kind == Kind.SERVICE && !s.landmark()).toList();
+    public static final List<ServiceType> LANDMARKS = Arrays.stream(values()).filter(ServiceType::landmark).toList();
 
     private final String key;
     public final Kind kind;
@@ -64,8 +69,8 @@ public enum ServiceType implements StringRepresentable {
         this.department = department;
         this.upkeep = upkeep;
         int[] lot = switch (key) {
-            case "watermill", "clinic", "fire_station", "compost_yard", "park" -> new int[] {2, 1};
-            case "school" -> new int[] {2, 2};
+            case "watermill", "clinic", "fire_station", "compost_yard", "park", "founders_fountain" -> new int[] {2, 1};
+            case "school", "chapel" -> new int[] {2, 2};
             default -> new int[] {1, 1};
         };
         this.wide = lot[0];
@@ -79,6 +84,9 @@ public enum ServiceType implements StringRepresentable {
     }
 
     public ItemStack icon() { return new ItemStack(icon); }
+
+    /** A unique building: one per town, placed from the landmarks tool. */
+    public boolean landmark() { return this == FOUNDERS_FOUNTAIN || this == CLOCK_TOWER || this == CHAPEL; }
     public Component displayName() { return Component.translatable("service.townstead." + key); }
     public String key() { return key; }
 

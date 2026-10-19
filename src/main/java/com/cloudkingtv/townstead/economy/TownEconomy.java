@@ -62,7 +62,9 @@ public final class TownEconomy {
     }
 
     private static void settle(ServerLevel level, CityManager cities, City city) {
-        Finance.Report day = Finance.daily(model(level, city));
+        TownModel town = model(level, city);
+        com.cloudkingtv.townstead.progress.Milestones.check(level, city, town);
+        Finance.Report day = Finance.daily(town);
         double share = TownGrowth.speed() * SETTLE_INTERVAL / 24000.0;
         long income = Math.round(day.income() * share);
         long upkeep = Math.round((day.expenses() - day.loans()) * share);
@@ -84,8 +86,14 @@ public final class TownEconomy {
         });
         for (Loan l : paidOff) tell(level, city, Component.translatable("economy.townstead.loan_repaid", Component.translatable("economy.townstead.loan." + l.offer().key())), true);
         boolean broke = city.treasury() < 0;
-        if (broke && !wasBroke) tell(level, city, Component.translatable("economy.townstead.broke"), false);
-        if (!broke && wasBroke) tell(level, city, Component.translatable("economy.townstead.solvent"), true);
+        if (broke && !wasBroke) {
+            tell(level, city, Component.translatable("economy.townstead.broke"), false);
+            com.cloudkingtv.townstead.progress.Chirps.post(level, city, "broke", city.townHall(), true, city.name());
+        }
+        if (!broke && wasBroke) {
+            tell(level, city, Component.translatable("economy.townstead.solvent"), true);
+            com.cloudkingtv.townstead.progress.Chirps.post(level, city, "solvent", city.townHall(), true, city.name());
+        }
     }
 
     // ---------------------------------------------------------------- the mayor's actions

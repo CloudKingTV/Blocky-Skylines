@@ -92,7 +92,7 @@ public final class CityManager extends SavedData {
         String name = founder.getGameProfile().name() + "'s Town";
         City city = new City(UUID.randomUUID(), name, founder.getUUID(), founder.getGameProfile().name(),
                 level.dimension(), pos.immutable(), startingClaim(pos), com.cloudkingtv.townstead.economy.TownEconomy.FOUNDING_PURSE,
-                level.getGameTime(), Map.of(), List.of(), java.util.Optional.empty());
+                level.getGameTime(), Map.of(), List.of(), java.util.Optional.empty(), 0);
         cities.put(city.id, city);
         changed(level.getServer());
         Townstead.LOGGER.info("Founded town '{}' at {} for {}", name, pos, founder.getGameProfile().name());
@@ -140,6 +140,32 @@ public final class CityManager extends SavedData {
     public void editBudget(MinecraftServer server, City city, java.util.function.Consumer<com.cloudkingtv.townstead.economy.Budget> edit) {
         edit.accept(city.budget);
         changed(server);
+    }
+
+    /** Records a milestone reached and pays its reward (cents) into the treasury. */
+    public void reachMilestone(MinecraftServer server, City city, int milestone, long reward) {
+        city.milestone = milestone;
+        city.treasury += reward;
+        changed(server);
+    }
+
+    /** Adds a tile to a town's land, paying {@code cost} cents from its treasury. */
+    public void buyTile(MinecraftServer server, City city, TilePos tile, long cost) {
+        if (city.tiles.add(tile)) city.treasury -= cost;
+        changed(server);
+    }
+
+    /** Whether a tile is claimed by any town in the dimension, or lies too close to another town's land. */
+    public boolean blockedForBuying(ServerLevel level, City buyer, TilePos tile) {
+        for (City other : cities.values()) {
+            if (!other.dimension.equals(level.dimension())) continue;
+            if (other.tiles.contains(tile)) return true;
+            if (other == buyer) continue;
+            for (TilePos theirs : other.tiles) {
+                if (Math.abs(tile.x() - theirs.x()) <= TOWN_SPACING_TILES && Math.abs(tile.z() - theirs.z()) <= TOWN_SPACING_TILES) return true;
+            }
+        }
+        return false;
     }
 
     /** One settlement: moves the treasury by {@code cents} and updates the budget's records, with a single sync. */

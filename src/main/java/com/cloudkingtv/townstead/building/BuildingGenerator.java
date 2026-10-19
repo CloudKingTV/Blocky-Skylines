@@ -1417,6 +1417,9 @@ public final class BuildingGenerator {
                 case SCHOOL -> school(c);
                 case COMPOST_YARD -> compostYard(c);
                 case PARK -> park(c);
+                case FOUNDERS_FOUNTAIN -> foundersFountain(c);
+                case CLOCK_TOWER -> clockTower(c);
+                case CHAPEL -> chapel(c);
             };
         }
 
@@ -1748,6 +1751,166 @@ public final class BuildingGenerator {
             c.hedge(cx + 2, c.W - 1, c.D - 1);
             c.scaffoldAround(new Box(cx - 1, cz - 1, cx + 1, cz + 1));
             return "park";
+        }
+
+        // ---------------------------------------------------------------- landmarks
+
+        /** A paved plaza round a tiered fountain with an obelisk, trees in planters, benches, banners and lamps. */
+        static String foundersFountain(Canvas c) {
+            int cx = c.W / 2, cz = (c.zf + c.D) / 2;
+            for (int x = 0; x < c.W; x++) for (int z = c.zf; z < c.D; z++) {
+                boolean ring = Math.abs(x - cx + 0.5) + Math.abs(z - cz) < 6;
+                c.put(x, -1, z, (ring ? ((x + z) % 2 == 0 ? Blocks.POLISHED_ANDESITE : Blocks.STONE_BRICKS)
+                        : (x * 5 + z * 3) % 7 == 0 ? Blocks.MOSSY_STONE_BRICKS : Blocks.STONE_BRICKS).defaultBlockState(), GROUND);
+            }
+            BlockState rim = Blocks.STONE_BRICK_SLAB.defaultBlockState().setValue(SlabBlock.TYPE, SlabType.TOP);
+            // The basin: 6 x 4 with a slab rim, water inside, a pedestal in the middle.
+            for (int x = cx - 3; x <= cx + 2; x++) for (int z = cz - 2; z <= cz + 1; z++) {
+                boolean edge = x == cx - 3 || x == cx + 2 || z == cz - 2 || z == cz + 1;
+                c.put(x, -2, z, Blocks.STONE_BRICKS, GROUND);
+                if (edge) c.put(x, 0, z, rim, FRAME);
+                else { c.put(x, -1, z, Blocks.WATER, FIT); c.put(x, 0, z, Blocks.WATER, FIT); }
+            }
+            for (int x = cx - 1; x <= cx; x++) for (int z = cz - 1; z <= cz; z++) {
+                c.put(x, -1, z, Blocks.STONE_BRICKS, GROUND);
+                c.put(x, 0, z, Blocks.CHISELED_STONE_BRICKS, FRAME);
+                c.put(x, 1, z, Blocks.STONE_BRICK_WALL, FRAME);
+                c.put(x, 2, z, Blocks.STONE_BRICK_SLAB.defaultBlockState().setValue(SlabBlock.TYPE, SlabType.BOTTOM), FRAME);
+            }
+            // The obelisk on the pedestal, crowned with a lantern.
+            c.put(cx, 2, cz, Blocks.CHISELED_STONE_BRICKS, FRAME);
+            for (int y = 3; y <= 5; y++) c.put(cx, y, cz, Blocks.STONE_BRICK_WALL, FRAME);
+            c.put(cx, 6, cz, c.lantern(false), FIT);
+            // Trees in planters at the corners, benches facing the fountain, banners on posts, lamps.
+            for (int[] k : new int[][] {{1, c.zf + 1}, {c.W - 2, c.zf + 1}, {1, c.D - 2}, {c.W - 2, c.D - 2}}) {
+                c.put(k[0], -1, k[1], Blocks.GRASS_BLOCK, GROUND);
+                c.tree(k[0], k[1], 4);
+            }
+            c.bench(cx - 2, cx + 1, cz - 4, c.back);
+            c.bench(cx - 2, cx + 1, cz + 3, c.front);
+            for (int[] k : new int[][] {{cx - 6, cz}, {cx + 5, cz}}) {
+                if (!c.inLot(k[0], k[1])) continue;
+                for (int y = 0; y <= 3; y++) c.put(k[0], y, k[1], Style.fence(c.p), FRAME);
+                c.put(k[0], 4, k[1], c.lantern(false), FIT);
+                c.banner(k[0], 3, k[1] - 1, DyeColor.YELLOW, c.front);
+            }
+            c.flowers(0, c.zf, c.W - 1, c.D - 1, 0.08f);
+            c.scaffoldAround(new Box(cx - 3, cz - 2, cx + 2, cz + 1));
+            return "founders_fountain";
+        }
+
+        /** A stone and timber clock tower with a clock face on every side, an open belfry and a tall spire. */
+        static String clockTower(Canvas c) {
+            int z0 = Math.max(c.zf + 2, 2);
+            Box box = new Box(2, z0, 6, z0 + 4);
+            BlockState stoneB = Blocks.STONE_BRICKS.defaultBlockState();
+            Wall stone = new Wall(Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), c.p.post(), stoneB, stoneB, Blocks.COBBLESTONE.defaultBlockState(), null, false, true);
+            Wall timber = Style.wall(c, false);
+            c.foundation(box, Blocks.COBBLESTONE.defaultBlockState(), c.p.floor().defaultBlockState());
+            c.doorway(4, 0, box.z0);
+            c.walls(box, 0, 2, stone, c.p.floor().defaultBlockState());
+            int top = c.walls(box, 2 * STOREY, 1, timber.with(timber.upper(), timber.upper()), c.p.floor().defaultBlockState());
+            // Clock faces under the belfry: a white dial, a dark hub and two hands, on all four sides.
+            int fy = top - 2;
+            BlockState dial = Blocks.WOOL.pick(DyeColor.WHITE).defaultBlockState(), hand = Blocks.WOOL.pick(DyeColor.BLACK).defaultBlockState();
+            for (int[] side : new int[][] {{0, -1}, {0, 1}, {-1, 0}, {1, 0}}) {
+                for (int a = -1; a <= 1; a++) for (int dy = -1; dy <= 1; dy++) {
+                    int x = side[0] == 0 ? box.cx() + a : side[0] < 0 ? box.x0 - 1 : box.x1 + 1;
+                    int z = side[1] == 0 ? box.cz() + a : side[1] < 0 ? box.z0 - 1 : box.z1 + 1;
+                    boolean centre = a == 0 && dy == 0, twelve = a == 0 && dy == 1, three = a == (side[0] + side[1] > 0 ? -1 : 1) && dy == 0;
+                    c.put(x, fy + dy, z, centre || twelve || three ? hand : dial, FIT);
+                }
+            }
+            // Belfry: posts at the corners, open sides, a bell.
+            BlockState post = c.log(c.p.post(), Direction.Axis.Y);
+            for (int[] k : new int[][] {{box.x0, box.z0}, {box.x1, box.z0}, {box.x0, box.z1}, {box.x1, box.z1}}) {
+                for (int y = top + 1; y <= top + 3; y++) c.put(k[0], y, k[1], post, FRAME);
+            }
+            for (int x = box.x0; x <= box.x1; x++) for (int z = box.z0; z <= box.z1; z++) c.put(x, top + 4, z, stoneB, FRAME);
+            c.masses.add(new int[] {box.x0, box.z0, box.x1, box.z1, top + 4});
+            c.put(box.cx(), top + 3, box.cz(), Blocks.BELL.defaultBlockState().setValue(BellBlock.ATTACHMENT, BellAttachType.CEILING)
+                    .setValue(BellBlock.FACING, c.front), FIT);
+            Block[] r = Style.roof(c.p, c.b.seed);
+            int spire = c.hip(box, top + 5, r[0], r[1]);
+            for (int y = spire + 1; y <= spire + 2; y++) c.put(box.cx(), y, box.cz(), Style.fence(c.p), ROOF);
+            c.put(box.cx(), spire + 3, box.cz(), c.lantern(false), FIT);
+            c.door(4, box.z0, c.back, DoorHingeSide.LEFT);
+            c.banner(box.x0 - 1, 6, box.z0 + 2, DyeColor.YELLOW, c.left);
+            c.banner(box.x1 + 1, 6, box.z0 + 2, DyeColor.YELLOW, c.right);
+            // A small paved square at its foot with benches and lamps.
+            for (int x = 0; x < c.W; x++) for (int z = c.zf; z < box.z0; z++) c.put(x, -1, z, ((x + z) % 2 == 0 ? Blocks.STONE_BRICKS : Blocks.POLISHED_ANDESITE).defaultBlockState(), GROUND);
+            c.bench(0, 1, c.zf + 1, c.back);
+            c.bench(c.W - 2, c.W - 1, c.zf + 1, c.back);
+            c.lampPost(0, box.z0 + 1);
+            c.lampPost(c.W - 1, box.z0 + 1);
+            c.flowers(0, box.z1 + 1, c.W - 1, c.D - 1, 0.3f);
+            c.scaffoldAround(box);
+            return "clock_tower";
+        }
+
+        /** A stone chapel: a nave with stained glass, a steeple with a bell over the door, a walled garden and a lych gate. */
+        static String chapel(Canvas c) {
+            int z0 = c.zf + 4;
+            Box nave = new Box(4, z0, 11, Math.min(c.D - 3, z0 + 10));
+            Box tower = new Box(6, z0 - 3, 9, z0);
+            BlockState stoneB = c.p.key().equals("desert") ? Blocks.CUT_SANDSTONE.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
+            Wall stone = new Wall(Blocks.CHISELED_STONE_BRICKS.defaultBlockState(), c.p.post(), stoneB, stoneB, Blocks.MOSSY_STONE_BRICKS.defaultBlockState(), null, false, true);
+            BlockState floor = Blocks.POLISHED_ANDESITE.defaultBlockState();
+            c.foundation(nave, stoneB, floor);
+            c.foundation(tower, stoneB, floor);
+            int top = c.walls(nave, 0, 2, stone, Blocks.AIR.defaultBlockState());
+            // Stained glass: replace the nave's side windows with coloured panes, two tall.
+            DyeColor[] glass = {DyeColor.BLUE, DyeColor.RED, DyeColor.YELLOW, DyeColor.PURPLE};
+            for (int z = nave.z0 + 2; z < nave.z1 - 1; z += 2) for (int x : new int[] {nave.x0, nave.x1}) {
+                for (int y = 1; y <= 5; y++) {
+                    if (y == 3) continue; // the beam between the two storeys
+                    c.put(x, y, z, Blocks.STAINED_GLASS_PANE.pick(glass[(z / 2) % glass.length]), FRAME);
+                }
+            }
+            Block[] r = Style.roof(c.p, c.b.seed);
+            c.gable(nave, top, false, r[0], r[1], stoneB);
+            // The steeple: a square stone tower over the entrance, a belfry, and a tall pointed spire.
+            c.doorway(tower.cx(), 0, tower.z0);
+            c.doorway(tower.cx() + 1, 0, tower.z0);
+            int tt = c.walls(tower, 0, 3, stone, c.p.floor().defaultBlockState());
+            BlockState post = Blocks.CHISELED_STONE_BRICKS.defaultBlockState();
+            for (int[] k : new int[][] {{tower.x0, tower.z0}, {tower.x1, tower.z0}, {tower.x0, tower.z1}, {tower.x1, tower.z1}}) {
+                for (int y = tt + 1; y <= tt + 3; y++) c.put(k[0], y, k[1], post, FRAME);
+            }
+            for (int x = tower.x0; x <= tower.x1; x++) for (int z = tower.z0; z <= tower.z1; z++) c.put(x, tt + 4, z, stoneB, FRAME);
+            c.masses.add(new int[] {tower.x0, tower.z0, tower.x1, tower.z1, tt + 4});
+            c.put(tower.cx(), tt + 3, tower.cz(), Blocks.BELL.defaultBlockState().setValue(BellBlock.ATTACHMENT, BellAttachType.CEILING)
+                    .setValue(BellBlock.FACING, c.front), FIT);
+            int spire = c.hip(tower, tt + 5, r[0], r[1]);
+            for (int y = spire + 1; y <= spire + 3; y++) c.put(tower.cx(), y, tower.cz(), Blocks.STONE_BRICK_WALL, ROOF);
+            c.put(tower.cx(), spire + 4, tower.cz(), c.lantern(false), FIT);
+            c.door(tower.cx(), tower.z0, c.back, DoorHingeSide.LEFT);
+            c.door(tower.cx() + 1, tower.z0, c.back, DoorHingeSide.RIGHT);
+            // Inside: pews and an altar with candles of lanterns.
+            for (int z = nave.z0 + 2; z < nave.z1 - 2; z += 2) {
+                for (int x = nave.x0 + 1; x <= nave.x0 + 2; x++) c.put(x, 0, z, c.stairs(Style.stairsOf(c.p), c.back, false), FIT);
+                for (int x = nave.x1 - 2; x <= nave.x1 - 1; x++) c.put(x, 0, z, c.stairs(Style.stairsOf(c.p), c.back, false), FIT);
+            }
+            c.put(nave.cx(), 0, nave.z1 - 1, Blocks.CHISELED_STONE_BRICKS, FIT);
+            c.put(nave.cx(), 1, nave.z1 - 1, c.lantern(false), FIT);
+            // The walled garden: low stone wall, a lych gate at the path, spruce trees, flowers, benches.
+            for (int x = 0; x < c.W; x++) for (int z = c.zf; z < c.D; z++) {
+                boolean edge = x == 0 || x == c.W - 1 || z == c.zf || z == c.D - 1;
+                if (edge && !(z == c.zf && (x == tower.cx() || x == tower.cx() + 1))) c.put(x, 0, z, Blocks.MOSSY_COBBLESTONE_WALL, GARDEN);
+            }
+            for (int x = tower.cx() - 1; x <= tower.cx() + 2; x++) {
+                c.put(x, 3, c.zf, c.slab(r[1], SlabType.BOTTOM), ROOF);
+                if (x == tower.cx() - 1 || x == tower.cx() + 2) for (int y = 0; y <= 2; y++) c.put(x, y, c.zf, Style.fence(c.p), FRAME);
+            }
+            for (int x = tower.cx(); x <= tower.cx() + 1; x++) c.path(x, c.zf, tower.z0 - 1);
+            c.tree(2, c.zf + 3, 5);
+            c.tree(c.W - 3, c.zf + 3, 5);
+            c.tree(1, c.D - 3, 4);
+            c.tree(c.W - 2, c.D - 3, 4);
+            c.bench(1, 2, nave.cz(), c.right);
+            c.flowers(1, c.zf + 1, c.W - 2, c.D - 2, 0.25f);
+            c.scaffoldAround(nave);
+            return "chapel";
         }
     }
 }

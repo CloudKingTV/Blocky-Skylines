@@ -30,7 +30,8 @@ public final class City {
             Codec.LONG.optionalFieldOf("founded", 0L).forGetter(c -> c.foundedGameTime),
             Codec.unboundedMap(Identifier.CODEC, Codec.INT).optionalFieldOf("stock", Map.of()).forGetter(c -> c.stock),
             BlockPos.CODEC.listOf().optionalFieldOf("storehouses", List.of()).forGetter(c -> List.copyOf(c.storehouses)),
-            com.cloudkingtv.townstead.economy.Budget.CODEC.optionalFieldOf("budget").forGetter(c -> java.util.Optional.of(c.budget))
+            com.cloudkingtv.townstead.economy.Budget.CODEC.optionalFieldOf("budget").forGetter(c -> java.util.Optional.of(c.budget)),
+            Codec.INT.optionalFieldOf("milestone", 0).forGetter(c -> c.milestone)
     ).apply(i, City::new));
 
     final UUID id;
@@ -47,10 +48,13 @@ public final class City {
     final Set<BlockPos> storehouses;
     /** Taxes, department budgets, loans and the ledger. The treasury above is in hundredths of an emerald. */
     final com.cloudkingtv.townstead.economy.Budget budget;
+    /** The highest milestone reached ({@link com.cloudkingtv.townstead.progress.Milestone} ordinal). */
+    int milestone;
 
     City(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension, BlockPos townHall,
          List<TilePos> tiles, long treasury, long foundedGameTime, Map<Identifier, Integer> stock, List<BlockPos> storehouses,
-         java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget) {
+         java.util.Optional<com.cloudkingtv.townstead.economy.Budget> budget, int milestone) {
+        this.milestone = milestone;
         this.budget = budget.orElseGet(com.cloudkingtv.townstead.economy.Budget::new);
         this.id = id;
         this.name = name;
@@ -77,12 +81,13 @@ public final class City {
     public Set<BlockPos> storehouses() { return java.util.Collections.unmodifiableSet(storehouses); }
     /** Read-only use; change it through {@link CityManager#editBudget}. */
     public com.cloudkingtv.townstead.economy.Budget budget() { return budget; }
+    public int milestone() { return milestone; }
 
     public boolean contains(BlockPos pos) {
         return tiles.contains(TilePos.of(pos));
     }
 
     public CitySummary summary() {
-        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy());
+        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone);
     }
 }

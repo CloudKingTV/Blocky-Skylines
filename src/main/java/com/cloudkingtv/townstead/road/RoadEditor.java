@@ -49,6 +49,11 @@ public final class RoadEditor {
     public static void build(ServerPlayer player, City city, RoadType type, RoadCurve curve) {
         ServerLevel level = player.level();
         if (!level.dimension().equals(city.dimension())) return;
+        if (!com.cloudkingtv.townstead.progress.Milestone.unlocked(city.milestone(), type)) {
+            notify(player, Component.translatable("milestone.townstead.locked", type.displayName(),
+                    com.cloudkingtv.townstead.progress.Milestone.unlocking(type).displayName()), false);
+            return;
+        }
         RoadNetwork network = RoadNetwork.get(level);
         RoadNetwork planned = network.copy();
         double length = curve.length();

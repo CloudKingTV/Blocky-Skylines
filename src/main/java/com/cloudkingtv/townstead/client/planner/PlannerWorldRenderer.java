@@ -59,6 +59,7 @@ public final class PlannerWorldRenderer {
             if (selected != null) cell(p, buf, level, cam, selected, scale(SELECTED, pulse), width * 2.5f);
             if (hover != null && !hover.equals(selected)) cell(p, buf, level, cam, hover, CURSOR, width * 2f);
             roadLines(p, buf, cam, city, width);
+            if (PlannerScreen.landActive()) landForSale(p, buf, level, cam, city, width, pulse);
             landLines(p, buf, level, cam, city, width, pulse);
             serviceLines(p, buf, cam, city, width, pulse);
         });
@@ -66,7 +67,38 @@ public final class PlannerWorldRenderer {
             roadQuads(p, buf, cam, city, pulse);
             landQuads(p, buf, level, cam, city, pulse);
             serviceQuads(p, buf, level, cam, city, pulse);
+            TilePos hoverTile = PlannerClient.hoverTile;
+            if (PlannerScreen.landActive() && hoverTile != null && !city.tiles().contains(hoverTile)) {
+                boolean ok = PlannerScreen.landProblem(city, hoverTile) == null;
+                int color = ok ? ARGB.color(Math.round(0x40 + 0x30 * pulse), 255, 210, 90) : 0x50FF5050;
+                for (int cx = hoverTile.minBlockX() / TilePos.CELL; cx < (hoverTile.minBlockX() + TilePos.SIZE) / TilePos.CELL; cx++) {
+                    for (int cz = hoverTile.minBlockZ() / TilePos.CELL; cz < (hoverTile.minBlockZ() + TilePos.SIZE) / TilePos.CELL; cz++) {
+                        long key = ZoneRules.cellKey(cx, cz);
+                        cellQuad(p, buf, cam, key, cellY(level, key), color, 0);
+                    }
+                }
+            }
         });
+    }
+
+    // ---------------------------------------------------------------- land for sale
+
+    /** Gold borders round the tiles next to the town that could be bought (red where they can't, for now). */
+    private static void landForSale(PoseStack.Pose p, VertexConsumer buf, ClientLevel level, Vec3 cam, CitySummary city, float w, float pulse) {
+        Set<TilePos> owned = new HashSet<>(city.tiles()), done = new HashSet<>();
+        for (TilePos t : owned) {
+            for (TilePos n : new TilePos[] {t.offset(1, 0), t.offset(-1, 0), t.offset(0, 1), t.offset(0, -1)}) {
+                if (owned.contains(n) || !done.add(n)) continue;
+                String problem = PlannerScreen.landProblem(city, n);
+                int c = problem == null ? scale(0xFFFFD25A, pulse) : problem.equals("land.townstead.too_poor") || problem.equals("land.townstead.need_milestone")
+                        ? 0xFFB08A40 : 0xFFB04040;
+                int x0 = n.minBlockX(), z0 = n.minBlockZ(), x1 = x0 + TilePos.SIZE, z1 = z0 + TilePos.SIZE;
+                edgeX(p, buf, level, cam, x0, x1, z0, c, w * 2f);
+                edgeX(p, buf, level, cam, x0, x1, z1, c, w * 2f);
+                edgeZ(p, buf, level, cam, z0, z1, x0, c, w * 2f);
+                edgeZ(p, buf, level, cam, z0, z1, x1, c, w * 2f);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- zoning and buildings
