@@ -142,6 +142,14 @@ the roadmap.
 
 ## Screenshots (from the headless playtests)
 
+Buildings, revised: lots of one to four cells, timber framing, mixed roofs, gardens and landmarks.
+
+| | |
+|---|---|
+| ![A town of mixed lots and services](docs/screenshots/buildings-town.png) | ![Shops, inns, terraces and a market hall](docs/screenshots/buildings-shops-row.png) |
+| ![Cottages with jettied upper floors, dormers and hedges](docs/screenshots/buildings-cottages.png) | ![A market square with stalls, a fountain and a bell cupola](docs/screenshots/buildings-market-square.png) |
+| ![Desert houses with roof terraces and cloth canopies](docs/screenshots/buildings-desert.png) | ![Windmill, well and water tower](docs/screenshots/buildings-windmill-well-tower.png) |
+
 Phase 3: homes show they have no power or water; a windmill and a well go in and the icons
 clear, and the first cottage is rebuilt at level 2.
 
