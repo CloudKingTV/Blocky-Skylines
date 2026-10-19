@@ -718,6 +718,8 @@ public class PlannerScreen extends Screen {
         float open = Mth.clamp((Util.getMillis() - openedAt) / 220f, 0f, 1f);
         float slide = 1f - (1f - open) * (1f - open); // ease-out
         CitySummary city = PlannerClient.city().orElse(null);
+        // Status icons sit in the world, under every panel and overlay.
+        drawStatusIcons(g, city, mouseX, mouseY);
 
         g.pose().pushMatrix();
         g.pose().translate(0, (slide - 1f) * TOP_BAR_H);
@@ -734,7 +736,7 @@ public class PlannerScreen extends Screen {
 
         if (!painting && strokeSentAt > 0 && Util.getMillis() - strokeSentAt > 1500) { PlannerClient.STROKE.clear(); strokeSentAt = 0; }
         drawBanner(g, city);
-        if (banner == null) drawChirps(g, mouseX, mouseY);
+        if (banner == null || BudgetPanel.open || MilestonePanel.open) drawChirps(g, mouseX, mouseY);
         else chirpHits.clear();
         Building hovered = PlannerClient.hoveredBuilding();
         if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);
@@ -746,7 +748,6 @@ public class PlannerScreen extends Screen {
         else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
         else drawCursorInfo(g, city);
         drawFlash(g, subCount() > 0 ? subY() : barY);
-        drawStatusIcons(g, city, mouseX, mouseY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
         BudgetPanel.draw(g, font, width, height, TOP_BAR_H, barY, mouseX, mouseY);
@@ -953,7 +954,7 @@ public class PlannerScreen extends Screen {
             banner = com.cloudkingtv.townstead.progress.Milestone.of(city.milestone());
             bannerAt = now;
         }
-        if (banner == null) return;
+        if (banner == null || BudgetPanel.open || MilestonePanel.open) return;
         long age = now - bannerAt;
         if (age > BANNER_MILLIS) { banner = null; return; }
         float alpha = Math.min(1f, age / 300f) * (age > BANNER_MILLIS - 1000 ? (BANNER_MILLIS - age) / 1000f : 1f);
