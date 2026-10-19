@@ -173,6 +173,14 @@ Buildings, revised: lots of one to four cells, timber framing, mixed roofs, gard
 | ![Cottages with jettied upper floors, dormers and hedges](docs/screenshots/buildings-cottages.png) | ![A market square with stalls, a fountain and a bell cupola](docs/screenshots/buildings-market-square.png) |
 | ![Desert houses with roof terraces and cloth canopies](docs/screenshots/buildings-desert.png) | ![Windmill, well and water tower](docs/screenshots/buildings-windmill-well-tower.png) |
 
+Phase 4: the town budget, the Town Hall treasury, the land value info view, and a building
+panel explaining happiness factor by factor.
+
+| | |
+|---|---|
+| ![Budget: taxes, upkeep by department, roads, loans](docs/screenshots/phase4-budget.png) | ![Town Hall treasury](docs/screenshots/phase4-town-hall.png) |
+| ![Land value heat map](docs/screenshots/phase4-land-value.png) | ![Building panel: happiness factors](docs/screenshots/phase4-panel-happiness.png) |
+
 Phase 3: homes show they have no power or water; a windmill and a well go in and the icons
 clear, and the first cottage is rebuilt at level 2.
 
