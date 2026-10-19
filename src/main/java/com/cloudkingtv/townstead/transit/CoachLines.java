@@ -114,7 +114,9 @@ public final class CoachLines {
         Vec2 d = s.curve().direction(t).normalized();
         double nx = -d.y, nz = d.x; // right of the segment's direction
         Direction out = Direction.getApproximateNearest(nx, 0, nz);
-        for (double off = s.type().halfWidth() + 0.5; off <= s.type().halfWidth() + 2.5; off += 1) {
+        // On the outer edge of the sidewalk where the road has one, else on the verge beside the lane.
+        double first = s.type() == com.cloudkingtv.townstead.road.RoadType.LANE ? s.type().halfWidth() + 0.5 : s.type().halfWidth() - 0.5;
+        for (double off = first; off <= s.type().halfWidth() + 2.5; off += 1) {
             int px = Mth.floor(x + nx * off), pz = Mth.floor(z + nz * off);
             int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, px, pz);
             BlockPos post = new BlockPos(px, y, pz);

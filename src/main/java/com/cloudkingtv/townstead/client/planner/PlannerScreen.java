@@ -833,7 +833,7 @@ public class PlannerScreen extends Screen {
         Building hovered = PlannerClient.hoveredBuilding();
         // The bars and their buttons have their own tooltips: no cursor readout over them.
         boolean overBars = mouseY < TOP_BAR_H || toolAt(mouseX, mouseY) >= 0 || subButtonAt(mouseX, mouseY) >= 0;
-        if (selectedTool == TRANSPORT && panelBuilding < 0) drawLinesPanel(g, city);
+        if (selectedTool == TRANSPORT && panelBuilding < 0 && !BudgetPanel.open && !MilestonePanel.open) drawLinesPanel(g, city);
         if (selectedTool == INFO) drawInfoLegend(g, city, hovered, mouseX, mouseY);
         else if (!overBars) {
             if (selectedTool == ROADS) drawRoadInfo(g, city, mouseX, mouseY);

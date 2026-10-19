@@ -550,7 +550,7 @@
   "transit.townstead.click_remove": "Click to remove this line and its stops",
   "transit.townstead.panel": "Coach lines: %s · riders a day: %s",
   "transit.townstead.no_depot": "No Coach House: build one so coaches can run",
-  "transit.townstead.stats": "%s stops · %s coaches · %s riders · %s blocks",
+  "transit.townstead.stats": "%s stops · coaches: %s · riders: %s · %s blocks",
   "transit.townstead.broken": "broken: a stop's road is gone",
   "transit.townstead.none": "No lines yet: pick \"Draw a coach line\" and click along your roads",
   "help.townstead.transport": "Transport tool: 1 Coach House, 2 draw a line (click stops, Enter or the first stop to finish), 3 remove a line",
