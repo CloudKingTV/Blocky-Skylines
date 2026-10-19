@@ -1,7 +1,7 @@
 # Building gallery
 
 Every building type in every variation, built by the real construction loop on test streets:
-each growable zone at every lot shape (1x1, 2x1, 1x2, 2x2) and level (1-3), every service and utility, and each zone in
+each growable zone at every lot shape (1x1, 2x1, 1x2, 2x2) and level (1-3), every service, utility and landmark, and each zone in
 the desert, savanna, taiga and snowy styles. Each building is shown first person from the street and from the town
 planner above (status icons hidden with V). Individual full-size shots are in `shots/`, named
 `<row>_<index>_<kind>_L<level>_<lot>_<style>_fp|top.jpg`; `row<n>_overview_top.jpg` shows each whole street.
@@ -32,9 +32,11 @@ The test streets put buildings of all kinds side by side, so neighbours show at 
 
 ![Offices: counting house, guild hall](sheet_5_offices.jpg)
 
-## Services and utilities
+## Services, utilities and landmarks
 
-![Services and utilities](sheet_6_services_and_utilities.jpg)
+The last three are the Phase 5 landmarks: the Founders' Fountain, the Clock Tower and the Chapel.
+
+![Services, utilities and landmarks](sheet_6_services_and_utilities.jpg)
 
 ## Styles: desert and savanna
 
