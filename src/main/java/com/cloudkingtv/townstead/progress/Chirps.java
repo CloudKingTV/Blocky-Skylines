@@ -28,7 +28,7 @@ public final class Chirps {
     private static final Map<String, Integer> VARIANTS = Map.ofEntries(
             Map.entry("moved_in", 3), Map.entry("opened", 3), Map.entry("levelled", 3), Map.entry("abandoned", 3),
             Map.entry("repaired", 2), Map.entry("service", 3), Map.entry("milestone", 2), Map.entry("land", 2),
-            Map.entry("broke", 2), Map.entry("solvent", 2), Map.entry("trouble", 3), Map.entry("landmark", 2));
+            Map.entry("broke", 2), Map.entry("solvent", 2), Map.entry("trouble", 3), Map.entry("line", 2), Map.entry("landmark", 2));
 
     /**
      * Posts a chirp to the town's mayor. {@code important} ones skip the rate limit.

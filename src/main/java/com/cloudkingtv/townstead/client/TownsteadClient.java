@@ -42,6 +42,11 @@ public final class TownsteadClient {
     }
 
     @SubscribeEvent
+    static void renderers(net.neoforged.neoforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(com.cloudkingtv.townstead.registry.TownsteadRegistry.CITIZEN.get(), CitizenRenderer::new);
+    }
+
+    @SubscribeEvent
     static void pipelines(RegisterRenderPipelinesEvent event) {
         event.registerPipeline(PlannerRenderTypes.OVERLAY_LINES_PIPELINE);
         event.registerPipeline(PlannerRenderTypes.OVERLAY_QUADS_PIPELINE);

@@ -1092,6 +1092,7 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.select"), Component.translatable("help.townstead.roads"),
                     Component.translatable("help.townstead.roads_keys"), Component.translatable("help.townstead.zoning"),
                     Component.translatable("help.townstead.undo"), Component.translatable("help.townstead.budget"), Component.translatable("help.townstead.milestones"),
+                    Component.translatable("help.townstead.transport"),
                     Component.translatable("help.townstead.icons"),
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));

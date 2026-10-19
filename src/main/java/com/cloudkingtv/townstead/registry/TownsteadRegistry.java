@@ -24,6 +24,7 @@ public final class TownsteadRegistry {
     public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(Townstead.MODID);
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(Townstead.MODID);
     public static final DeferredRegister<CreativeModeTab> TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, Townstead.MODID);
+    public static final DeferredRegister.Entities ENTITIES = DeferredRegister.createEntities(Townstead.MODID);
     public static final DeferredRegister<AttachmentType<?>> ATTACHMENTS =
             DeferredRegister.create(NeoForgeRegistries.ATTACHMENT_TYPES, Townstead.MODID);
 
@@ -45,6 +46,11 @@ public final class TownsteadRegistry {
             })
             .build());
 
+    /** A resident out on the streets (never saved; see {@link com.cloudkingtv.townstead.life.Citizens}). */
+    public static final Supplier<net.minecraft.world.entity.EntityType<com.cloudkingtv.townstead.life.CitizenNpc>> CITIZEN = ENTITIES.registerEntityType(
+            "citizen", com.cloudkingtv.townstead.life.CitizenNpc::new, net.minecraft.world.entity.MobCategory.MISC,
+            b -> b.sized(0.6f, 1.95f).clientTrackingRange(8).noSave());
+
     /** Where to put a player back when they leave the planner (persisted in case they log out mid-plan). */
     public static final Supplier<AttachmentType<PlannerReturn>> PLANNER_RETURN = ATTACHMENTS.register("planner_return",
             () -> AttachmentType.builder(() -> PlannerReturn.NONE).serialize(PlannerReturn.MAP_CODEC).build());
@@ -54,6 +60,9 @@ public final class TownsteadRegistry {
         ITEMS.register(modBus);
         TABS.register(modBus);
         ATTACHMENTS.register(modBus);
+        ENTITIES.register(modBus);
+        modBus.addListener((net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent e) ->
+                e.put(CITIZEN.get(), com.cloudkingtv.townstead.life.CitizenNpc.createAttributes().build()));
     }
 
     private TownsteadRegistry() {}
