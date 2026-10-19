@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 2 complete (zoning, growth, levels)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 5 complete (milestones, land, chirps, landmarks)**
 
 ## Playing (current build)
 
@@ -27,7 +27,9 @@ you designed.
    | Rename the town | click its name in the top bar, type, **Enter** |
    | Show all controls | **H** |
    | Zone lots | Zoning tool, then drag; **1–6** zone type, **7** clear |
-   | Place a service | Utilities / Services / Parks tool, **1–5** pick, click a lot |
+   | Place a service | Utilities / Services / Parks / Landmarks tool, **1–5** pick, click a lot |
+   | Buy land | Land tool, click a gold-outlined tile |
+   | Milestones and unlocks | **U** |
    | Info views | Info tool, **1–9** pick a view (or click) |
    | Town budget | **L**, or click the treasury |
    | Hide status icons | **V** |
@@ -73,7 +75,7 @@ for free, and the server config option `freeBuild` turns materials off for every
    homes, **2** high-density homes, **3** low-density shops, **4** high-density shops,
    **5** industry, **6** offices, **7** clears. Lots are the 8×8 cells along a road: a lot
    needs a road along one side, within 4 blocks of its edge. Outlined lots are zonable.
-   High density grows once the town has 30 people, offices from 40.
+   High density and offices unlock with milestones (see below).
 9. **The town grows itself.** The RCIO bars in the top bar show what the town wants (hover for
    the reasons): homes follow jobs, shops and workshops follow population, offices follow a
    bigger population. When a zone has demand, a site opens on the free lot nearest the Town
@@ -133,7 +135,7 @@ for free, and the server config option `freeBuild` turns materials off for every
     else, take staff from the town's workers, and can be undone or bulldozed.
 16. **Status icons and info views.** Buildings show what they're missing over their roofs
     (redstone: no power; water bucket: no water; cobweb: abandoned; a material: a site waiting on
-    it). The **Info** tool (eighth button) colours the town: **1** power, **2** water, **3–8** each
+    it). The **Info** tool (tenth button) colours the town: **1** power, **2** water, **3–8** each
     service's coverage (with rings), **9** building levels, with totals in the corner.
 
 17. **Money.** The treasury is in emeralds. Use the Town Hall with emeralds (or emerald blocks)
@@ -161,8 +163,36 @@ for free, and the server config option `freeBuild` turns materials off for every
 The server setting `growthSpeed` (default 1) makes towns build, level and decline faster or
 slower.
 
-Breaking the Town Hall disbands the town. Milestones, unlocks and buying land come next
-(Phase 5). See the roadmap.
+20. **Milestones.** The town earns titles as it grows, as in Cities: Skylines. Each pays a
+    purse of emeralds into the treasury, allows more land, and unlocks new things to build. The
+    top bar shows progress to the next one; **U** lists them all with what each unlocks. Locked
+    roads, zones and buildings are greyed out in the tool panels with the milestone that unlocks
+    them.
+
+    | Milestone | People | Reward | Land | Unlocks |
+    |---|---|---|---|---|
+    | Little Hamlet | 0 | | 3×3 tiles | lane, street; homes, shops, industry; windmill, well, park |
+    | Worthy Village | 40 | 40 emeralds | +1 tile | avenue; clinic, school, guard house; Founders' Fountain |
+    | Tiny Town | 100 | 80 | +2 | dense homes and shops; fire station, compost yard, water tower |
+    | Boom Town | 200 | 150 | +3 | offices; watermill; Clock Tower |
+    | Busy Town | 350 | 250 | +4 | Chapel |
+    | Big Town | 550 | 400 | +6 | |
+
+    The server setting `unlockAll` opens everything from the start.
+21. **Buying land** (Land tool, ninth button). Tiles your town may buy are outlined in gold:
+    a tile must border your land, keep its distance from other towns, and fit the allowance
+    from your milestones. Hover one for its price (40 emeralds for the tenth tile, then 40 more
+    for each one after) and click to buy it from the treasury.
+22. **Chirps.** Residents post about what happens in town: people moving in, shops opening,
+    buildings levelling up, trouble, abandonment, new services, milestones, new land, debt. The
+    latest show in the top-right corner of the planner, signed by a real resident; with the
+    Inspect or Info tool, click one to fly the camera there.
+23. **Landmarks** (eighth button): unique buildings, one per town. The **Founders' Fountain**
+    (Worthy Village), **Clock Tower** (Boom Town) and **Chapel** (Busy Town) raise land value
+    and make everyone in reach happier (+6), and cost upkeep from the parks budget.
+
+Breaking the Town Hall disbands the town. Phase 6 (living city: citizens on the streets,
+traffic and bus lines) is next. See the roadmap.
 
 ## Screenshots (from the headless playtests)
 

@@ -465,7 +465,7 @@ public class PlannerScreen extends Screen {
     }
 
     /** Why the hovered tile can't be bought, or null. */
-    static @Nullable String landProblem(CitySummary city, TilePos tile) {
+    public static @Nullable String landProblem(CitySummary city, TilePos tile) {
         return com.cloudkingtv.townstead.city.TownActions.buyProblem(java.util.Set.copyOf(city.tiles()), city.milestone(), city.treasury(), tile,
                 t -> PlannerClient.tileBlocked(city, t));
     }
@@ -831,30 +831,38 @@ public class PlannerScreen extends Screen {
         return false;
     }
 
-    /** The latest chirps, top right, fading after twenty seconds; click one to fly there. */
+    /**
+     * The latest chirps, top right, fading after fifteen seconds. With Inspect or Info a click flies the camera there;
+     * with an editing tool they let clicks through and fade under the cursor, so they never get in the way of a build.
+     */
     private void drawChirps(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         chirpHits.clear();
         if (BudgetPanel.open || MilestonePanel.open || showHelp) return;
         var all = com.cloudkingtv.townstead.client.ClientChirps.all();
+        boolean clickable = selectedTool == INSPECT || selectedTool == INFO;
         long now = Util.getMillis();
-        int w = 190, x = width - w - 6, y = TOP_BAR_H + 18, shown = 0;
-        for (int i = all.size() - 1; i >= 0 && shown < 4; i--) {
+        int w = 172, x = width - w - 6, y = TOP_BAR_H + 18, shown = 0;
+        for (int i = all.size() - 1; i >= 0 && shown < 3; i--) {
             var e = all.get(i);
             long age = now - e.at();
-            if (age > 20_000) break;
-            float alpha = age > 17_000 ? (20_000 - age) / 3000f : Math.min(1f, age / 200f);
-            var lines = font.split(e.chirp().text(), w - 12);
-            int h = 6 + font.lineHeight + 2 + lines.size() * (font.lineHeight + 1) + 3;
+            if (age > 15_000) break;
+            float alpha = age > 12_000 ? (15_000 - age) / 3000f : Math.min(1f, age / 200f);
+            var lines = font.split(e.chirp().text(), w - 10);
+            if (lines.size() > 3) lines = lines.subList(0, 3);
+            int h = 4 + font.lineHeight + 1 + lines.size() * (font.lineHeight + 1) + 2;
             boolean hot = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
-            g.fill(x, y, x + w, y + h, ARGB.color(Math.round(alpha * (hot ? 0xE0 : 0xB8)), 24, 22, 20));
+            if (hot && !clickable) alpha *= 0.3f;
+            g.fill(x, y, x + w, y + h, ARGB.color(Math.round(alpha * (hot ? 0xE0 : 0xB0)), 24, 22, 20));
             g.fill(x, y, x + 2, y + h, ARGB.color(Math.round(alpha * 255), 110, 200, 255));
-            g.text(font, Component.literal("@" + e.chirp().author().replace(' ', '_')), x + 6, y + 4, ARGB.color(Math.round(alpha * 255), 120, 210, 255), true);
+            g.text(font, Component.literal("@" + e.chirp().author().replace(' ', '_')), x + 5, y + 3, ARGB.color(Math.round(alpha * 255), 120, 210, 255), true);
             for (int k = 0; k < lines.size(); k++) {
-                g.text(font, lines.get(k), x + 6, y + 6 + font.lineHeight + 2 + k * (font.lineHeight + 1), ARGB.color(Math.round(alpha * 255), 236, 236, 236), true);
+                g.text(font, lines.get(k), x + 5, y + 4 + font.lineHeight + 1 + k * (font.lineHeight + 1), ARGB.color(Math.round(alpha * 255), 236, 236, 236), true);
             }
-            chirpHits.add(new Object[] {new int[] {x, y, x + w, y + h}, e.chirp().at()});
-            if (hot) g.setTooltipForNextFrame(font, Component.translatable("chirp.townstead.fly"), mouseX, mouseY);
-            y += h + 3;
+            if (clickable) {
+                chirpHits.add(new Object[] {new int[] {x, y, x + w, y + h}, e.chirp().at()});
+                if (hot) g.setTooltipForNextFrame(font, Component.translatable("chirp.townstead.fly"), mouseX, mouseY);
+            }
+            y += h + 2;
             shown++;
         }
     }

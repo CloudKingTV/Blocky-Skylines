@@ -261,7 +261,7 @@ skill).
 | **2. Zoning & growth** | Zone grid, paint tools, RCIO demand v1, procedural houses/shops/factories (1–2 styles), construction animation | Zone a block, watch houses rise one by one |
 | **3. Utilities & services** | Power and water (road-borne), 6 core services with coverage, status icons, info views (power, water, coverage), building panel | A building shows "no power", you place a plant, the icon clears |
 | **4. People & money** | Households, jobs, education, happiness, land value/pollution/noise fields, leveling, taxes/budget/upkeep/loans | A balanced town grows, levels up and pays its bills |
-| **5. Progression** | Milestones, unlocks, tile purchase, Chirps feed, first unique buildings | Hit "Worthy Village" and unlock districts and a second tile |
+| **5. Progression** | Milestones, unlocks, tile purchase, Chirps feed, first unique buildings | Hit "Worthy Village" and unlock a second tile (districts moved to Phase 7) |
 | **6. Living city** | Ambient citizen NPCs, visual traffic, bus lines, traffic flow model and info view | Walk your streets among citizens while buses run routes |
 | **7. Depth** | Districts and policies, specializations, disasters, monuments, multiplayer roles, more styles | A full play-through to "Megalopolis" |
 
@@ -459,3 +459,37 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   each resident's education; Town Hall treasury screen.
 - **Deferred:** ageing, births and deaths, crime, garbage and fire as events, service capacity.
 
+
+## 16. Phase 5 as built (progression)
+
+- **Milestones** (`progress.Milestone`): Little Hamlet (start), Worthy Village (40 people),
+  Tiny Town (100), Boom Town (200), Busy Town (350), Big Town (550). Each lists the road types,
+  zones and services it unlocks, its emerald reward and its extra land allowance (+1, +2, +3, +4,
+  +6 tiles on top of the starting 3×3). The economy settlement checks population against the next
+  milestone (`progress.Milestones`); reaching it pays the reward, shows a title and subtitle with
+  the challenge-complete sound, notifies the mayor and posts a chirp. A town never loses a
+  milestone. The synced setting `unlockAll` skips the gates.
+- **Unlocks are enforced on the server** (road builds, zone painting, service placement refuse
+  locked things with "X unlocks at Y") and **explained on the client**: locked sub-tools are
+  greyed with a cross and an "Unlocks at Worthy Village (40 people)" tooltip, and picking one
+  flashes the reason. The top bar shows progress to the next milestone; **U** opens the milestone
+  panel (each title, its people, reward and land, icons of what it unlocks, a progress bar).
+  Districts, which the roadmap first tied to Worthy Village, moved to Phase 7 with policies.
+- **Land** (`city.TownActions.buyTile`): the Land tool outlines buyable tiles in gold (dim gold
+  when the treasury or the milestone allowance falls short, red when too close to another town)
+  and fills the hovered one. A tile must border the town's land and keep the usual gap from other
+  towns. Price: 40 emeralds × (tiles owned − 8), so the tenth tile costs 40 and each one after
+  costs 40 more. Bought land is claimed at once and is zonable like the rest.
+- **Chirps** (`progress.Chirps`): short posts signed by a real resident (picked from the town's
+  households), two or three text variants per event: moved in, opened, levelled up, trouble
+  starting, abandoned, repaired, new service, landmark, milestone, land bought, broke, solvent.
+  Routine news is limited to one per 20 seconds per town; milestones, landmarks, abandonment,
+  land and debt always get through. The planner shows the latest three for 15 seconds in the top
+  right with a chime. With Inspect or Info, clicking one flies the camera to the place it's about;
+  with an editing tool they let clicks through and fade under the cursor (the first playtest had
+  a chirp swallow the end click of a road).
+- **Landmarks**, the first unique buildings: Founders' Fountain (2×1 lots, radius 48, Worthy
+  Village), Clock Tower (1×1, radius 80, Boom Town) and Chapel (2×2, radius 64, Busy Town). One
+  per town, placed with the Landmarks tool, built block by block like services, staffed by a
+  keeper and a gardener, upkeep from the parks department. Each adds land value (+22 at the
+  centre) and +6 happiness to every building in reach.
