@@ -184,8 +184,14 @@ public final class Residents {
                 case COACH_HOUSE -> slot == 0 ? "ostler" : "coachman";
             };
             case OFFICE -> new String[] {"clerk", "cartographer", "librarian", "scribe"}[slot % 4];
-            case INDUSTRIAL -> new String[] {stationTrade(w, Blocks.SMOKER, Blocks.BLAST_FURNACE), "mason", "farmer", "labourer"}[slot % 4];
-            case COMMERCIAL_HIGH -> slot == 0 ? "merchant" : "stallholder";
+            case INDUSTRIAL -> switch (w.spec) {
+                case "farming" -> new String[] {"farmer", "farmer", "shepherd", "labourer"}[slot % 4];
+                case "forestry" -> new String[] {"woodcutter", "woodcutter", "sawyer", "labourer"}[slot % 4];
+                default -> new String[] {stationTrade(w, Blocks.SMOKER, Blocks.BLAST_FURNACE), "mason", "farmer", "labourer"}[slot % 4];
+            };
+            case COMMERCIAL, COMMERCIAL_HIGH -> "leisure".equals(w.spec) ? (slot == 0 ? "innkeeper" : "barkeep")
+                    : w.zone == ZoneType.COMMERCIAL_HIGH ? (slot == 0 ? "merchant" : "stallholder")
+                    : slot == 0 ? stationTrade(w, null, null) : "shop_hand";
             default -> slot == 0 ? stationTrade(w, null, null) : "shop_hand";
         };
     }

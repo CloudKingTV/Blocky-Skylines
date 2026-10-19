@@ -135,7 +135,9 @@ public final class Citizens {
     static String outfit(@Nullable String trade, Residents.Person person) {
         if (trade == null) return person.stage() == Residents.Stage.SENIOR ? "nitwit" : "none";
         return switch (trade) {
-            case "farmer", "gardener", "miller" -> "farmer";
+            case "farmer", "gardener", "miller", "shepherd" -> "farmer";
+            case "woodcutter", "sawyer" -> "toolsmith";
+            case "innkeeper", "barkeep" -> "butcher";
             case "librarian", "scribe", "clerk", "teacher" -> "librarian";
             case "cleric", "healer", "keeper" -> "cleric";
             case "cartographer", "merchant" -> "cartographer";

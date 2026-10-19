@@ -162,7 +162,9 @@ public final class TownGrowth {
                 Direction front = ZoneRules.frontage(cx, cz, roads, tiles);
                 if (front == null) continue;
                 // A lot shape for this zone (a cottage plot, a wide farmhouse plot, a deep yard...), then smaller ones.
-                for (int[] shape : shapes(zone, lot[0] * 31 + land.buildings().size())) {
+                var spec = city.civics().spec(lot[0]);
+                for (int[] shape : shapes(zone, spec.need == zone.need ? spec : com.cloudkingtv.townstead.district.Specialization.NONE,
+                        lot[0] * 31 + land.buildings().size())) {
                     if (!ZoneRules.lotFits(cx, cz, front, shape[0], shape[1], roads, tiles, free)) continue;
                     List<Long> cells = Building.lotCells(cx, cz, front, shape[0], shape[1]);
                     for (long k : cells) level.getChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1); // towns grow while you're away
@@ -177,8 +179,14 @@ public final class TownGrowth {
 
     /** Lot shapes ({wide, deep}) to try for a zone, the weighted pick first, then smaller ones down to a single cell. */
     static List<int[]> shapes(ZoneType zone, long seed) {
+        return shapes(zone, com.cloudkingtv.townstead.district.Specialization.NONE, seed);
+    }
+
+    /** As {@link #shapes(ZoneType, long)}; farms and lumber yards want room for their fields and stacks. */
+    static List<int[]> shapes(ZoneType zone, com.cloudkingtv.townstead.district.Specialization spec, long seed) {
         int[][] all = {{2, 2}, {2, 1}, {1, 2}, {1, 1}};
-        int[] weights = switch (zone) {
+        int[] weights = spec == com.cloudkingtv.townstead.district.Specialization.FARMING ? new int[] {60, 30, 10, 1}
+                : spec == com.cloudkingtv.townstead.district.Specialization.FORESTRY ? new int[] {40, 40, 20, 1} : switch (zone) {
             case RESIDENTIAL -> new int[] {10, 30, 20, 40};
             case RESIDENTIAL_HIGH -> new int[] {35, 45, 10, 10};
             case COMMERCIAL -> new int[] {0, 35, 15, 50};

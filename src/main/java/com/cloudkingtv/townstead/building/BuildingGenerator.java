@@ -71,9 +71,13 @@ public final class BuildingGenerator {
         String kind = switch (b.zone) {
             case RESIDENTIAL -> Homes.house(c);
             case RESIDENTIAL_HIGH -> Homes.terrace(c);
-            case COMMERCIAL -> Trade.shop(c);
-            case COMMERCIAL_HIGH -> Trade.market(c);
-            case INDUSTRIAL -> Trade.workshop(c);
+            case COMMERCIAL -> "leisure".equals(b.spec) ? Trade.tavern(c) : Trade.shop(c);
+            case COMMERCIAL_HIGH -> "leisure".equals(b.spec) ? Trade.tavern(c) : Trade.market(c);
+            case INDUSTRIAL -> switch (b.spec) {
+                case "farming" -> Trade.farm(c);
+                case "forestry" -> Trade.lumberYard(c);
+                default -> Trade.workshop(c);
+            };
             case OFFICE -> Trade.guildHall(c);
             case CIVIC -> Civic.build(c, b.serviceType());
         };
@@ -1338,6 +1342,140 @@ public final class BuildingGenerator {
             c.scaffoldAround(shop);
             c.jobs = 3 + storeys * 2 + (c.b.wide >= 2 ? 2 : 0) + (c.b.deep >= 2 ? 3 : 0) + (lv >= 3 ? 2 : 0);
             return c.b.wide >= 2 || c.b.deep >= 2 ? "works" : "workshop";
+        }
+
+        /**
+         * Farming industry: a big timber barn with a hay loft and wide doors, fields of crops in rows with water
+         * channels, a scarecrow, hay and a composter; a stone granary from level 2.
+         */
+        static String farm(Canvas c) {
+            int lv = c.level;
+            Wall w = Style.wall(c, true);
+            BlockState floor = Blocks.COARSE_DIRT.defaultBlockState();
+            int z0 = c.zf + 2;
+            boolean barnLeft = c.rng.nextBoolean();
+            int bw = Math.min(7, c.W - 4), bd = Math.min(6, c.D - z0 - 2);
+            Box barn = barnLeft ? new Box(1, z0, bw, z0 + bd - 1) : new Box(c.W - 1 - bw, z0, c.W - 2, z0 + bd - 1);
+            c.foundation(barn, c.p.foundation().defaultBlockState(), floor);
+            for (int x = barn.cx() - 1; x <= barn.cx() + 1; x++) for (int y = 0; y <= 2; y++) c.doorway(x, y, barn.z0);
+            int top = c.walls(barn, 0, 1, w, c.p.floor().defaultBlockState());
+            c.roof(barn, top, false, w.upper());
+            c.put(barn.cx(), 4, barn.z0, Blocks.HAY_BLOCK, FIT);
+            for (int x = barn.x0 + 1; x < barn.x1; x++) c.put(x, 0, barn.z1 - 1, x % 2 == 0 ? Blocks.HAY_BLOCK.defaultBlockState() : Blocks.BARREL.defaultBlockState(), FIT);
+            c.put(barn.x0 + 1, 0, barn.z0 + 1, Blocks.COMPOSTER.defaultBlockState(), FIT);
+            // Fields fill the rest of the lot: rows of crops with a water channel every fourth row.
+            int fx0 = barnLeft ? barn.x1 + 2 : 1, fx1 = barnLeft ? c.W - 2 : barn.x0 - 2;
+            int fz0 = c.zf + 2, fz1 = c.D - 2;
+            Block[] crops = {Blocks.WHEAT, Blocks.CARROTS, Blocks.POTATOES, Blocks.BEETROOTS};
+            if (fx1 - fx0 >= 2) {
+                c.fenceRun(fx0 - 1, fz0 - 1, fx1 + 1, fz1 + 1, (fx0 + fx1) / 2, fz0 - 1);
+                for (int x = fx0; x <= fx1; x++) {
+                    Block crop = crops[Math.floorMod(x / 4 + (int) c.b.seed, crops.length)];
+                    for (int z = fz0; z <= fz1; z++) {
+                        if (!c.inLot(x, z)) continue;
+                        if ((x - fx0) % 4 == 3) { c.put(x, -1, z, Blocks.WATER, GROUND); continue; }
+                        c.put(x, -1, z, Blocks.FARMLAND.defaultBlockState().setValue(FarmlandBlock.MOISTURE, 7), GROUND);
+                        BlockState st = crop.defaultBlockState();
+                        if (crop instanceof CropBlock cb) st = cb.getStateForAge(Math.min(cb.getMaxAge(), 4 + (x + z) % 4));
+                        c.put(x, 0, z, st, GARDEN);
+                    }
+                }
+                // A scarecrow in the middle of the field.
+                int sx = (fx0 + fx1) / 2 + ((fx1 - fx0) % 4 == 3 ? 1 : 0), sz = (fz0 + fz1) / 2;
+                c.put(sx, -1, sz, Blocks.COARSE_DIRT, GROUND);
+                c.put(sx, 0, sz, Style.fence(c.p), GARDEN);
+                c.put(sx, 1, sz, Blocks.HAY_BLOCK, GARDEN);
+                c.put(sx, 2, sz, c.facing(Blocks.CARVED_PUMPKIN, c.front), GARDEN);
+            }
+            if (lv >= 2 && c.D - (barn.z1 + 2) >= 4) {
+                // A round-ish stone granary behind the barn.
+                int gx = barn.cx(), gz = Math.min(c.D - 3, barn.z1 + 3);
+                for (int y = 0; y <= 4 + lv; y++) for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) {
+                    if (dx == 0 && dz == 0 && y > 0) continue;
+                    c.put(gx + dx, y, gz + dz, y == 4 + lv ? c.log(c.p.post(), Direction.Axis.Y) : Blocks.STONE_BRICKS.defaultBlockState(), FRAME);
+                }
+                c.hip(new Box(gx - 1, gz - 1, gx + 1, gz + 1), 5 + lv, Style.roof(c.p, c.b.seed)[0], Style.roof(c.p, c.b.seed)[1]);
+            }
+            c.put(barnLeft ? barn.x1 + 1 : barn.x0 - 1, 0, barn.z0, Blocks.HAY_BLOCK, GARDEN);
+            c.put(barnLeft ? barn.x1 + 1 : barn.x0 - 1, 1, barn.z0, Blocks.HAY_BLOCK, GARDEN);
+            for (int x = barn.cx() - 1; x <= barn.cx() + 1; x++) c.path(x, c.zf, barn.z0 - 1);
+            c.lampPost(barnLeft ? 0 : c.W - 1, c.zf);
+            c.scaffoldAround(barn);
+            c.jobs = 4 + (c.b.wide >= 2 ? 3 : 0) + (c.b.deep >= 2 ? 3 : 0) + lv * 2;
+            return "farm";
+        }
+
+        /**
+         * Forestry: an open saw shed on posts, stacks of logs and planks, rows of saplings being replanted, and a
+         * charcoal kiln with a chimney from level 2.
+         */
+        static String lumberYard(Canvas c) {
+            int lv = c.level;
+            Wall w = Style.wall(c, true);
+            int z0 = c.zf + 2;
+            int sw = Math.min(7, c.W - 3), sd = Math.min(5, c.D - z0 - 2);
+            Box shed = new Box(1, z0, sw, z0 + sd - 1);
+            for (int x = shed.x0; x <= shed.x1; x++) for (int z = shed.z0; z <= shed.z1; z++) c.put(x, -1, z, Blocks.COARSE_DIRT, GROUND);
+            // Posts at the corners and midpoints, open sides, a roof over all.
+            BlockState post = c.log(c.p.post(), Direction.Axis.Y);
+            for (int x = shed.x0; x <= shed.x1; x++) for (int z = shed.z0; z <= shed.z1; z++) {
+                boolean isPost = (x == shed.x0 || x == shed.x1 || x == shed.cx()) && (z == shed.z0 || z == shed.z1);
+                if (isPost) for (int y = 0; y <= 2; y++) c.put(x, y, z, post, FRAME);
+                c.put(x, 3, z, shed.edge(x, z) ? c.beam(c.p.post(), z == shed.z0 || z == shed.z1) : w.upper(), FRAME);
+            }
+            c.masses.add(new int[] {shed.x0, shed.z0, shed.x1, shed.z1, 3});
+            c.roof(shed, 3, true, w.upper());
+            // The saw bench and workbench under the shed.
+            c.put(shed.cx(), 0, shed.cz(), Blocks.STONECUTTER.defaultBlockState(), FIT);
+            c.put(shed.cx() - 1, 0, shed.cz(), c.log(Blocks.STRIPPED_OAK_LOG, Direction.Axis.X), FIT);
+            c.put(shed.cx() + 1, 0, shed.cz(), c.log(Blocks.STRIPPED_OAK_LOG, Direction.Axis.X), FIT);
+            c.put(shed.x0 + 1, 0, shed.z1 - 1, Blocks.CRAFTING_TABLE, FIT);
+            c.put(shed.x1 - 1, 0, shed.z1 - 1, Blocks.BARREL.defaultBlockState(), FIT);
+            // Log stacks and plank piles beside the shed, saplings in rows behind.
+            int yx0 = shed.x1 + 2, yx1 = c.W - 2;
+            for (int x = yx0; x <= yx1; x++) {
+                if ((x - yx0) % 3 == 2) continue;
+                c.woodpile(x, x, z0, 2 + (x % 2));
+                c.woodpile(x, x, z0 + 1, 1 + (x + 1) % 2);
+                if (x % 2 == 0) c.put(x, 0, z0 + 3, c.p.floor(), GARDEN);
+            }
+            for (int z = shed.z1 + 2; z <= c.D - 2; z += 2) {
+                for (int x = 1; x <= c.W - 2; x += 2) {
+                    if (!c.inLot(x, z)) continue;
+                    c.put(x, -1, z, Blocks.PODZOL, GROUND);
+                    c.put(x, 0, z, (x + z) % 5 == 0 ? Blocks.SPRUCE_SAPLING.defaultBlockState() : Blocks.OAK_SAPLING.defaultBlockState(), GARDEN);
+                }
+            }
+            if (lv >= 2) {
+                // A charcoal kiln: a stone hump with a smoking chimney.
+                int kx = c.W - 3, kz = Math.min(c.D - 3, z0 + 5);
+                for (int dx = -1; dx <= 1; dx++) for (int dz = -1; dz <= 1; dz++) c.put(kx + dx, 0, kz + dz, Blocks.COBBLESTONE, FRAME);
+                c.put(kx, 1, kz, Blocks.COBBLESTONE, FRAME);
+                c.put(kx, 0, kz - 1, c.facing(Blocks.FURNACE, c.front), FIT);
+                c.chimney(kx, kz + 1, 4 + lv);
+            }
+            c.fenceRun(0, c.zf + 1, c.W - 1, c.D - 1, shed.cx(), c.zf + 1);
+            c.path(shed.cx(), c.zf, shed.z0 - 1);
+            c.lampPost(c.W - 1, c.zf);
+            c.jobs = 4 + (c.b.wide >= 2 ? 2 : 0) + (c.b.deep >= 2 ? 2 : 0) + lv * 2;
+            return "lumber_yard";
+        }
+
+        /** Leisure: an inn with a beer garden: tables and benches under strings of lanterns, barrels stacked by the door. */
+        static String tavern(Canvas c) {
+            inn(c);
+            // The beer garden: lanterns hung on fence posts along the front, barrels stacked high.
+            for (int x = 0; x < c.W; x += 4) {
+                if (!c.inLot(x, c.zf + 1)) continue;
+                c.put(x, 0, c.zf + 1, Style.fence(c.p), GARDEN);
+                c.put(x, 1, c.zf + 1, Style.fence(c.p), GARDEN);
+                c.put(x, 2, c.zf + 1, c.lantern(false), GARDEN);
+            }
+            c.put(1, 0, c.D - 2, Blocks.BARREL.defaultBlockState(), GARDEN);
+            c.put(1, 1, c.D - 2, Blocks.BARREL.defaultBlockState(), GARDEN);
+            c.put(2, 0, c.D - 2, Blocks.BARREL.defaultBlockState(), GARDEN);
+            c.jobs += 2;
+            return "tavern";
         }
 
         /**
