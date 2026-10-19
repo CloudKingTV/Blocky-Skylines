@@ -545,7 +545,7 @@
   "transit.townstead.drawing": "New coach line · %s stops",
   "transit.townstead.length": "Round trip: %s blocks",
   "transit.townstead.click_stop": "Click a road to put a stop there",
-  "transit.townstead.click_more": "Click to add a stop · click the first stop or press Enter to finish · right-click takes the last back",
+  "transit.townstead.click_more": "Click to add a stop · Enter or the first stop finishes",
   "transit.townstead.click_close": "Click to close the loop and open the line",
   "transit.townstead.click_remove": "Click to remove this line and its stops",
   "transit.townstead.panel": "Coach lines: %s · riders a day: %s",
@@ -555,5 +555,6 @@
   "transit.townstead.none": "No lines yet: pick \"Draw a coach line\" and click along your roads",
   "help.townstead.transport": "Transport tool: 1 Coach House, 2 draw a line (click stops, Enter or the first stop to finish), 3 remove a line",
   "chirp.townstead.line.0": "The new %s is running. No more walking to market! #coaches",
-  "chirp.townstead.line.1": "Took the %s across %s this morning. Lovely horses."
+  "chirp.townstead.line.1": "Took the %s across %s this morning. Lovely horses.",
+  "transit.townstead.undo_hint": "Right-click takes the last stop back"
 }

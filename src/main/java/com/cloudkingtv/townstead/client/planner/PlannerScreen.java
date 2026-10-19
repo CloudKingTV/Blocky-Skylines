@@ -557,6 +557,7 @@ public class PlannerScreen extends Screen {
             lines.add(Component.translatable(LineTool.onFirst() ? "transit.townstead.click_close"
                     : LineTool.DRAFT.size() >= 2 ? "transit.townstead.click_more" : "transit.townstead.click_stop"));
             colors.add(0xFFB8B8B8);
+            if (!LineTool.DRAFT.isEmpty()) { lines.add(Component.translatable("transit.townstead.undo_hint")); colors.add(0xFF8A8A8A); }
         } else {
             var line = LineTool.hoveredLine(city);
             lines.add(line == null ? Component.translatable("transit.townstead.mode.2") : com.cloudkingtv.townstead.transit.CoachLines.lineName(line.color()));
@@ -937,7 +938,7 @@ public class PlannerScreen extends Screen {
      */
     private void drawChirps(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         chirpHits.clear();
-        if (BudgetPanel.open || MilestonePanel.open || showHelp) return;
+        if (BudgetPanel.open || MilestonePanel.open || showHelp || selectedTool == TRANSPORT) return;
         var all = com.cloudkingtv.townstead.client.ClientChirps.all();
         boolean clickable = selectedTool == INSPECT || selectedTool == INFO;
         long now = Util.getMillis();

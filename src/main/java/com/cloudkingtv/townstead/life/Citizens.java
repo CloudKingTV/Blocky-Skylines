@@ -214,7 +214,9 @@ public final class Citizens {
         Happiness mood = model.happiness(home);
         Happiness.Factor worst = mood.worst(), best = null;
         for (Happiness.Factor f : mood.factors()) if (f.delta() > 0 && (best == null || f.delta() > best.delta())) best = f;
-        Component thought = worst != null && worst.delta() <= -4
+        // The unhappy talk about what's wrong; the happy about what they like (unless something's really wrong).
+        boolean grumble = worst != null && (worst.delta() <= -8 || worst.delta() <= -4 && mood.total() < 65);
+        Component thought = grumble
                 ? Component.translatable("citizen.townstead.complaint", worst.label())
                 : best != null ? Component.translatable("citizen.townstead.praise", best.label()) : Component.translatable("citizen.townstead.content");
         String moodKey = mood.total() >= 65 ? "happy" : mood.total() >= 40 ? "content" : "unhappy";
