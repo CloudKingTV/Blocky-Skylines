@@ -632,6 +632,8 @@ public final class BuildingGenerator {
                 case "desert" -> Blocks.JUNGLE_TRAPDOOR;
                 case "savanna" -> Blocks.ACACIA_TRAPDOOR;
                 case "taiga", "snowy" -> Blocks.SPRUCE_TRAPDOOR;
+                case "jungle" -> Blocks.JUNGLE_TRAPDOOR;
+                case "swamp" -> Blocks.MANGROVE_TRAPDOOR;
                 default -> Blocks.SPRUCE_TRAPDOOR;
             };
         }
@@ -645,6 +647,8 @@ public final class BuildingGenerator {
                 case "desert" -> Blocks.JUNGLE_FENCE_GATE;
                 case "savanna" -> Blocks.ACACIA_FENCE_GATE;
                 case "taiga", "snowy" -> Blocks.SPRUCE_FENCE_GATE;
+                case "jungle" -> Blocks.BAMBOO_FENCE_GATE;
+                case "swamp" -> Blocks.MANGROVE_FENCE_GATE;
                 default -> Blocks.OAK_FENCE_GATE;
             };
         }
@@ -656,6 +660,8 @@ public final class BuildingGenerator {
                 case "desert" -> Blocks.SMOOTH_SANDSTONE_STAIRS;
                 case "savanna" -> Blocks.ACACIA_STAIRS;
                 case "taiga", "snowy" -> Blocks.SPRUCE_STAIRS;
+                case "jungle" -> Blocks.JUNGLE_STAIRS;
+                case "swamp" -> Blocks.MANGROVE_STAIRS;
                 default -> Blocks.OAK_STAIRS;
             };
         }
@@ -669,22 +675,36 @@ public final class BuildingGenerator {
                 case "taiga" -> r == 2 ? new Block[] {Blocks.DARK_OAK_STAIRS, Blocks.DARK_OAK_SLAB} : new Block[] {Blocks.SPRUCE_STAIRS, Blocks.SPRUCE_SLAB};
                 case "snowy" -> r == 0 ? new Block[] {Blocks.STONE_BRICK_STAIRS, Blocks.STONE_BRICK_SLAB} : new Block[] {Blocks.SPRUCE_STAIRS, Blocks.SPRUCE_SLAB};
                 case "savanna" -> r == 0 ? new Block[] {Blocks.DARK_OAK_STAIRS, Blocks.DARK_OAK_SLAB} : new Block[] {Blocks.ACACIA_STAIRS, Blocks.ACACIA_SLAB};
+                case "jungle" -> r == 0 ? new Block[] {Blocks.JUNGLE_STAIRS, Blocks.JUNGLE_SLAB} : new Block[] {Blocks.BAMBOO_MOSAIC_STAIRS, Blocks.BAMBOO_MOSAIC_SLAB};
+                case "swamp" -> r == 0 ? new Block[] {Blocks.MANGROVE_STAIRS, Blocks.MANGROVE_SLAB} : new Block[] {Blocks.DARK_OAK_STAIRS, Blocks.DARK_OAK_SLAB};
                 default -> new Block[] {p.roofStairs(), p.roofSlab()};
             };
         }
 
         static Block chimney(Palette p) {
-            return p.key().equals("desert") ? Blocks.CUT_SANDSTONE : p.key().equals("snowy") ? Blocks.STONE_BRICKS : Blocks.BRICKS;
+            return switch (p.key()) {
+                case "desert" -> Blocks.CUT_SANDSTONE;
+                case "snowy" -> Blocks.STONE_BRICKS;
+                case "jungle" -> Blocks.MOSSY_COBBLESTONE;
+                case "swamp" -> Blocks.MUD_BRICKS;
+                default -> Blocks.BRICKS;
+            };
         }
 
         static Block wall(Palette p) {
-            return p.key().equals("desert") ? Blocks.SANDSTONE_WALL : Blocks.COBBLESTONE_WALL;
+            return switch (p.key()) {
+                case "desert" -> Blocks.SANDSTONE_WALL;
+                case "jungle" -> Blocks.MOSSY_COBBLESTONE_WALL;
+                case "swamp" -> Blocks.MUD_BRICK_WALL;
+                default -> Blocks.COBBLESTONE_WALL;
+            };
         }
 
         static Block treeLog(Palette p) {
             return switch (p.key()) {
                 case "desert", "savanna" -> Blocks.ACACIA_LOG;
                 case "taiga", "snowy" -> Blocks.SPRUCE_LOG;
+                case "jungle" -> Blocks.JUNGLE_LOG;
                 default -> Blocks.OAK_LOG;
             };
         }
@@ -693,6 +713,7 @@ public final class BuildingGenerator {
             return switch (p.key()) {
                 case "desert", "savanna" -> Blocks.ACACIA_LEAVES;
                 case "taiga", "snowy" -> Blocks.SPRUCE_LEAVES;
+                case "jungle" -> Blocks.JUNGLE_LEAVES;
                 default -> Blocks.OAK_LEAVES;
             };
         }
@@ -701,6 +722,7 @@ public final class BuildingGenerator {
             return switch (p.key()) {
                 case "desert" -> Blocks.ACACIA_LEAVES;
                 case "taiga", "snowy" -> Blocks.SPRUCE_LEAVES;
+                case "jungle" -> Blocks.JUNGLE_LEAVES;
                 default -> Blocks.AZALEA_LEAVES;
             };
         }
@@ -715,6 +737,8 @@ public final class BuildingGenerator {
                         plaster);
                 case "taiga" -> List.of(Blocks.SPRUCE_PLANKS.defaultBlockState(), plaster, Blocks.SPRUCE_PLANKS.defaultBlockState());
                 case "snowy" -> List.of(Blocks.SPRUCE_PLANKS.defaultBlockState(), plaster, Blocks.STONE_BRICKS.defaultBlockState());
+                case "jungle" -> List.of(Blocks.JUNGLE_PLANKS.defaultBlockState(), Blocks.BAMBOO_PLANKS.defaultBlockState(), plaster);
+                case "swamp" -> List.of(Blocks.MANGROVE_PLANKS.defaultBlockState(), Blocks.PACKED_MUD.defaultBlockState(), plaster);
                 default -> List.of(Blocks.OAK_PLANKS.defaultBlockState(), plaster, Blocks.BIRCH_PLANKS.defaultBlockState());
             };
         }

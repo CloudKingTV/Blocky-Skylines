@@ -11,7 +11,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 
 /**
- * Block sets for the five vanilla village styles. A building takes the palette of the biome its lot stands in,
+ * Block sets for the five vanilla village styles, plus jungle and swamp. A building takes the palette of the biome its lot stands in,
  * so a town that spreads from meadow into desert changes style at the border, like real villages do.
  *
  * @param walls     plank-type wall blocks (one is picked per building)
@@ -46,7 +46,18 @@ public record Palette(String key, List<Block> walls, Block post, Block floor, Bl
             Blocks.STONE_BRICKS, Blocks.STONE_BRICK_SLAB, Blocks.STONE_BRICKS, Blocks.SPRUCE_DOOR, Blocks.SPRUCE_FENCE,
             List.of(), true);
 
-    public static final List<Palette> ALL = List.of(PLAINS, DESERT, SAVANNA, TAIGA, SNOWY);
+    /** Jungle towns: jungle and bamboo timber, thatch-like bamboo roofs, mossy stone. */
+    public static final Palette JUNGLE = new Palette("jungle", List.of(Blocks.JUNGLE_PLANKS, Blocks.BAMBOO_PLANKS, Blocks.JUNGLE_PLANKS),
+            Blocks.JUNGLE_LOG, Blocks.JUNGLE_PLANKS, Blocks.BAMBOO_MOSAIC_STAIRS, Blocks.BAMBOO_MOSAIC_SLAB, false, Blocks.MOSSY_COBBLESTONE,
+            Blocks.MOSSY_STONE_BRICKS, Blocks.MOSSY_STONE_BRICK_SLAB, Blocks.STRIPPED_JUNGLE_LOG, Blocks.JUNGLE_DOOR, Blocks.BAMBOO_FENCE,
+            List.of(Blocks.FERN, Blocks.POPPY, Blocks.FERN, Blocks.DANDELION), true);
+    /** Swamp towns: mangrove timber on mud-brick footings under dark roofs, orchids in the yards. */
+    public static final Palette SWAMP = new Palette("swamp", List.of(Blocks.MANGROVE_PLANKS, Blocks.OAK_PLANKS),
+            Blocks.MANGROVE_LOG, Blocks.MANGROVE_PLANKS, Blocks.DARK_OAK_STAIRS, Blocks.DARK_OAK_SLAB, false, Blocks.MUD_BRICKS,
+            Blocks.MUD_BRICKS, Blocks.MUD_BRICK_SLAB, Blocks.STRIPPED_MANGROVE_LOG, Blocks.MANGROVE_DOOR, Blocks.MANGROVE_FENCE,
+            List.of(Blocks.BLUE_ORCHID, Blocks.FERN, Blocks.BLUE_ORCHID), true);
+
+    public static final List<Palette> ALL = List.of(PLAINS, DESERT, SAVANNA, TAIGA, SNOWY, JUNGLE, SWAMP);
 
     public static Palette of(String key) {
         for (Palette p : ALL) if (p.key.equals(key)) return p;
@@ -60,6 +71,8 @@ public record Palette(String key, List<Block> walls, Block post, Block floor, Bl
         if (biome.is(BiomeTags.HAS_VILLAGE_SAVANNA)) return SAVANNA.key;
         if (biome.is(BiomeTags.HAS_VILLAGE_SNOWY)) return SNOWY.key;
         if (biome.is(BiomeTags.HAS_VILLAGE_TAIGA)) return TAIGA.key;
+        if (biome.is(BiomeTags.IS_JUNGLE)) return JUNGLE.key;
+        if (biome.is(net.minecraft.world.level.biome.Biomes.SWAMP) || biome.is(net.minecraft.world.level.biome.Biomes.MANGROVE_SWAMP)) return SWAMP.key;
         return PLAINS.key;
     }
 }

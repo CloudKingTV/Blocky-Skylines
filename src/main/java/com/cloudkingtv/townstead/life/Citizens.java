@@ -52,7 +52,7 @@ public final class Citizens {
     static final List<String> OUTFITS = List.of("none", "farmer", "librarian", "cleric", "cartographer", "fletcher", "mason",
             "toolsmith", "weaponsmith", "armorer", "butcher", "leatherworker", "shepherd", "fisherman", "nitwit");
     /** The villager types for the town styles, by index (the look's high bits). */
-    static final List<String> TYPES = List.of("plains", "desert", "savanna", "taiga", "snow");
+    static final List<String> TYPES = List.of("plains", "desert", "savanna", "taiga", "snow", "jungle", "swamp");
 
     @SubscribeEvent
     static void tick(LevelTickEvent.Post event) {
@@ -127,6 +127,8 @@ public final class Citizens {
             case "savanna" -> "savanna";
             case "taiga" -> "taiga";
             case "snowy" -> "snow";
+            case "jungle" -> "jungle";
+            case "swamp" -> "swamp";
             default -> "plains";
         };
     }

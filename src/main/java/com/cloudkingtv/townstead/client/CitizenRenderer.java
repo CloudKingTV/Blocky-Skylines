@@ -27,7 +27,7 @@ public final class CitizenRenderer extends AgeableMobRenderer<CitizenNpc, Villag
     /** Same order as Citizens.OUTFITS and Citizens.TYPES (the look's low and high bits). */
     private static final List<String> OUTFITS = List.of("none", "farmer", "librarian", "cleric", "cartographer", "fletcher", "mason",
             "toolsmith", "weaponsmith", "armorer", "butcher", "leatherworker", "shepherd", "fisherman", "nitwit");
-    private static final List<String> TYPES = List.of("plains", "desert", "savanna", "taiga", "snow");
+    private static final List<String> TYPES = List.of("plains", "desert", "savanna", "taiga", "snow", "jungle", "swamp");
 
     public CitizenRenderer(EntityRendererProvider.Context context) {
         super(context, new VillagerModel(context.bakeLayer(ModelLayers.VILLAGER)), new BabyVillagerModel(context.bakeLayer(ModelLayers.VILLAGER_BABY)), 0.5f);

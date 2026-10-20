@@ -600,5 +600,7 @@
   "comayor.townstead.not_found": "%s is not a co-mayor of your town.",
   "comayor.townstead.list": "%s · mayor %s · co-mayors: %s",
   "comayor.townstead.none": "none",
-  "economy.townstead.mayor_only": "Only the mayor can take or repay loans."
+  "economy.townstead.mayor_only": "Only the mayor can take or repay loans.",
+  "style.townstead.jungle": "Jungle",
+  "style.townstead.swamp": "Swamp"
 }
