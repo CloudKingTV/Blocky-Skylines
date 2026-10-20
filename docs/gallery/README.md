@@ -45,3 +45,28 @@ Then the Phase 5 landmarks (the Founders' Fountain, the Clock Tower and the Chap
 ## Styles: taiga and snowy
 
 ![Styles: taiga and snowy](sheet_8_styles.jpg)
+
+## Phase 7: monuments
+
+The Great Library (Small City), the Cathedral (Grand City) and the Castle Keep (Metropolis). Shots
+named `p7_0_*`. (These were taken before the Cathedral and Castle Keep got stone beam courses
+instead of timber ones.)
+
+![Monuments: Great Library, Cathedral, Castle Keep](sheet_9_monuments.jpg)
+
+## Phase 7: district specialisations
+
+Farms and lumber yards (industry in a Farming or Forestry district) and taverns (shops in a
+Leisure district), at levels 1 and 2. Shots named `p7_1_*`.
+
+![Specialisations: farm, lumber yard, tavern](sheet_10_specialisations.jpg)
+
+## Phase 7: jungle and swamp styles
+
+Each zone at level 2, plus the Chapel, in each new style. Shots named `p7_2_*` and `p7_3_*`. The
+jungle Chapel's first-person shot was taken from inside the next row's building and shows
+nothing; its view from above does.
+
+![Style: jungle](sheet_11_jungle.jpg)
+
+![Style: swamp](sheet_12_swamp.jpg)
