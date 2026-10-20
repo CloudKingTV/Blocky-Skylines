@@ -2240,7 +2240,7 @@ public final class BuildingGenerator {
             Box nave = new Box(mid - 4, z0, mid + 3, c.D - 3);
             Box transept = new Box(mid - 8, z0 + 7, mid + 7, z0 + 11);
             Box towerL = new Box(mid - 7, z0 - 2, mid - 4, z0 + 1), towerR = new Box(mid + 3, z0 - 2, mid + 6, z0 + 1);
-            Wall stone = new Wall(trim, c.p.post(), stoneB, stoneB, plinth, null, false, true);
+            Wall stone = new Wall(trim, stoneB.getBlock(), stoneB, stoneB, plinth, null, false, true);
             for (Box b : new Box[] {nave, transept, towerL, towerR}) c.foundation(b, stoneB, floor);
             for (int y = 0; y <= 2; y++) { c.doorway(mid - 1, y, nave.z0); c.doorway(mid, y, nave.z0); }
             int top = c.walls(nave, 0, 3, stone, Blocks.AIR.defaultBlockState());
@@ -2360,7 +2360,7 @@ public final class BuildingGenerator {
             BlockState stoneB = m[0], trim = m[1], plinth = m[2], merlon = m[3];
             BlockState cracked = c.p.key().equals("desert") ? stoneB : Blocks.CRACKED_STONE_BRICKS.defaultBlockState();
             BlockState floor = c.p.floor().defaultBlockState();
-            Wall stone = new Wall(trim, c.p.post(), stoneB, stoneB, plinth, null, false, false);
+            Wall stone = new Wall(trim, stoneB.getBlock(), stoneB, stoneB, plinth, null, false, false);
             int zw = c.zf + 2, mid = c.W / 2;
             Box ward = new Box(1, zw, c.W - 2, c.D - 2);
             Box gate = new Box(mid - 3, c.zf, mid + 2, zw + 2);
