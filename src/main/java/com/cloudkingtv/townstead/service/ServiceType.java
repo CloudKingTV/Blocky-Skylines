@@ -30,7 +30,11 @@ public enum ServiceType implements StringRepresentable {
     CLOCK_TOWER("clock_tower", Kind.SERVICE, Items.CLOCK, 0, 80, 2, Department.PARKS, 400),
     CHAPEL("chapel", Kind.SERVICE, Items.BELL, 0, 64, 2, Department.PARKS, 300),
     // Transport: the coach house keeps the horses and coaches that run the town's coach lines.
-    COACH_HOUSE("coach_house", Kind.TRANSIT, Items.SADDLE, 0, 0, 4, Department.TRANSPORT, 300);
+    COACH_HOUSE("coach_house", Kind.TRANSIT, Items.SADDLE, 0, 0, 4, Department.TRANSPORT, 300),
+    // Monuments: unique, huge, expensive, and felt across the whole town.
+    GREAT_LIBRARY("great_library", Kind.SERVICE, Items.ENCHANTING_TABLE, 0, 140, 10, Department.EDUCATION, 1000),
+    CATHEDRAL("cathedral", Kind.SERVICE, Items.END_ROD, 0, 180, 12, Department.PARKS, 1500),
+    CASTLE_KEEP("castle_keep", Kind.SERVICE, Items.SHIELD, 0, 200, 20, Department.POLICE, 2000);
 
     public enum Kind { POWER, WATER, SERVICE, TRANSIT }
 
@@ -73,7 +77,8 @@ public enum ServiceType implements StringRepresentable {
         this.upkeep = upkeep;
         int[] lot = switch (key) {
             case "watermill", "clinic", "fire_station", "compost_yard", "park", "founders_fountain", "coach_house" -> new int[] {2, 1};
-            case "school", "chapel" -> new int[] {2, 2};
+            case "school", "chapel", "great_library" -> new int[] {2, 2};
+            case "cathedral", "castle_keep" -> new int[] {3, 3};
             default -> new int[] {1, 1};
         };
         this.wide = lot[0];
@@ -89,7 +94,14 @@ public enum ServiceType implements StringRepresentable {
     public ItemStack icon() { return new ItemStack(icon); }
 
     /** A unique building: one per town, placed from the landmarks tool. */
-    public boolean landmark() { return this == FOUNDERS_FOUNTAIN || this == CLOCK_TOWER || this == CHAPEL; }
+    public boolean landmark() { return this == FOUNDERS_FOUNTAIN || this == CLOCK_TOWER || this == CHAPEL || monument(); }
+
+    /**
+     * A monument: the grandest landmarks, unlocked at the city milestones. The Great Library schools every home in
+     * its reach, the Cathedral draws pilgrims who fill the shops, and the Castle Keep's garrison guards the town and
+     * fights its fires.
+     */
+    public boolean monument() { return this == GREAT_LIBRARY || this == CATHEDRAL || this == CASTLE_KEEP; }
     public Component displayName() { return Component.translatable("service.townstead." + key); }
     public String key() { return key; }
 

@@ -61,6 +61,7 @@ public final class Fields {
                 switch (s) {
                     case PARK -> f.value.add(new Source(x, z, 25, 40));
                     case FOUNDERS_FOUNTAIN, CLOCK_TOWER, CHAPEL -> f.value.add(new Source(x, z, 22, radius.applyAsDouble(s)));
+                    case GREAT_LIBRARY, CATHEDRAL, CASTLE_KEEP -> f.value.add(new Source(x, z, 30, radius.applyAsDouble(s)));
                     case CLINIC, SCHOOL, GUARD_HOUSE, FIRE_STATION -> f.value.add(new Source(x, z, 6, radius.applyAsDouble(s)));
                     default -> {}
                 }

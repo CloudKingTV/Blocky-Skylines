@@ -182,6 +182,9 @@ public final class Residents {
                 case WELL, WATER_TOWER -> "water_keeper";
                 case FOUNDERS_FOUNTAIN, CLOCK_TOWER, CHAPEL -> slot == 0 ? "keeper" : "gardener";
                 case COACH_HOUSE -> slot == 0 ? "ostler" : "coachman";
+                case GREAT_LIBRARY -> new String[] {"librarian", "scribe", "teacher", "keeper"}[slot % 4];
+                case CATHEDRAL -> new String[] {"cleric", "cleric", "keeper", "gardener"}[slot % 4];
+                case CASTLE_KEEP -> new String[] {"guard", "guard", "firewatch", "armorer", "smith"}[slot % 5];
             };
             case OFFICE -> new String[] {"clerk", "cartographer", "librarian", "scribe"}[slot % 4];
             case INDUSTRIAL -> switch (w.spec) {

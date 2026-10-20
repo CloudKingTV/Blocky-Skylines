@@ -43,7 +43,11 @@ final class MilestonePanel {
         g.text(font, Component.translatable("milestone.townstead.panel", city.name(), people), left + PAD, top + PAD, 0xFFFFE9B0, true);
         int y = top + PAD + 14;
         Component tip = null;
+        // Too many to show at once: keep the ones round the town's current milestone in view.
+        int fit = Math.max(1, (h - PAD * 2 - 14) / ROW);
+        int first = Math.max(0, Math.min(city.milestone() - 2, all.length - fit));
         for (Milestone ms : all) {
+            if (ms.ordinal() < first) continue;
             if (y + ROW > top + h) break;
             boolean reached = ms.ordinal() <= city.milestone(), next = ms.ordinal() == city.milestone() + 1;
             int colour = reached ? 0xFF9EE37D : next ? 0xFFFFFFFF : 0xFF9A9A9A;

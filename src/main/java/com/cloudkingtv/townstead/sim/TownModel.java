@@ -85,7 +85,8 @@ public final class TownModel {
         this.educated = e;
         this.unemployed = Math.max(0, a - jobsByPerson.size());
         this.demand = Demand.of(this.town, e, budget.taxes,
-                civics.anywhere(com.cloudkingtv.townstead.district.Policy.MARKET_DAYS) ? 15 : 0,
+                (civics.anywhere(com.cloudkingtv.townstead.district.Policy.MARKET_DAYS) ? 15 : 0)
+                        + (this.town.stream().anyMatch(b -> b.working() && ServiceType.CATHEDRAL.key().equals(b.service)) ? 12 : 0),
                 civics.anywhere(com.cloudkingtv.townstead.district.Policy.CRAFT_RELIEF) ? 15 : 0);
     }
 
@@ -110,7 +111,14 @@ public final class TownModel {
     }
 
     public boolean covered(Building b, ServiceType s) {
-        return Utilities.covered(b, town, s, radius(s));
+        if (Utilities.covered(b, town, s, radius(s))) return true;
+        // Monuments that do a service's work across their (huge) reach.
+        ServiceType also = switch (s) {
+            case GUARD_HOUSE, FIRE_STATION -> ServiceType.CASTLE_KEEP;
+            case SCHOOL -> ServiceType.GREAT_LIBRARY;
+            default -> null;
+        };
+        return also != null && Utilities.covered(b, town, also, radius(also));
     }
 
     public Happiness happiness(Building b) {

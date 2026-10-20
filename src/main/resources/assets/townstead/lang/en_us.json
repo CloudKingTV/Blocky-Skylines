@@ -576,5 +576,21 @@
   "chirp.townstead.fire_out.0": "The brigade saved the %s. Three cheers for the firewatch!",
   "chirp.townstead.fire_out.1": "Fire at the %s is out. Just a bit of soot left.",
   "chirp.townstead.burned.0": "The %s is a heap of ashes. Where was the fire brigade? #fire",
-  "chirp.townstead.burned.1": "Lost the %s to the fire. We'll need a fire station out this way."
+  "chirp.townstead.burned.1": "Lost the %s to the fire. We'll need a fire station out this way.",
+  "milestone.townstead.small_city": "Small City",
+  "milestone.townstead.big_city": "Big City",
+  "milestone.townstead.grand_city": "Grand City",
+  "milestone.townstead.capital_city": "Capital City",
+  "milestone.townstead.colossal_city": "Colossal City",
+  "milestone.townstead.metropolis": "Metropolis",
+  "milestone.townstead.megalopolis": "Megalopolis",
+  "service.townstead.great_library": "Great Library",
+  "service.townstead.cathedral": "Cathedral",
+  "service.townstead.castle_keep": "Castle Keep",
+  "building.townstead.kind.great_library": "Great Library",
+  "building.townstead.kind.cathedral": "Cathedral",
+  "building.townstead.kind.castle_keep": "Castle Keep",
+  "service.townstead.monument_tip.great_library": "Monument: schools every home in its reach",
+  "service.townstead.monument_tip.cathedral": "Monument: pilgrims fill the town's shops",
+  "service.townstead.monument_tip.castle_keep": "Monument: its garrison guards the town and fights its fires"
 }

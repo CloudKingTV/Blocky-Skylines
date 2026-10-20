@@ -62,6 +62,7 @@ public final class BuildingPanel {
                 case TRANSIT -> Component.translatable("panel.townstead.coaches", m.traffic.lines().values().stream().mapToInt(l -> l.coaches()).sum(),
                         m.lines.size(), m.traffic.riders());
             }, TEXT, 0));
+            if (s.monument()) out.add(new Line(Component.translatable("service.townstead.monument_tip." + s.key()), GOOD, 0));
             out.add(new Line(Component.translatable("panel.townstead.upkeep", Budget.format((long) s.upkeep * m.budget.budget(s.department) / 100),
                     s.department.displayName(), m.budget.budget(s.department)), strength < 100 ? WARN : DIM, 0));
             if (m.broke()) out.add(new Line(Component.translatable("panel.townstead.half_strength"), BAD, 0));
