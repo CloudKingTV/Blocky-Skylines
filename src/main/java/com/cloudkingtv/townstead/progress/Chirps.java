@@ -43,12 +43,13 @@ public final class Chirps {
             if (last != null && now - last < ROUTINE_GAP) return;
         }
         LAST.put(city.id(), now);
-        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(city.owner());
-        if (owner == null) return;
+        List<ServerPlayer> mayors = city.mayorsOnline(level.getServer());
+        if (mayors.isEmpty()) return;
         int n = VARIANTS.getOrDefault(event, 1);
         int variant = (int) Math.floorMod(now * 31 + event.hashCode(), (long) n);
         Component text = Component.translatable("chirp.townstead." + event + "." + variant, args);
-        PacketDistributor.sendToPlayer(owner, new ChirpPayload(city.id(), author(level, city, now), text, at.immutable(), event));
+        ChirpPayload chirp = new ChirpPayload(city.id(), author(level, city, now), text, at.immutable(), event);
+        for (ServerPlayer mayor : mayors) PacketDistributor.sendToPlayer(mayor, chirp);
     }
 
     /** A resident of the town to sign the post (the founder before anyone lives there). */

@@ -592,5 +592,13 @@
   "building.townstead.kind.castle_keep": "Castle Keep",
   "service.townstead.monument_tip.great_library": "Monument: schools every home in its reach",
   "service.townstead.monument_tip.cathedral": "Monument: pilgrims fill the town's shops",
-  "service.townstead.monument_tip.castle_keep": "Monument: its garrison guards the town and fights its fires"
+  "service.townstead.monument_tip.castle_keep": "Monument: its garrison guards the town and fights its fires",
+  "comayor.townstead.added": "%s now helps you run %s as co-mayor.",
+  "comayor.townstead.welcome": "%s made you co-mayor of %s. Open the planner in town to help build it.",
+  "comayor.townstead.removed": "%s is no longer co-mayor of %s.",
+  "comayor.townstead.already": "%s already runs this town.",
+  "comayor.townstead.not_found": "%s is not a co-mayor of your town.",
+  "comayor.townstead.list": "%s · mayor %s · co-mayors: %s",
+  "comayor.townstead.none": "none",
+  "economy.townstead.mayor_only": "Only the mayor can take or repay loans."
 }

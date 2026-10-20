@@ -112,6 +112,11 @@ public final class TownsteadNetwork {
         r.playToServer(EconomyPayloads.Edit.TYPE, EconomyPayloads.Edit.STREAM_CODEC, (msg, ctx) -> {
             if (!(ctx.player() instanceof ServerPlayer player)) return;
             plannerCity(player, msg.cityId()).ifPresent(city -> {
+                boolean loan = msg.action() == EconomyPayloads.Action.TAKE_LOAN || msg.action() == EconomyPayloads.Action.REPAY_LOAN;
+                if (loan && !city.owner().equals(player.getUUID())) {
+                    com.cloudkingtv.townstead.road.RoadEditor.notify(player, net.minecraft.network.chat.Component.translatable("economy.townstead.mayor_only"), false);
+                    return;
+                }
                 switch (msg.action()) {
                     case TAX -> TownEconomy.setTax(player, city, msg.index(), msg.value());
                     case BUDGET -> TownEconomy.setBudget(player, city, msg.index(), msg.value());
@@ -135,10 +140,10 @@ public final class TownsteadNetwork {
         });
     }
 
-    /** Planner edits are only accepted from the town's mayor while they're in its planner. */
+    /** Planner edits are only accepted from the town's mayor or a co-mayor while they're in its planner. */
     private static Optional<City> plannerCity(ServerPlayer player, UUID cityId) {
         if (!PlannerService.isPlanning(player)) return Optional.empty();
-        return CityManager.get(player.level().getServer()).byId(cityId).filter(c -> c.owner().equals(player.getUUID()));
+        return CityManager.get(player.level().getServer()).byId(cityId).filter(c -> c.isMayor(player.getUUID()));
     }
 
     private TownsteadNetwork() {}

@@ -49,7 +49,7 @@ public class TownStorehouseBlock extends HorizontalDirectionalBlock {
         if (!(level instanceof ServerLevel server) || !(by instanceof ServerPlayer player)) return;
         CityManager cities = CityManager.get(server.getServer());
         Optional<City> city = cities.at(server, pos);
-        if (city.isEmpty() || !city.get().owner().equals(player.getUUID())) {
+        if (city.isEmpty() || !city.get().isMayor(player.getUUID())) {
             server.removeBlock(pos, false);
             if (!player.getAbilities().instabuild) player.getInventory().add(stack.copyWithCount(1));
             player.sendSystemMessage(Component.translatable("message.townstead.storehouse.needs_town"));

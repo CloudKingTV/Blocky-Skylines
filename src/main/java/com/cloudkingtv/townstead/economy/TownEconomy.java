@@ -182,8 +182,7 @@ public final class TownEconomy {
     }
 
     private static void tell(ServerLevel level, City city, Component message, boolean ok) {
-        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(city.owner());
-        if (owner != null) RoadEditor.notify(owner, message, ok);
+        for (ServerPlayer mayor : city.mayorsOnline(level.getServer())) RoadEditor.notify(mayor, message, ok);
     }
 
     private TownEconomy() {}

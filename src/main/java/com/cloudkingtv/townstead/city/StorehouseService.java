@@ -26,7 +26,7 @@ public final class StorehouseService {
         if (!level.getBlockState(pos).is(TownsteadRegistry.TOWN_STOREHOUSE.get())) return Optional.empty();
         if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > REACH * REACH) return Optional.empty();
         Optional<City> city = CityManager.get(level.getServer()).at(level, pos);
-        if (city.isEmpty() || !city.get().owner().equals(player.getUUID())) {
+        if (city.isEmpty() || !city.get().isMayor(player.getUUID())) {
             player.sendOverlayMessage(Component.translatable("message.townstead.storehouse.not_yours"));
             return Optional.empty();
         }

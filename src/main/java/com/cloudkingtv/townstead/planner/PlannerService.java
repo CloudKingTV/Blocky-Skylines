@@ -32,10 +32,10 @@ public final class PlannerService {
         if (isPlanning(player)) return;
         ServerLevel level = player.level();
         CityManager cities = CityManager.get(level.getServer());
-        // Planner opens on the town you stand in, else the town you run.
+        // Planner opens on the town you stand in, else the town you run (as mayor or co-mayor).
         Optional<City> city = cities.at(level, player.blockPosition())
-                .filter(c -> c.owner().equals(player.getUUID()))
-                .or(() -> cities.ownedBy(player.getUUID()).filter(c -> c.dimension().equals(level.dimension())));
+                .filter(c -> c.isMayor(player.getUUID()))
+                .or(() -> cities.runBy(player.getUUID()).filter(c -> c.dimension().equals(level.dimension())));
         if (city.isEmpty()) {
             player.sendOverlayMessage(Component.translatable("message.townstead.planner.no_town"));
             return;

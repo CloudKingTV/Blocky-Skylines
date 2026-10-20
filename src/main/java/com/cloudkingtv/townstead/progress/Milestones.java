@@ -26,8 +26,7 @@ public final class Milestones {
 
     static void reach(ServerLevel level, City city, Milestone m) {
         CityManager.get(level.getServer()).reachMilestone(level.getServer(), city, m.ordinal(), m.reward * TownEconomy.EMERALD);
-        ServerPlayer owner = level.getServer().getPlayerList().getPlayer(city.owner());
-        if (owner != null) {
+        for (ServerPlayer owner : city.mayorsOnline(level.getServer())) {
             owner.connection.send(new ClientboundSetTitleTextPacket(m.displayName()));
             owner.connection.send(new ClientboundSetSubtitleTextPacket(Component.translatable("milestone.townstead.subtitle", city.name(), m.reward)));
             level.playSound(null, owner.blockPosition(), SoundEvents.UI_TOAST_CHALLENGE_COMPLETE, SoundSource.PLAYERS, 1f, 1f);

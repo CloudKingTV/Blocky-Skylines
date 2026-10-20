@@ -62,6 +62,22 @@ public final class CityManager extends SavedData {
         return cities.values().stream().filter(c -> c.owner.equals(player)).findFirst();
     }
 
+    /** The town a player runs as mayor, else one they help run as co-mayor. */
+    public Optional<City> runBy(UUID player) {
+        return ownedBy(player).or(() -> cities.values().stream().filter(c -> c.coMayors.containsKey(player)).findFirst());
+    }
+
+    public void addCoMayor(MinecraftServer server, City city, UUID player, String name) {
+        city.coMayors.put(player, name);
+        changed(server);
+    }
+
+    public boolean removeCoMayor(MinecraftServer server, City city, UUID player) {
+        boolean had = city.coMayors.remove(player) != null;
+        if (had) changed(server);
+        return had;
+    }
+
     public Optional<City> byTownHall(ServerLevel level, BlockPos pos) {
         return cities.values().stream()
                 .filter(c -> c.dimension.equals(level.dimension()) && c.townHall.equals(pos))
