@@ -67,6 +67,14 @@ public final class CityManager extends SavedData {
         return ownedBy(player).or(() -> cities.values().stream().filter(c -> c.coMayors.containsKey(player)).findFirst());
     }
 
+    /** Hands the town to a new mayor (who stops being a co-mayor if they were one). */
+    public void setOwner(MinecraftServer server, City city, UUID player, String name) {
+        city.owner = player;
+        city.ownerName = name;
+        city.coMayors.remove(player);
+        changed(server);
+    }
+
     public void addCoMayor(MinecraftServer server, City city, UUID player, String name) {
         city.coMayors.put(player, name);
         changed(server);

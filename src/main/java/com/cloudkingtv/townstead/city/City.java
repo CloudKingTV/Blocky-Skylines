@@ -65,7 +65,7 @@ public final class City {
 
     final UUID id;
     String name;
-    final UUID owner;
+    UUID owner;
     String ownerName;
     final ResourceKey<Level> dimension;
     final BlockPos townHall;
@@ -119,6 +119,11 @@ public final class City {
     public UUID id() { return id; }
     public String name() { return name; }
     public UUID owner() { return owner; }
+
+    /** The owner of a town with no mayor yet (a prepared world): the first player to join without a town takes it. */
+    public static final UUID UNCLAIMED = new UUID(0, 0);
+
+    public boolean unclaimed() { return UNCLAIMED.equals(owner); }
     public String ownerName() { return ownerName; }
     /** Co-mayors by id, with their names. */
     public Map<UUID, String> coMayors() { return java.util.Collections.unmodifiableMap(coMayors); }

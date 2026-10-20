@@ -653,5 +653,9 @@
   "job.townstead.shepherd": "Shepherd",
   "job.townstead.woodcutter": "Woodcutter",
   "happy.townstead.garden_town": "Garden Town",
-  "happy.townstead.old_town": "Old Town charm"
+  "happy.townstead.old_town": "Old Town charm",
+  "message.townstead.claimed": "You are now the mayor of %s. Press M to open the planner.",
+  "message.townstead.not_in_town": "Stand in a town to do that.",
+  "message.townstead.already_mayor": "%s already runs a town.",
+  "message.townstead.transferred": "%s now belongs to %s."
 }

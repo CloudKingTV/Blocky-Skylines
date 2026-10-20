@@ -41,6 +41,8 @@ public final class TownsteadCommands {
                                 })
                                 .executes(TownsteadCommands::removeCoMayor)))
                         .executes(TownsteadCommands::listCoMayors))
+                .then(Commands.literal("transfer").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS))
+                        .then(Commands.argument("player", EntityArgument.player()).executes(TownsteadCommands::transfer)))
                 .then(Commands.literal("ignite").requires(Commands.hasPermission(Commands.LEVEL_GAMEMASTERS)).executes(TownsteadCommands::ignite))
                 .then(Commands.literal("rename")
                         .then(Commands.argument("name", StringArgumentType.greedyString())
@@ -86,6 +88,20 @@ public final class TownsteadCommands {
                 () -> new SimpleCommandExceptionType(Component.translatable("message.townstead.planner.no_town")).create());
         ctx.getSource().sendSuccess(() -> Component.translatable("comayor.townstead.list", city.name(), city.ownerName(),
                 city.coMayors().isEmpty() ? Component.translatable("comayor.townstead.none") : Component.literal(String.join(", ", city.coMayors().values()))), false);
+        return 1;
+    }
+
+    /** Hands the town you stand in to another player (operators: for towns whose mayor is gone). */
+    private static int transfer(CommandContext<CommandSourceStack> ctx) throws CommandSyntaxException {
+        ServerPlayer player = ctx.getSource().getPlayerOrException(), to = EntityArgument.getPlayer(ctx, "player");
+        City city = CityManager.get(ctx.getSource().getServer()).at(player.level(), player.blockPosition()).orElseThrow(
+                () -> new SimpleCommandExceptionType(Component.translatable("message.townstead.not_in_town")).create());
+        if (CityManager.get(ctx.getSource().getServer()).ownedBy(to.getUUID()).isPresent()) {
+            throw new SimpleCommandExceptionType(Component.translatable("message.townstead.already_mayor", to.getName())).create();
+        }
+        CityManager.get(ctx.getSource().getServer()).setOwner(ctx.getSource().getServer(), city, to.getUUID(), to.getName().getString());
+        ctx.getSource().sendSuccess(() -> Component.translatable("message.townstead.transferred", city.name(), to.getName()), true);
+        to.sendSystemMessage(Component.translatable("message.townstead.claimed", city.name()));
         return 1;
     }
 

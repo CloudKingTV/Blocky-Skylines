@@ -26,7 +26,16 @@ public final class TownsteadEvents {
         // Left mid-plan last session: put the body back where it was.
         PlannerReturn back = player.getData(TownsteadRegistry.PLANNER_RETURN);
         if (back.active()) PlannerService.restore(player, back);
-        PacketDistributor.sendToPlayer(player, CityManager.get(player.level().getServer()).snapshot());
+        // A prepared world's town with no mayor yet goes to the first player who has none.
+        CityManager cities = CityManager.get(player.level().getServer());
+        if (cities.runBy(player.getUUID()).isEmpty()) {
+            cities.all().stream().filter(com.cloudkingtv.townstead.city.City::unclaimed).findFirst().ifPresent(city -> {
+                cities.setOwner(player.level().getServer(), city, player.getUUID(), player.getName().getString());
+                player.sendSystemMessage(net.minecraft.network.chat.Component.translatable("message.townstead.claimed", city.name())
+                        .withStyle(net.minecraft.ChatFormatting.GOLD));
+            });
+        }
+        PacketDistributor.sendToPlayer(player, cities.snapshot());
         RoadEditor.syncTo(player);
         PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
     }

@@ -253,7 +253,9 @@ slower.
 33. **Co-mayors.** `/townstead comayor add <player>` lets a friend help run your town: they open
     the planner on it, build, zone, set policies and budgets, use the storehouse and get the town's
     news. Loans, the treasury, the town's name and co-mayors stay with you. `/townstead comayor
-    remove <name>` and `/townstead comayor` (list).
+    remove <name>` and `/townstead comayor` (list). Operators can hand the town they stand in to another
+    player with `/townstead transfer <player>` (for towns whose mayor is gone), and a prepared
+    world's unclaimed town goes to the first player who joins without one.
 34. **Jungle and swamp towns.** Lots in jungles build in jungle and bamboo timber under bamboo
     roofs with mossy stone; lots in swamps and mangroves in mangrove timber on mud-brick footings.
 
