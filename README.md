@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 6 complete (traffic, coach lines, carts and citizens on the streets)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 7 complete (districts and policies, specialisations, fires, monuments, co-mayors, jungle and swamp towns, milestones to Megalopolis)**
 
 ## Playing (current build)
 
@@ -179,6 +179,13 @@ slower.
     | Boom Town | 200 | 150 | +3 | offices; watermill; Clock Tower |
     | Busy Town | 350 | 250 | +4 | Chapel |
     | Big Town | 550 | 400 | +6 | |
+    | Small City | 800 | 600 | +6 | Great Library |
+    | Big City | 1100 | 800 | +6 | |
+    | Grand City | 1500 | 1000 | +8 | Cathedral |
+    | Capital City | 2000 | 1300 | +8 | |
+    | Colossal City | 2600 | 1600 | +10 | |
+    | Metropolis | 3300 | 2000 | +10 | Castle Keep |
+    | Megalopolis | 4000 | 3000 | +12 | |
 
     The server setting `unlockAll` opens everything from the start.
 21. **Buying land** (Land tool, ninth button). Tiles your town may buy are outlined in gold:
@@ -218,8 +225,39 @@ slower.
     right-click to hear who they are, where they live and work, how happy they are and what's on
     their mind.
 
-Breaking the Town Hall disbands the town. Phase 7 (districts and policies, specialisations,
-disasters, monuments) is next. See the roadmap.
+28. **Districts** (Districts tool, eleventh button). **1** starts a new district and **2** paints
+    more cells into the selected one (drag, like zoning), **3** erases, **4** selects. Each district
+    gets a name and colour, shown on the map while the tool is open. Selecting one opens its panel:
+    size and people, its specialisation and its own policies.
+29. **Policies.** **P** opens the town's policies; a district's panel sets its own on top. Clean
+    Hearths (less smoke and fewer fires from workshops), Quiet Nights (quieter, a little less shop
+    tax), Market Days (busier shops), Lantern Streets and Garden Town (land value, happier homes),
+    Old Town (charm instead of growth past level 2), Craftsmen's Relief (half tax for workshops),
+    Evening Classes (schooling for every home) and Free Coaches (town-wide: no fares, more riders).
+    Some cost a little each day; the budget shows them on a *Policies* line.
+30. **Specialisations.** In a district's panel, make its industry **Farming** (barns, crop fields,
+    granaries: almost no pollution) or **Forestry** (saw sheds, log stacks, saplings), or its shops
+    **Leisure** (taverns with beer gardens: louder, more tax). New lots there grow in that shape,
+    and their workers are farmers, woodcutters, sawyers, innkeepers.
+31. **Fires.** From Tiny Town on, buildings now and then catch fire: smoke you can see from the
+    planner, flames at the windows, the bell ringing and residents posting about it. Inside a fire
+    station's reach the brigade puts it out; outside, the building burns to a charred shell and the
+    fire can spread next door. Shells stand empty until the area is doing well, then are rebuilt from
+    the storehouse. Workshops, lumber yards and taverns burn more easily. The server setting
+    `fires` turns them off; `/townstead ignite` (operators) starts one for testing.
+32. **City milestones and monuments.** The milestones go on past Big Town to **Megalopolis** at
+    4000 people (table above). Three of them unlock **monuments**, the grandest landmarks: the
+    **Great Library** (schools every home in its reach), the **Cathedral** (pilgrims fill the
+    shops) and the **Castle Keep** (its garrison guards the town and fights fires across a huge
+    reach). Each raises land value and happiness for a long way around.
+33. **Co-mayors.** `/townstead comayor add <player>` lets a friend help run your town: they open
+    the planner on it, build, zone, set policies and budgets, use the storehouse and get the town's
+    news. Loans, the treasury, the town's name and co-mayors stay with you. `/townstead comayor
+    remove <name>` and `/townstead comayor` (list).
+34. **Jungle and swamp towns.** Lots in jungles build in jungle and bamboo timber under bamboo
+    roofs with mossy stone; lots in swamps and mangroves in mangrove timber on mud-brick footings.
+
+Breaking the Town Hall disbands the town.
 
 ## Screenshots (from the headless playtests)
 

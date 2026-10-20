@@ -263,7 +263,7 @@ skill).
 | **4. People & money** | Households, jobs, education, happiness, land value/pollution/noise fields, leveling, taxes/budget/upkeep/loans | A balanced town grows, levels up and pays its bills |
 | **5. Progression** | Milestones, unlocks, tile purchase, Chirps feed, first unique buildings | Hit "Worthy Village" and unlock a second tile (districts moved to Phase 7) |
 | **6. Living city** | Ambient citizen NPCs, visual traffic, bus lines (coach lines), traffic flow model and info view | Walk your streets among citizens while coaches run routes |
-| **7. Depth** | Districts and policies, specializations, disasters, monuments, multiplayer roles, more styles | A full play-through to "Megalopolis" |
+| **7. Depth** | Districts and policies, specializations, disasters (fires), monuments, multiplayer roles (co-mayors), more styles (jungle, swamp) | A full play-through to "Megalopolis" (§18) |
 
 **MVP / vertical slice = Phases 0–3 plus a minimal Phase 5** ("Little Hamlet" to "Worthy
 Village"). That's the smallest thing that *feels* like Cities: Skylines in Minecraft.
@@ -540,3 +540,75 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   (or school, retirement, job hunting) and mood with their home's biggest complaint or joy.
 - **Deferred:** pedestrian trips and walking in the model, service vehicles, minecart metro,
   per-lane junction behaviour.
+
+## 18. Phase 7 as built (depth)
+
+- **Districts** (`district.District`, `district.DistrictEditor`): up to 16 named, coloured regions
+  painted cell by cell with the Districts tool (new / paint / erase / select). A cell belongs to
+  at most one district; painting over another district moves the cell. Each gets a village-style name
+  (Millbrook, Ashcroft, Kingsgate...). Selecting a district opens its panel: cells, people,
+  specialisation and its own policies; the district can be deleted there.
+- **Policies** (`district.Policy`): set for the whole town (**P**) or per district (the district's
+  setting adds to the town's). Each has a plain effect wired into the shared model, and some a
+  daily cost (a new *Policies* line in the budget):
+  Clean Hearths (workshop pollution ×0.5, fire risk ×0.7; 3 hundredths per workshop job),
+  Quiet Nights (shop and workshop noise ×0.6, shop tax ×0.9), Market Days (+15 commercial demand,
+  shops never short of customers, louder), Lantern Streets (land value +6; half a hundredth per
+  block of road), Garden Town (homes +3 happiness, land value +3; 1 hundredth per household),
+  Old Town (no growth past level 2, land value +8, homes +3), Craftsmen's Relief (workshop tax ×0.5,
+  +15 industrial demand), Evening Classes (every home counts as schooled; 2 hundredths per
+  adult), Free Coaches (town-wide only: no fares, coach share ×1.4).
+- **Specialisations** (`district.Specialization`): a district can make its industry *Farming*
+  (barns, fenced crop fields with water rows, a scarecrow, a granary at level 2; pollution ×0.15)
+  or *Forestry* (an open saw shed, log stacks, sapling rows on podzol, a charcoal kiln at level 2;
+  pollution ×0.6), and its shops *Leisure* (taverns with lantern-lit beer gardens; louder, tax
+  ×1.3). A lot takes its district's specialisation when its site opens (farms and lumber yards
+  prefer big lots) and keeps it. Workers get matching trades (farmer, shepherd, woodcutter, sawyer,
+  innkeeper, barkeep) and the citizens on the street dress for them.
+- **Fires** (`disaster.Fires`): checked at every review. A building outside any fire station's
+  reach catches fire about once per 1.2 million ticks at growth speed 1 (about one fire every 20
+  minutes in an unprotected town of 50 buildings); workshops ×2, shops ×1.2, forestry ×1.5,
+  leisure ×1.4, level 3 ×1.25, Clean Hearths ×0.7, inside a fire station's reach ×0.25. Fires
+  start only once fire stations are unlocked (Tiny Town), and the server setting `fires` turns them
+  off. A burning building smokes (seen from the planner), flames lick from its walls, the bell
+  rings, and residents chirp. Inside a station's reach the brigade puts it out after 900 ticks
+  (less with a bigger fire budget); outside it, the building burns down after 2400 ticks and the
+  fire may jump to the nearest neighbour within 13 blocks. A burned building is a charred shell
+  (roof and timber gone, posts turned to basalt, lower walls blackened, embers smouldering), stands
+  abandoned and is rebuilt like any abandoned building once its area is healthy, paying for the
+  new blocks from the storehouse. Drawn with particles, never real fire blocks, so nothing
+  spreads beyond the town's own buildings. `/townstead ignite` (operators) lights the nearest one.
+- **City milestones to Megalopolis:** Small City (800 people, 600 emeralds, +6 tiles, unlocks the
+  Great Library), Big City (1100, 800, +6), Grand City (1500, 1000, +8, the Cathedral), Capital
+  City (2000, 1300, +8), Colossal City (2600, 1600, +10), Metropolis (3300, 2000, +10, the Castle
+  Keep), Megalopolis (4000, 3000, +12). The milestone panel scrolls to keep the current ones in
+  view.
+- **Monuments** (`ServiceType.monument()`): unique landmarks with town-wide effects, land value
+  +30 and happiness +10 in reach.
+  - *Great Library* (2×2, reach 140, Education): a stone hall with a columned portico, galleries
+    of books round an open reading room under a lantern cupola; every home in reach counts as
+    schooled.
+  - *Cathedral* (3×3, reach 180, Parks): a cruciform nave and transept with a slate roof, two west
+    towers with belfries and spires, a crossing spire, a rose window, stained-glass lancets and
+    flying buttresses; pilgrims add +12 commercial demand.
+  - *Castle Keep* (3×3, reach 200, Police): curtain walls with battlements, four corner towers, a
+    gatehouse with a portcullis and a four-storey keep flying the town's banner; its garrison
+    counts as guard house and fire station coverage everywhere in reach.
+- **Co-mayors** (multiplayer roles): `/townstead comayor add <player>` (mayor only), `remove
+  <name>`, and `/townstead comayor` to list. Co-mayors open the planner on the town and can do
+  everything there (roads, zoning, services, districts, policies, taxes and budgets, lines), use
+  the storehouse, and get the town's news, chirps and milestone titles. Loans, withdrawing from
+  the treasury, renaming and naming co-mayors stay with the mayor.
+- **More styles:** *jungle* (jungle and bamboo timber, bamboo-mosaic or jungle roofs, mossy
+  stone, bamboo fences, jungle trees, jungle villagers) and *swamp* (mangrove timber, mud-brick
+  footings and chimneys, dark and mangrove roofs, orchids, swamp villagers), chosen from the
+  biome like the others.
+- **Scale:** a synthetic Megalopolis (4000 people, 680 buildings, a 20×20 junction grid of 760
+  segments) used to take 1.5 s to model. Now trips are routed one shortest-path tree per origin
+  per round over array-indexed junctions with per-segment time arrays, the nearest road to a
+  building is looked up in a 16-block spatial index, and each town's road columns are worked out
+  once per change to the network: 0.15 s with identical results. The server keeps a town's model
+  while its buildings, roads and plans are unchanged (up to 100 ticks) and the planner no longer
+  recomputes it for every block laid, so a big town costs a model every few seconds at most.
+- **Deferred:** other disasters (floods, storms), district-level budgets and taxes, per-district
+  info views, more monuments, a co-mayor list in the planner.
