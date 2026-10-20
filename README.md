@@ -261,6 +261,21 @@ Breaking the Town Hall disbands the town.
 
 ## Screenshots (from the headless playtests)
 
+Phase 7: a district with its specialisation and policies, the town's policies, the budget's
+new Policies line, the milestone ladder, a fire seen from the planner and from the street, the
+burned shell and the same house rebuilt, the three monuments, a farm and a tavern grown in
+specialised districts, and jungle and swamp houses. More in the [gallery](docs/gallery/README.md).
+
+| | |
+|---|---|
+| ![A district: Farming, Clean Hearths, Market Days, Garden Town](docs/screenshots/phase7-district.png) | ![The town's policies, with a description](docs/screenshots/phase7-town-policies.png) |
+| ![Budget with the Policies line](docs/screenshots/phase7-budget.png) | ![Milestones, current ones in view](docs/screenshots/phase7-milestones.png) |
+| ![Fire! The Cottage is burning: icon, notice and a resident's chirp](docs/screenshots/phase7-fire.png) | ![A shop on fire inside a fire station's reach](docs/screenshots/phase7-fire-street.png) |
+| ![Burned out: basalt posts, blackened walls, embers, roof fallen in](docs/screenshots/phase7-burned.png) | ![The same cottage rebuilt](docs/screenshots/phase7-rebuilt.png) |
+| ![Great Library, Cathedral and Castle Keep](docs/screenshots/phase7-monuments.png) | ![The Castle Keep from above](docs/screenshots/phase7-castle-keep.png) |
+| ![A farm in a Farming district](docs/screenshots/phase7-farm.png) | ![A tavern in a Leisure district](docs/screenshots/phase7-tavern.png) |
+| ![A jungle shop: bamboo roof, jungle timber](docs/screenshots/phase7-jungle.png) | ![A swamp cottage: mangrove timber, mud brick](docs/screenshots/phase7-swamp.png) |
+
 Phase 6: a jammed lane in the traffic info view and the same town after a second street,
 drawing a coach line and the line on the map, a coach with its
 passengers, a hay cart, a stop by the road, the budget with fares and a Transport line, and a
