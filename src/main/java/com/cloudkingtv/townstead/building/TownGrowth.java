@@ -230,7 +230,70 @@ public final class TownGrowth {
         ys = Arrays.copyOf(ys, i);
         Arrays.sort(ys);
         if (ys[i - 1 - i / 8] - ys[i / 8] > MAX_SLOPE) return null;
-        return ys[i / 2] + 1;
+        int ground = ys[i / 2] + 1;
+        // Level with the road it faces where the ground allows, so the front path meets the road flush.
+        Integer road = roadLevel(cells, roads);
+        return road != null && Math.abs(road + 1 - ground) <= MAX_SLOPE ? road + 1 : ground;
+    }
+
+    /** The surface height of the road beside a lot (median of its columns within a few blocks), or null if none. */
+    private static @Nullable Integer roadLevel(List<Long> cells, Map<Long, RoadRaster.Cell> roads) {
+        List<Integer> ys = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (long cell : cells) {
+            int cx = RoadRaster.keyX(cell) * 8, cz = RoadRaster.keyZ(cell) * 8;
+            for (int x = cx - 3; x < cx + 11; x++) for (int z = cz - 3; z < cz + 11; z++) {
+                long k = RoadRaster.key(x, z);
+                RoadRaster.Cell c = roads.get(k);
+                if (c != null && seen.add(k)) ys.add(c.y());
+            }
+        }
+        if (ys.isEmpty()) return null;
+        ys.sort(null);
+        return ys.get(ys.size() / 2);
+    }
+
+    /**
+     * Eases the ground just outside a levelled lot back to the natural terrain over a few blocks, so a lot cut into a
+     * slope or raised above it has a bank instead of a cliff. Only natural ground is touched: never roads, other
+     * lots, trees or anything built.
+     */
+    private static void blendEdges(ServerLevel level, Building b, LandData land, Map<Long, RoadRaster.Cell> roads) {
+        int x0 = Integer.MAX_VALUE, z0 = Integer.MAX_VALUE, x1 = Integer.MIN_VALUE, z1 = Integer.MIN_VALUE;
+        for (long k : b.cellKeys()) {
+            x0 = Math.min(x0, RoadRaster.keyX(k) * 8); z0 = Math.min(z0, RoadRaster.keyZ(k) * 8);
+            x1 = Math.max(x1, RoadRaster.keyX(k) * 8 + 7); z1 = Math.max(z1, RoadRaster.keyZ(k) * 8 + 7);
+        }
+        final int reach = 3, lot = b.baseY - 1;
+        for (int x = x0 - reach; x <= x1 + reach; x++) for (int z = z0 - reach; z <= z1 + reach; z++) {
+            int d = Math.max(Math.max(x0 - x, x - x1), Math.max(z0 - z, z - z1));
+            if (d <= 0 || roads.containsKey(RoadRaster.key(x, z))) continue;
+            Building other = land.buildingAt(ZoneRules.cellKey(Math.floorDiv(x, 8), Math.floorDiv(z, 8)));
+            if (other != null && other != b) continue;
+            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) - 1;
+            BlockPos tp = new BlockPos(x, top, z);
+            if (!natural(level.getBlockState(tp)) || Math.abs(top - lot) > 6) continue;
+            int target = (int) Math.round(lot + (top - lot) * (d / (double) (reach + 1)));
+            if (target == top) continue;
+            if (top > target) {
+                boolean allNatural = true;
+                for (int y = target + 1; y <= top; y++) if (!natural(level.getBlockState(new BlockPos(x, y, z)))) allNatural = false;
+                if (!allNatural) continue;
+                for (int y = top; y > target; y--) level.setBlock(new BlockPos(x, y, z), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+            } else {
+                for (int y = top; y < target; y++) level.setBlock(new BlockPos(x, y, z), Blocks.DIRT.defaultBlockState(), Block.UPDATE_CLIENTS);
+            }
+            level.setBlock(new BlockPos(x, target, z), Blocks.GRASS_BLOCK.defaultBlockState(), Block.UPDATE_CLIENTS);
+            BlockPos above = new BlockPos(x, target + 1, z);
+            if (level.getBlockState(above).canBeReplaced() && !level.getBlockState(above).isAir()) level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+        }
+    }
+
+    /** Ground the world made: earth, stone, sand, snow and the plants on them. */
+    private static boolean natural(BlockState s) {
+        return s.is(BlockTags.DIRT) || s.is(Blocks.GRASS_BLOCK) || s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(BlockTags.SAND)
+                || s.is(Blocks.GRAVEL) || s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.CLAY) || s.is(Blocks.DIRT_PATH)
+                || s.is(BlockTags.SMALL_FLOWERS) || s.is(Blocks.SHORT_GRASS) || s.is(Blocks.TALL_GRASS) || s.is(Blocks.FERN);
     }
 
     /**
@@ -319,6 +382,7 @@ public final class TownGrowth {
             CityManager.get(level.getServer()).editStockQuiet(city, stock -> felled.forEach((item, n) -> Stock.add(stock, item, n)));
         }
         SITE_ROADS.put(b.id, siteRoads);
+        blendEdges(level, b, land, roads);
         verge(level, plan, front, roads);
         land.putBuilding(b);
         markDirty();

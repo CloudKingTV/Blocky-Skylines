@@ -120,6 +120,12 @@ public final class BuildingGenerator {
         private final java.util.Set<Long> doorways = new java.util.HashSet<>();
         final List<BlockPos> scaffold = new ArrayList<>();
         int households, jobs;
+        /** Rooms the walls enclose: {x0, z0, x1, z1, y0, storeys, open (1: no floors inside, like a nave)}. */
+        final List<int[]> rooms = new ArrayList<>();
+        /** Standing spots kept clear for stairs and landings: key(x, y, z). */
+        private final java.util.Set<Long> keepClear = new java.util.HashSet<>();
+        /** Whether finishing fills the rooms with stairs and furniture (bespoke landmarks do their own). */
+        boolean furnish = true;
 
         Canvas(Building b, int level) {
             this.b = b;
@@ -263,6 +269,7 @@ public final class BuildingGenerator {
             }
             int top = y0 + storeys * STOREY - 1;
             masses.add(new int[] {box.x0, box.z0, box.x1, box.z1, top});
+            rooms.add(new int[] {box.x0, box.z0, box.x1, box.z1, y0, storeys, floor.isAir() ? 1 : 0});
             return top;
         }
 
@@ -316,6 +323,8 @@ public final class BuildingGenerator {
             for (int side = -1; side <= 1; side += 2) {
                 int px = x + dx + sx * side, pz = z + dz + sz * side;
                 if (has(px, y, pz)) continue;
+                // Never across a doorway: the shutter beside a window next to the door would hang in front of it.
+                if (doorways.contains(key(px - dx, 0, pz - dz)) || doorways.contains(key(px - dx, y - 1, pz - dz))) continue;
                 put(px, y, pz, t.defaultBlockState().setValue(TrapDoorBlock.FACING, out).setValue(TrapDoorBlock.OPEN, true)
                         .setValue(TrapDoorBlock.HALF, Half.TOP), FIT);
             }
@@ -589,7 +598,204 @@ public final class BuildingGenerator {
             put(x, y, z, facing(Blocks.WALL_BANNER.pick(colour), out), FIT);
         }
 
+        // ---------------------------------------------------------------- inside
+
+        /**
+         * Makes every room liveable: a floor under each upper storey, a staircase (or a ladder where there's no room
+         * for one) between storeys, and furniture by kind along the walls, clear of doors, stairs and landings.
+         */
+        void furnishRooms() {
+            BlockState floor = p.floor().defaultBlockState();
+            for (int[] r : rooms) {
+                if (r[6] == 1) continue;
+                Box box = new Box(r[0], r[1], r[2], r[3]);
+                if (box.w() < 4 || box.d() < 4) continue;
+                if (r[4] > 0) {
+                    // An upper storey built as its own box (a jettied floor): floor it, and a way up from the room below.
+                    for (int[] o : rooms) {
+                        if (o == r || o[6] == 1 || o[4] + o[5] * STOREY != r[4]) continue;
+                        Box shared = new Box(Math.max(r[0], o[0]), Math.max(r[1], o[1]), Math.min(r[2], o[2]), Math.min(r[3], o[3]));
+                        if (shared.w() < 4 || shared.d() < 4) continue;
+                        for (int x = box.x0 + 1; x < box.x1; x++) for (int z = box.z0 + 1; z < box.z1; z++) soft(x, r[4] - 1, z, floor, FRAME);
+                        climb(shared, r[4] - STOREY);
+                        break;
+                    }
+                }
+                for (int st = 1; st < r[5]; st++) climb(box, r[4] + (st - 1) * STOREY);
+            }
+            for (int[] r : rooms) {
+                if (r[6] == 1) continue;
+                Box box = new Box(r[0], r[1], r[2], r[3]);
+                if (box.w() < 4 || box.d() < 4) continue;
+                boolean roomAbove = false;
+                for (int[] o : rooms) {
+                    if (o != r && o[6] == 0 && o[4] == r[4] + r[5] * STOREY && o[0] <= r[2] && o[2] >= r[0] && o[1] <= r[3] && o[3] >= r[1]) roomAbove = true;
+                }
+                for (int st = 0; st < r[5]; st++) furnishStorey(box, r[4] + st * STOREY, r[4] + st * STOREY == 0, st == r[5] - 1 && !roomAbove);
+            }
+        }
+
+        /** Free for something to stand: nothing planned there or just above. */
+        private boolean clear(int x, int y, int z) {
+            return !has(x, y, z) && !has(x, y + 1, z) && !keepClear.contains(key(x, y, z));
+        }
+
+        /** Planned empty, or only the floor of the storey above (which a stairwell may cut). */
+        private boolean openOrFloor(int x, int y, int z, BlockState floor) {
+            BlockState s = get(x, y, z);
+            return s == null || s.isAir() || s == floor;
+        }
+
+        /** The inside spot just through a doorway at this standing level, or none. */
+        private boolean byDoor(Box box, int x, int y, int z) {
+            for (int[] d : new int[][] {{-1, 0}, {1, 0}, {0, -1}, {0, 1}}) {
+                if (doorways.contains(key(x + d[0], y, z + d[1])) && box.edge(x + d[0], z + d[1])) return true;
+            }
+            return false;
+        }
+
+        /** Stairs from {@code base} up to the storey above, along a back or side wall; a ladder in a corner if they don't fit. */
+        void climb(Box box, int base) {
+            BlockState floor = p.floor().defaultBlockState();
+            int ix0 = box.x0 + 1, ix1 = box.x1 - 1, iz0 = box.z0 + 1, iz1 = box.z1 - 1;
+            // Runs: start x, start z, step x, step z (up the stairs), back wall first.
+            int[][] runs = {{ix0, iz1, 1, 0}, {ix1, iz1, -1, 0}, {ix0, iz1, 0, -1}, {ix1, iz1, 0, -1}, {ix0, iz0, 0, 1}, {ix1, iz0, 0, 1}};
+            for (int[] run : runs) {
+                int sx = run[0], sz = run[1], dx = run[2], dz = run[3];
+                int lx = sx + 4 * dx, lz = sz + 4 * dz;
+                if (!box.contains(lx, lz) || box.edge(lx, lz)) continue;
+                // Step on from the end of the run, or from the room side of the first step (a stair takes either).
+                int ax = sx - dx, az = sz - dz;
+                if (box.edge(ax, az) || !box.contains(ax, az)) {
+                    int ix = Integer.signum(box.cx() - sx), iz = Integer.signum(box.cz() - sz);
+                    ax = sx + (dx == 0 ? ix : 0);
+                    az = sz + (dz == 0 ? iz : 0);
+                }
+                if (!box.contains(ax, az) || box.edge(ax, az)) continue;
+                boolean ok = clear(ax, base, az) && !byDoor(box, ax, base, az) && clear(lx, base + STOREY, lz);
+                for (int k = 0; k < 4 && ok; k++) {
+                    int x = sx + k * dx, z = sz + k * dz;
+                    if (box.edge(x, z) || byDoor(box, x, base, z)) { ok = false; break; }
+                    for (int y = base + k; y <= base + k + 2 && ok; y++) {
+                        if (y == base + 3 ? !openOrFloor(x, y, z, floor) : has(x, y, z)) ok = false;
+                    }
+                    if (keepClear.contains(key(x, base, z))) ok = false;
+                }
+                if (!ok) continue;
+                Direction up = dir(dx, dz);
+                for (int k = 0; k < 4; k++) {
+                    int x = sx + k * dx, z = sz + k * dz;
+                    put(x, base + k, z, stairs(Style.stairsOf(p), up, false), FIT);
+                    if (k == 1 || k == 2) erase(x, base + 3, z);
+                    keepClear.add(key(x, base, z));
+                    keepClear.add(key(x, base + STOREY, z));
+                }
+                keepClear.add(key(ax, base, az));
+                keepClear.add(key(lx, base + STOREY, lz));
+                return;
+            }
+            // A ladder against a solid stretch of wall in a corner.
+            int[][] corners = {{ix0, iz1, 0, 1}, {ix1, iz1, 0, 1}, {ix0, iz0, -1, 0}, {ix1, iz0, 1, 0}, {ix0, iz1, -1, 0}, {ix1, iz1, 1, 0}};
+            for (int[] c : corners) {
+                int x = c[0], z = c[1], wx = x + c[2], wz = z + c[3];
+                boolean ok = !byDoor(box, x, base, z);
+                for (int y = base; y <= base + 3 && ok; y++) {
+                    if (y == base + 3 ? !openOrFloor(x, y, z, floor) : has(x, y, z)) ok = false;
+                    BlockState wall = get(wx, y, wz);
+                    if (wall == null || wall.isAir() || wall.is(Blocks.GLASS_PANE) || wall.getBlock() instanceof DoorBlock
+                            || !wall.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) ok = false;
+                }
+                if (!ok || keepClear.contains(key(x, base, z))) continue;
+                Direction away = dir(-c[2], -c[3]);
+                for (int y = base; y <= base + 3; y++) put(x, y, z, facing(Blocks.LADDER, away), FIT);
+                keepClear.add(key(x, base, z));
+                keepClear.add(key(x, base + STOREY, z));
+                keepClear.add(key(x - c[2], base, z - c[3]));
+                return;
+            }
+        }
+
+        /** Furniture for one storey: what a family, a shopkeeper, a craftsman or a clerk would have, along the walls. */
+        void furnishStorey(Box box, int base, boolean ground, boolean top) {
+            int ix0 = box.x0 + 1, ix1 = box.x1 - 1, iz0 = box.z0 + 1, iz1 = box.z1 - 1;
+            // Spots along the walls, each with the direction of its wall.
+            List<int[]> spots = new ArrayList<>();
+            for (int x = ix0; x <= ix1; x++) for (int z = iz0; z <= iz1; z++) {
+                int wx = x == ix0 ? -1 : x == ix1 ? 1 : 0, wz = z == iz0 ? -1 : z == iz1 ? 1 : 0;
+                if (wx == 0 && wz == 0) continue;
+                if (wx != 0 && wz != 0) wx = 0; // corners: against the front or back wall
+                if (!clear(x, base, z) || byDoor(box, x, base, z)) continue;
+                spots.add(new int[] {x, z, wx, wz});
+            }
+            java.util.Collections.shuffle(spots, new java.util.Random(b.seed * 31 + base * 7L + box.x0 * 13L + box.z0));
+            boolean home = b.zone.residential() || !ground && (b.zone == com.cloudkingtv.townstead.zone.ZoneType.COMMERCIAL || b.zone == com.cloudkingtv.townstead.zone.ZoneType.COMMERCIAL_HIGH);
+            List<BlockState> items = new ArrayList<>();
+            int beds = 0;
+            if (home) {
+                if (ground) items.addAll(List.of(facing(Blocks.FURNACE, front), Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.BARREL.defaultBlockState()));
+                if (!ground || top) {
+                    beds = Math.min(2, Math.max(1, households / Math.max(1, rooms.size())));
+                    items.addAll(List.of(Blocks.CHEST.defaultBlockState(), Blocks.BOOKSHELF.defaultBlockState(), Blocks.POTTED_POPPY.defaultBlockState()));
+                }
+            } else {
+                switch (b.zone) {
+                    case COMMERCIAL, COMMERCIAL_HIGH -> items.addAll(List.of(Blocks.BARREL.defaultBlockState(), Blocks.CHEST.defaultBlockState(),
+                            Blocks.BARREL.defaultBlockState(), Blocks.CHEST.defaultBlockState()));
+                    case INDUSTRIAL -> items.addAll(List.of(Blocks.CRAFTING_TABLE.defaultBlockState(), Blocks.BARREL.defaultBlockState(),
+                            Blocks.CHEST.defaultBlockState(), facing(Blocks.FURNACE, front), Blocks.BARREL.defaultBlockState()));
+                    case OFFICE -> items.addAll(List.of(Blocks.BOOKSHELF.defaultBlockState(), Blocks.LECTERN.defaultBlockState(),
+                            Blocks.BOOKSHELF.defaultBlockState(), Blocks.CARTOGRAPHY_TABLE.defaultBlockState(), Blocks.BOOKSHELF.defaultBlockState()));
+                    default -> items.addAll(List.of(Blocks.CHEST.defaultBlockState(), Blocks.BOOKSHELF.defaultBlockState(), Blocks.CRAFTING_TABLE.defaultBlockState()));
+                }
+            }
+            // Beds first (they need two spots in a line from the wall), then the rest; a lantern on the first barrel.
+            int placedBeds = 0;
+            for (int[] sp : spots) {
+                if (placedBeds >= beds) break;
+                int fx = sp[0] - sp[2], fz = sp[1] - sp[3];
+                if (sp[2] == 0 && sp[3] == 0 || !box.contains(fx, fz) || box.edge(fx, fz) || !clear(sp[0], base, sp[1]) || !clear(fx, base, fz)
+                        || byDoor(box, fx, base, fz)) continue;
+                Direction head = dir(sp[2], sp[3]);
+                BlockState bed = Blocks.BED.pick(BEDS[(int) Math.floorMod(b.seed + placedBeds, (long) BEDS.length)]).defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.BedBlock.FACING, head);
+                put(sp[0], base, sp[1], bed.setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.HEAD), FIT);
+                put(fx, base, fz, bed.setValue(net.minecraft.world.level.block.BedBlock.PART, net.minecraft.world.level.block.state.properties.BedPart.FOOT), FIT);
+                keepClear.add(key(fx - sp[2], base, fz - sp[3])); // room to get in
+                placedBeds++;
+            }
+            boolean lit = false;
+            int i = 0;
+            for (int[] sp : spots) {
+                if (i >= items.size()) break;
+                if (!clear(sp[0], base, sp[1])) continue;
+                BlockState item = items.get(i++);
+                Direction in = dir(-sp[2], -sp[3]);
+                if (item.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) item = item.setValue(BlockStateProperties.HORIZONTAL_FACING, in);
+                put(sp[0], base, sp[1], item, FIT);
+                if (!lit && (item.is(Blocks.BARREL) || item.is(Blocks.CHEST) || item.is(Blocks.CRAFTING_TABLE))) {
+                    put(sp[0], base + 1, sp[1], lantern(false), FIT);
+                    lit = true;
+                }
+            }
+            // A table with two chairs in the middle of a home's ground floor, if there's room to walk round it.
+            if (home && ground && ix1 - ix0 >= 3 && iz1 - iz0 >= 3) {
+                int tx = (ix0 + ix1 + 1) / 2, tz = (iz0 + iz1 + 1) / 2;
+                if (clear(tx, base, tz) && clear(tx - 1, base, tz) && clear(tx + 1, base, tz) && !byDoor(box, tx, base, tz)) {
+                    put(tx, base, tz, Style.fence(p).defaultBlockState(), FIT);
+                    put(tx, base + 1, tz, Blocks.OAK_PRESSURE_PLATE.defaultBlockState(), FIT);
+                    put(tx - 1, base, tz, stairs(Style.stairsOf(p), left, false), FIT);
+                    put(tx + 1, base, tz, stairs(Style.stairsOf(p), right, false), FIT);
+                }
+            }
+            if (!lit && !spots.isEmpty()) {
+                for (int[] sp : spots) if (clear(sp[0], base, sp[1])) { put(sp[0], base, sp[1], Blocks.BARREL.defaultBlockState(), FIT); put(sp[0], base + 1, sp[1], lantern(false), FIT); break; }
+            }
+        }
+
+        private static final DyeColor[] BEDS = {DyeColor.RED, DyeColor.BLUE, DyeColor.GREEN, DyeColor.YELLOW, DyeColor.WHITE, DyeColor.BROWN};
+
         Plan finish(String kind) {
+            if (furnish) furnishRooms();
             List<Map.Entry<BlockPos, BlockState>> entries = new ArrayList<>(states.entrySet());
             entries.removeIf(e -> e.getValue().isAir());
             entries.sort(java.util.Comparator.comparingInt((Map.Entry<BlockPos, BlockState> e) -> meta.get(e.getKey())[0])
@@ -771,11 +977,11 @@ public final class BuildingGenerator {
             BlockState floor = c.p.floor().defaultBlockState();
             int yard = deep >= 2 ? 1 : (c.D - c.zf >= 8 ? 2 : 1);
             int z0 = c.zf + yard, d = Math.min(deep >= 2 ? 6 : 5, c.D - z0 - 1);
-            int width = 5 + (lv >= 3 ? 1 : c.pick(2));
+            int width = lv >= 3 || c.pick(2) == 1 ? 7 : 5; // odd: the door and windows sit centred
             int x0 = (c.W - width) / 2 - (lv >= 2 && c.rng.nextBoolean() ? 1 : 0);
             Box main = new Box(x0, z0, x0 + width - 1, z0 + d - 1);
             boolean alongX = c.rng.nextFloat() < 0.6f;
-            int door = main.cx() + (width % 2 == 0 ? c.pick(2) : 0);
+            int door = main.cx();
             c.foundation(main, w.plinth(), floor);
             c.doorway(door, 0, main.z0);
             int storeys = lv >= 2 ? 2 : 1;
@@ -934,7 +1140,7 @@ public final class BuildingGenerator {
             if (c.b.wide >= 2 && c.b.deep >= 2) return courtyard(c);
             BlockState floor = c.p.floor().defaultBlockState();
             int units = c.b.wide >= 2 ? 3 : 1;
-            int unitW = c.b.wide >= 2 ? 5 : 6;
+            int unitW = c.b.wide >= 2 ? 5 : 7; // odd, so each front door is centred
             int x = (c.W - units * unitW) / 2;
             int z0 = c.zf + 1;
             int depth = Math.min(c.b.deep >= 2 ? 8 : 6, c.D - z0 - 1);
@@ -945,7 +1151,7 @@ public final class BuildingGenerator {
                 Box unit = new Box(x + u * unitW, z0 + (u == 1 ? 0 : c.pick(2)), x + (u + 1) * unitW - 1, z0 + depth - 1);
                 int storeys = Math.max(1, storeysBase - (u != 1 && c.rng.nextFloat() < 0.4f ? 1 : 0));
                 c.foundation(unit, w.plinth(), floor);
-                int door = unit.x0 + 1 + c.pick(unitW - 2);
+                int door = unit.cx();
                 c.doorway(door, 0, unit.z0);
                 int top = c.walls(unit, 0, storeys, w, floor);
                 int ridge = c.roof(unit, top, false, w.upper());
@@ -1047,6 +1253,7 @@ public final class BuildingGenerator {
 
         /** A few things inside so a lit window shows a home: a table, a barrel, a lantern, a bed of wool. */
         static void interior(Canvas c, Box box, int door) {
+            if (true) return; // the furnishing pass at finish now fills every room
             if (box.w() < 4 || box.d() < 4) return;
             c.put(box.x0 + 1, 0, box.z1 - 1, Blocks.CRAFTING_TABLE, FIT);
             c.put(box.x1 - 1, 0, box.z1 - 1, Blocks.BARREL.defaultBlockState(), FIT);
@@ -1568,6 +1775,7 @@ public final class BuildingGenerator {
     static final class Civic {
         static String build(Canvas c, ServiceType s) {
             c.jobs = s.jobs;
+            if (s.landmark()) c.furnish = false;
             return switch (s) {
                 case WINDMILL -> windmill(c);
                 case WATERMILL -> watermill(c);

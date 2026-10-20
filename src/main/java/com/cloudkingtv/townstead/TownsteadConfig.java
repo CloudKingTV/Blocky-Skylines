@@ -19,6 +19,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.edgeScroll")
             .define("edgeScroll", false);
 
+    public static final ModConfigSpec.BooleanValue SHOW_ADVISOR = CLIENT
+            .comment("Show the town advisor's tips in the planner (toggle with ? in the planner)")
+            .translation("townstead.configuration.showAdvisor")
+            .define("showAdvisor", true);
+
     public static final ModConfigSpec CLIENT_SPEC = CLIENT.build();
 
     private static final ModConfigSpec.Builder SERVER = new ModConfigSpec.Builder();

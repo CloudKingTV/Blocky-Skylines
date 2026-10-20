@@ -161,6 +161,8 @@ public class PlannerScreen extends Screen {
     /** Status icons over buildings (V toggles them, for a clear view of the town). */
     private static boolean showIcons = true;
     private boolean orbiting, showHelp, ctrlHeld;
+    /** H cycles: off, controls, tips for a good town. */
+    private int helpPage;
     private boolean flashOk = true;
     private boolean painting;
     /** The building whose panel is open, or -1; the panel's scroll offset in lines. */
@@ -226,7 +228,8 @@ public class PlannerScreen extends Screen {
         if (TownsteadKeys.PLANNER.matches(event)) { PlannerClient.requestExit(); return true; }
         if (key == InputConstants.KEY_ESCAPE) { cancelOrExit(); return true; }
         if (key == InputConstants.KEY_B) { pickTool(selectedTool == BULLDOZE ? INSPECT : BULLDOZE); return true; }
-        if (key == InputConstants.KEY_H) { showHelp = !showHelp; return true; }
+        if (key == InputConstants.KEY_H) { helpPage = (helpPage + 1) % 3; showHelp = helpPage > 0; return true; }
+        if (key == InputConstants.KEY_SLASH) { Advisor.toggle(); click(Advisor.shown() ? 1.2f : 0.8f); return true; }
         if (key == InputConstants.KEY_V) { showIcons = !showIcons; click(showIcons ? 1.2f : 0.8f); return true; }
         if (key == InputConstants.KEY_U) { MilestonePanel.open = !MilestonePanel.open; BudgetPanel.open = false; click(MilestonePanel.open ? 1.2f : 0.8f); return true; }
         if (key == InputConstants.KEY_L) { MilestonePanel.open = false; }
@@ -350,6 +353,7 @@ public class PlannerScreen extends Screen {
         if (BudgetPanel.click(event.x(), event.y())) return true;
         if (MilestonePanel.contains(event.x(), event.y())) return true;
         if (PolicyPanel.click(event.x(), event.y())) return true;
+        if (Advisor.click(event.x(), event.y())) { click(1.1f); return true; }
         for (Object[] hit : chirpHits) {
             int[] r = (int[]) hit[0];
             if (event.x() >= r[0] && event.x() < r[2] && event.y() >= r[1] && event.y() < r[3]) {
@@ -890,6 +894,7 @@ public class PlannerScreen extends Screen {
             else drawCursorInfo(g, city);
         }
         drawFlash(g, subCount() > 0 ? subY() : barY);
+        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, mouseX, mouseY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
         drawDistrictNames(g, city);
@@ -1047,9 +1052,11 @@ public class PlannerScreen extends Screen {
         if (hovered >= 0) {
             Tool tool = TOOLS.get(hovered);
             Component name = Component.translatable("tool.townstead." + tool.key());
-            g.setTooltipForNextFrame(font, tool.available() ? List.of(name.getVisualOrderText())
-                    : List.of(name.getVisualOrderText(), Component.translatable("tool.townstead.locked").getVisualOrderText()),
-                    mouseX, mouseY);
+            List<net.minecraft.util.FormattedCharSequence> tip = new ArrayList<>();
+            tip.add(name.getVisualOrderText());
+            for (var line : font.split(Component.translatable("tool.townstead." + tool.key() + ".desc").withStyle(net.minecraft.ChatFormatting.GRAY), 200)) tip.add(line);
+            if (!tool.available()) tip.add(Component.translatable("tool.townstead.locked").getVisualOrderText());
+            g.setTooltipForNextFrame(font, tip, mouseX, mouseY);
         }
     }
 
@@ -1135,6 +1142,19 @@ public class PlannerScreen extends Screen {
 
     /** One-line reminder that fades after a few seconds; H toggles the full control list. */
     private void drawHints(GuiGraphicsExtractor g) {
+        if (showHelp && helpPage == 2) {
+            List<Component> lines = new ArrayList<>();
+            lines.add(Component.translatable("guide.townstead.title").withStyle(net.minecraft.ChatFormatting.GOLD));
+            for (int i = 1; i <= 12; i++) lines.add(Component.translatable("guide.townstead." + i));
+            lines.add(Component.translatable("guide.townstead.more").withStyle(net.minecraft.ChatFormatting.GRAY));
+            List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
+            for (Component c : lines) wrapped.addAll(font.split(c, 300));
+            int w = 314, h = wrapped.size() * (font.lineHeight + 2) + 12;
+            int x = width - w - 6, y = TOP_BAR_H + 6;
+            g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
+            for (int i = 0; i < wrapped.size(); i++) g.text(font, wrapped.get(i), x + 7, y + 7 + i * (font.lineHeight + 2), 0xFFF2F2F2, true);
+            return;
+        }
         if (showHelp) {
             List<Component> lines = List.of(
                     Component.translatable("help.townstead.pan"), Component.translatable("help.townstead.rotate"),
@@ -1145,7 +1165,8 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.transport"),
                     Component.translatable("help.townstead.icons"),
                     Component.translatable("help.townstead.cancel"),
-                    Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.exit"));
+                    Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.advisor"),
+                    Component.translatable("help.townstead.next_page"), Component.translatable("help.townstead.exit"));
             int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
             int h = lines.size() * (font.lineHeight + 2) + 12;
             int x = width - w - 6, y = TOP_BAR_H + 6;
