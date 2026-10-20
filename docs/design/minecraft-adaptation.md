@@ -263,10 +263,23 @@ skill).
 | **4. People & money** | Households, jobs, education, happiness, land value/pollution/noise fields, leveling, taxes/budget/upkeep/loans | A balanced town grows, levels up and pays its bills |
 | **5. Progression** | Milestones, unlocks, tile purchase, Chirps feed, first unique buildings | Hit "Worthy Village" and unlock a second tile (districts moved to Phase 7) |
 | **6. Living city** | Ambient citizen NPCs, visual traffic, bus lines (coach lines), traffic flow model and info view | Walk your streets among citizens while coaches run routes |
-| **7. Depth** | Districts and policies, specializations, disasters (fires), monuments, multiplayer roles (co-mayors), more styles (jungle, swamp) | A full play-through to "Megalopolis" (§18) |
+| **7. Depth** | Districts and policies, specializations, disasters (fires), monuments, multiplayer roles (co-mayors), more styles (jungle, swamp) | Megalopolis reached by a synthetic town (§18); a played run moves to Phase 9 |
 
 **MVP / vertical slice = Phases 0–3 plus a minimal Phase 5** ("Little Hamlet" to "Worthy
 Village"). That's the smallest thing that *feels* like Cities: Skylines in Minecraft.
+
+### Road to release (Phases 8–12)
+
+Phases 0–7 built every system. These phases make it a game someone else can pick up, play
+for weeks and keep their world. Details in §19.
+
+| Phase | Deliverable | "Done" looks like |
+|---|---|---|
+| **8. Self-sufficient towns** | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
+| **9. Balance and a real play-through** | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
+| **10. Multiplayer and server** | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
+| **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
+| **12. Release** | Save versioning with migrations, upgrade tests from older saves, crash-free long soak, translation readiness, mod metadata, licence, icon, CI builds, changelog, Modrinth/CurseForge page text and screenshots | A 1.0 jar and page ready for the author to publish; worlds from 0.x load in 1.0 |
 
 ---
 
@@ -612,3 +625,66 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   recomputes it for every block laid, so a big town costs a model every few seconds at most.
 - **Deferred:** other disasters (floods, storms), district-level budgets and taxes, per-district
   info views, more monuments, a co-mayor list in the planner.
+
+
+## 19. Road to release: the plan for Phases 8–12
+
+### Phase 8: self-sufficient towns (closing the loop of §10)
+
+- **Production.** Every working industrial building produces into the town's storehouse once a
+  day (scaled by growth speed), in proportion to the jobs it has filled and its level:
+  lumber yards make logs (and planks once a sawmill stands at level 2), farms make hay and wool,
+  quarries make cobblestone and stone bricks (sandstone in the desert, terracotta in the
+  savanna). Ordinary workshops are *processors*: each takes raw materials from the storehouse
+  and turns them into finished ones (logs to planks and fences, cobblestone to stone bricks,
+  sand-free glass from "glassworks" workshops, clay-free bricks, lanterns and workstations), so
+  a town needs both kinds.
+- **New specialisation: Quarry** (industry), with its own generator (an open pit with terraces,
+  a crane, rubble heaps, a stone-cutting shed) and pollution and noise like heavy industry.
+- **Storehouse limits.** The storehouse holds a capped amount per material (more storehouses,
+  more room), so overproduction is visible and wasteful, and the planner shows days of supply.
+- **Exports and imports.** A surplus over the cap can be sold for emeralds each day (a new
+  Exports line in the budget); a shortage can be bought at a premium at the Town Hall, so a
+  missing material never stalls a town for good.
+- **UI.** An industry info view (what each building makes and uses), a production panel in the
+  budget (made, used and net per material per day), and construction sites that say which
+  producer would supply what they're waiting for.
+- **Model.** Production lives in the shared `TownModel` like everything else, so the client
+  shows the same numbers the server applies.
+
+### Phase 9: balance and a real play-through
+
+- **Autoplayer** (test harness, not shipped): drives the real planner payloads like a person
+  would. It lays a grid, zones by demand, places utilities and services where coverage is
+  missing, buys land when it runs out of lots, sets budgets and specialisations, and keeps
+  the books positive.
+- **Tuning from data.** It logs population, money, happiness, demand, traffic and material
+  flow every in-game day; tuning targets are curves, not single numbers (each milestone in
+  a set time band, the treasury rarely negative, no zone demand pinned at 0 or 100 for long).
+- **Difficulty presets**: Relaxed / Normal / Hard (taxes, costs, demand, fire rate, growth
+  time), as one server setting.
+
+### Phase 10: multiplayer and server
+
+- Two players, two towns and a co-mayor on a dedicated server for an hour, scripted with two
+  headless clients. Audit every serverbound payload for ownership, distance and rate limits.
+- Towns that span unloaded chunks, players logging out mid-construction, server restarts during
+  fires and builds, a town whose mayor never comes back (admin transfer command).
+- A per-town tick budget with a profiler readout (`/townstead perf`).
+
+### Phase 11: onboarding and feel
+
+- An advisor that notices what the player hasn't done yet (no roads, no zoning, no power, no
+  water, low money) and suggests the next step, dismissible and remembered.
+- A guidebook item (given with the first Town Hall) explaining tools, info views and
+  milestones; a settings screen for the client options.
+- Smoke columns visible from the planner, fire and compost carts on the roads, a co-mayor list
+  in the planner, colour-blind safe palettes for info views, a full controls pass at GUI scales
+  1–4.
+
+### Phase 12: release
+
+- A data version in every save file with migrations; tests that load saves from earlier
+  phases. A long soak (hours of accelerated growth) with no errors.
+- Mod metadata, licence, icon, CI that builds the jar and runs the headless checks, a
+  changelog, and the mod page text and screenshots for the author to publish.

@@ -257,7 +257,7 @@ slower.
 34. **Jungle and swamp towns.** Lots in jungles build in jungle and bamboo timber under bamboo
     roofs with mossy stone; lots in swamps and mangroves in mangrove timber on mud-brick footings.
 
-Breaking the Town Hall disbands the town.
+Breaking the Town Hall disbands the town. Next: the road to release (Phases 8–12, see the roadmap).
 
 ## Screenshots (from the headless playtests)
 
@@ -359,5 +359,7 @@ export JAVA_HOME=/path/to/jdk-25
 
 - [Cities: Skylines research](docs/research/cities-skylines.md): how the original games work.
 - [Design & roadmap](docs/design/minecraft-adaptation.md): how Townstead adapts each system,
-  the decisions taken, the survival-supply design and the phased plan.
+  the decisions taken, the survival-supply design and the phased plan, including the road to
+  release (Phases 8–12: self-sufficient towns, balance, multiplayer, onboarding, release; §8
+  and §19).
 - `.claude/skills/minecraft-modding/`: the 26.x modding skill used to build this mod.
