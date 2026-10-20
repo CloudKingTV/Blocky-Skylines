@@ -188,6 +188,9 @@ public final class Fires {
                 || name.contains("leaves") || name.contains("cobweb") || state.is(BlockTags.FLOWERS)) {
             return Blocks.AIR.defaultBlockState();
         }
+        // The roof falls in once the timber under it has burned, whatever it was tiled with.
+        boolean roofing = name.contains("stairs") || name.contains("slab");
+        if (roofing && dy >= 4) return random.nextInt(5) == 0 ? state : Blocks.AIR.defaultBlockState();
         if (!state.ignitedByLava()) return state; // stone, brick, earth
         if (state.is(BlockTags.LOGS)) return dy <= 4 || random.nextInt(3) > 0 ? Blocks.BASALT.defaultBlockState() : Blocks.AIR.defaultBlockState();
         // Timber walls: the lower storey half stands, blackened; everything above (roof, upper floors) falls in.
@@ -212,9 +215,11 @@ public final class Fires {
             BuildingGenerator.Plan plan = TownGrowth.plan(b);
             List<BuildingGenerator.Step> steps = plan.steps();
             // Smoke pouring off the roof (seen from far off in the planner), flames licking out of the walls.
-            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, true, false, at.getX() + 0.5 + random.nextGaussian(), plan.max().getY() + 0.5,
-                    at.getZ() + 0.5 + random.nextGaussian(), 0, 0, 0.08, 0, 1);
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, true, false, at.getX() + 0.5, plan.max().getY(), at.getZ() + 0.5, 4, 2, 0.5, 2, 0.02);
+            for (int i = 0; i < 3; i++) {
+                level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, true, true, at.getX() + 0.5 + random.nextGaussian() * 1.5, plan.max().getY() + 0.5,
+                        at.getZ() + 0.5 + random.nextGaussian() * 1.5, 0, 0, 0.1, 0, 1);
+            }
+            level.sendParticles(ParticleTypes.LARGE_SMOKE, true, true, at.getX() + 0.5, plan.max().getY(), at.getZ() + 0.5, 10, 2, 0.5, 2, 0.03);
             for (int i = 0; i < 6 && !steps.isEmpty(); i++) {
                 BlockPos p = steps.get(random.nextInt(steps.size())).pos();
                 Direction side = Direction.getRandom(random);
