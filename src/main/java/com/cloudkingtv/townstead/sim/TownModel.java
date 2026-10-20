@@ -90,6 +90,28 @@ public final class TownModel {
                 civics.anywhere(com.cloudkingtv.townstead.district.Policy.CRAFT_RELIEF) ? 15 : 0);
     }
 
+    /**
+     * What a model depends on besides money: each building's state, the road graph, lines, districts, policies and
+     * land. Building progress isn't in it, so a town under construction doesn't need its model worked out again
+     * for every block laid.
+     */
+    public static long fingerprint(Collection<Building> town, RoadNetwork roads, com.cloudkingtv.townstead.district.Civics civics, int tiles) {
+        long h = 17;
+        for (Building b : town) {
+            h = h * 31 + b.id;
+            h = h * 31 + b.state.ordinal() * 8 + b.level + (b.upgrading ? 4 : 0);
+            h = h * 31 + b.households * 1000 + b.jobs;
+            h = h * 31 + b.spec.hashCode();
+        }
+        h = h * 31 + roads.nextId();
+        h = h * 31 + roads.segments().size();
+        h = h * 31 + civics.lines().hashCode();
+        h = h * 31 + civics.districts().hashCode();
+        h = h * 31 + civics.policies().hashCode();
+        h = h * 31 + tiles;
+        return h;
+    }
+
     public static TownModel of(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury,
                                Collection<TilePos> tiles, BlockPos townHall, com.cloudkingtv.townstead.district.Civics civics) {
         return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, civics);

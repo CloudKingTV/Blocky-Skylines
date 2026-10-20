@@ -1,6 +1,7 @@
 package com.cloudkingtv.townstead.economy;
 
 import com.cloudkingtv.townstead.Townstead;
+import com.cloudkingtv.townstead.building.Building;
 import com.cloudkingtv.townstead.building.TownGrowth;
 import com.cloudkingtv.townstead.city.City;
 import com.cloudkingtv.townstead.city.CityManager;
@@ -11,6 +12,7 @@ import com.cloudkingtv.townstead.sim.TownModel;
 import com.cloudkingtv.townstead.zone.LandData;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -56,10 +58,28 @@ public final class TownEconomy {
         }
     }
 
+    /**
+     * The town's model as it stands. Working it out takes a while in a big town (every trip routed), so it's kept
+     * while the town's buildings, roads and plans are unchanged, for up to {@link #MODEL_TTL} ticks (taxes, budgets
+     * and the treasury may lag that long).
+     */
     public static TownModel model(ServerLevel level, City city) {
-        return TownModel.of(city.id(), LandData.get(level).buildingsOf(city.id()), RoadNetwork.get(level), city.budget(),
-                city.treasury(), city.tiles(), city.townHall(), city.civics());
+        List<Building> town = LandData.get(level).buildingsOf(city.id());
+        RoadNetwork roads = RoadNetwork.get(level);
+        long key = TownModel.fingerprint(town, roads, city.civics(), city.tiles().size());
+        Cached c = MODELS.get(city.id());
+        long now = level.getGameTime();
+        if (c != null && c.key == key && now - c.time >= 0 && now - c.time < MODEL_TTL) return c.model;
+        TownModel m = TownModel.of(city.id(), town, roads, city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics());
+        MODELS.put(city.id(), new Cached(m, key, now));
+        return m;
     }
+
+    private static final int MODEL_TTL = 100;
+    private record Cached(TownModel model, long key, long time) {}
+    private static final Map<java.util.UUID, Cached> MODELS = new java.util.concurrent.ConcurrentHashMap<>();
+
+
 
     private static void settle(ServerLevel level, CityManager cities, City city) {
         TownModel town = model(level, city);

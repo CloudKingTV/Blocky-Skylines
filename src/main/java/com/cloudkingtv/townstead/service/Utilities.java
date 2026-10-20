@@ -54,10 +54,14 @@ public final class Utilities {
         Map<Integer, Integer> parent = new HashMap<>();
         for (RoadSegment s : roads.segments()) union(parent, s.a(), s.b());
         Map<Integer, Integer> networkOf = new HashMap<>();
-        Map<Long, RoadRaster.Cell> cols = new HashMap<>();
         Set<java.util.UUID> cities = new HashSet<>();
         for (Building b : town) cities.add(b.city);
-        for (java.util.UUID c : cities) cols.putAll(ZoneRules.roadColumns(roads, c));
+        Map<Long, RoadRaster.Cell> cols;
+        if (cities.size() == 1) cols = ZoneRules.roadColumns(roads, cities.iterator().next());
+        else {
+            cols = new HashMap<>();
+            for (java.util.UUID c : cities) cols.putAll(ZoneRules.roadColumns(roads, c));
+        }
         for (Building b : town) {
             Integer node = frontNode(b, roads, cols);
             if (node != null) networkOf.put(b.id, find(parent, node));

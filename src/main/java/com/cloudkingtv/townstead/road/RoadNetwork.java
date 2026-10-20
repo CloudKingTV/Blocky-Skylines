@@ -92,6 +92,27 @@ public final class RoadNetwork extends SavedData {
                 && z >= Math.min(c.az(), Math.min(c.cz(), c.bz())) - pad && z <= Math.max(c.az(), Math.max(c.cz(), c.bz())) + pad;
     }
 
+    /**
+     * Every block column a town's roads cover (read-only; worked out once per change to the network, since lots,
+     * utilities and reviews all ask for it).
+     */
+    public Map<Long, RoadRaster.Cell> columns(java.util.UUID city) {
+        return columns.computeIfAbsent(city, c -> {
+            Map<Long, RoadRaster.Cell> out = new HashMap<>();
+            for (RoadSegment s : segments.values()) if (s.city().equals(c)) out.putAll(raster(s));
+            return java.util.Collections.unmodifiableMap(out);
+        });
+    }
+
+    private final Map<java.util.UUID, Map<Long, RoadRaster.Cell>> columns = new HashMap<>();
+
+    /** Every change to the network goes through here: saved, and the cached columns worked out afresh. */
+    @Override
+    public void setDirty() {
+        super.setDirty();
+        columns.clear();
+    }
+
     public Map<Long, RoadRaster.Cell> raster(RoadSegment s) {
         return rasterCache.computeIfAbsent(s.id(), id -> RoadRaster.segment(s.id(), s.type(), s.curve(), s.heights()));
     }

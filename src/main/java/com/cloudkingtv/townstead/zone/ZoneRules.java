@@ -25,11 +25,7 @@ public final class ZoneRules {
 
     /** Road columns of a town's roads (any part), keyed like {@link RoadRaster#key}. */
     public static Map<Long, RoadRaster.Cell> roadColumns(RoadNetwork net, UUID city) {
-        Map<Long, RoadRaster.Cell> out = new HashMap<>();
-        for (RoadSegment s : net.segments()) {
-            if (s.city().equals(city)) out.putAll(net.raster(s));
-        }
-        return out;
+        return net.columns(city);
     }
 
     /** How far outside a cell edge a road may run and still count as the lot's frontage (a grass verge). */

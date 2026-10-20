@@ -49,7 +49,9 @@ public final class PlannerClient {
     public static com.cloudkingtv.townstead.sim.@Nullable TownModel model() {
         CitySummary city = city().orElse(null);
         if (city == null) return null;
-        Object key = java.util.List.of(ClientLand.version(), ClientRoads.version(), city);
+        // Not every land update matters: blocks laid on a site don't change the model.
+        Object key = java.util.List.of(com.cloudkingtv.townstead.sim.TownModel.fingerprint(ClientLand.get().buildingsOf(city.id()),
+                ClientRoads.network(), city.civics(), city.tiles().size()), ClientRoads.version(), city);
         if (model == null || !key.equals(modelKey)) {
             modelKey = key;
             model = com.cloudkingtv.townstead.sim.TownModel.of(city.id(), ClientLand.get().buildingsOf(city.id()), ClientRoads.network(),

@@ -100,16 +100,38 @@ public final class Traffic {
         List<Trip> unique = new ArrayList<>(merged.values());
         // Incremental assignment: a quarter of every trip at a time, each round seeing the jams of the last.
         Map<Trip, List<RoadRouter.Leg>> routes = new java.util.IdentityHashMap<>();
+        // Trips from the same place share one path search per round.
+        Map<Integer, List<Trip>> byOrigin = new LinkedHashMap<>();
+        for (Trip t : unique) byOrigin.computeIfAbsent(t.from, k -> new ArrayList<>()).add(t);
+        // Flows and times by the router's segment index while assigning; each leg updates just its segment.
+        int n = router.segmentCount();
+        double[] flows = new double[n], times = new double[n];
+        for (int i = 0; i < n; i++) {
+            flows[i] = flow(router.segmentAt(i).id());
+            times[i] = time(router.segmentAt(i), flows[i]);
+        }
         for (int round = 0; round < ROUNDS; round++) {
-            for (Trip t : unique) {
-                RoadRouter.Access a = access(byId.get(t.from)), b = access(byId.get(t.to));
-                if (a == null || b == null) continue;
-                List<RoadRouter.Leg> legs = router.route(a, b, this::time);
-                if (legs == null) continue;
-                routes.put(t, legs);
-                for (RoadRouter.Leg leg : legs) flow.merge(leg.segment(), t.weight / ROUNDS, Double::sum);
+            for (Map.Entry<Integer, List<Trip>> e : byOrigin.entrySet()) {
+                RoadRouter.Access a = access(byId.get(e.getKey()));
+                if (a == null) continue;
+                RoadRouter.Tree tree = router.tree(a, times);
+                if (tree == null) continue;
+                for (Trip t : e.getValue()) {
+                    RoadRouter.Access b = access(byId.get(t.to));
+                    if (b == null) continue;
+                    List<RoadRouter.Leg> legs = router.route(tree, b, times);
+                    if (legs == null) continue;
+                    routes.put(t, legs);
+                    for (RoadRouter.Leg leg : legs) {
+                        int i = router.index(leg.segment());
+                        if (i < 0) continue;
+                        flows[i] += t.weight / ROUNDS;
+                        times[i] = time(router.segmentAt(i), flows[i]);
+                    }
+                }
             }
         }
+        for (int i = 0; i < n; i++) if (flows[i] > 0) flow.put(router.segmentAt(i).id(), flows[i]);
         double free = 0, actual = 0;
         for (Map.Entry<Trip, List<RoadRouter.Leg>> e : routes.entrySet()) {
             Trip t = e.getKey();
@@ -202,7 +224,11 @@ public final class Traffic {
 
     /** Time to drive a whole segment with today's traffic. */
     private double time(RoadSegment s) {
-        double r = ratio(s);
+        return time(s, flow(s.id()));
+    }
+
+    private double time(RoadSegment s, double flow) {
+        double r = flow / capacity(s.type());
         return router.freeTime(s) * (1 + 0.15 * r * r * r * r);
     }
 
