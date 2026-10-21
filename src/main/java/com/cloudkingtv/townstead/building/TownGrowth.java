@@ -37,6 +37,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.SoundType;
+import net.minecraft.world.level.block.StairBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -64,6 +65,8 @@ public final class TownGrowth {
     /** Ticks between catch-ups of sites in unloaded chunks. */
     private static final int CATCH_UP_INTERVAL = 600;
     private static final int MAX_SITES = 2, MAX_UPGRADES = 1, MAX_SLOPE = 4, SITE_CLEAR_HEIGHT = 32;
+    /** How far a lot may sit above or below its road: the front path climbs it in steps. */
+    private static final int PATH_RISE = 2;
 
     private static final Map<Long, BuildingGenerator.Plan> PLANS = new HashMap<>();
     private static final Map<Long, Set<BlockPos>> PLANNED = new HashMap<>();
@@ -231,9 +234,14 @@ public final class TownGrowth {
         Arrays.sort(ys);
         if (ys[i - 1 - i / 8] - ys[i / 8] > MAX_SLOPE) return null;
         int ground = ys[i / 2] + 1;
-        // Level with the road it faces where the ground allows, so the front path meets the road flush.
+        // Level with the road it faces where the ground allows, so the front path meets the road flush; a little
+        // above or below it on a hillside (the path steps the difference); never so far off it the door can't be reached.
         Integer road = roadLevel(cells, roads);
-        return road != null && Math.abs(road + 1 - ground) <= MAX_SLOPE ? road + 1 : ground;
+        if (road == null) return ground;
+        int off = ground - (road + 1);
+        if (Math.abs(off) <= MAX_SLOPE) return road + 1;
+        if (Math.abs(off) > MAX_SLOPE + PATH_RISE) return null;
+        return road + 1 + Integer.signum(off) * (Math.abs(off) - MAX_SLOPE);
     }
 
     /** The surface height of the road beside a lot (median of its columns within a few blocks), or null if none. */
@@ -289,10 +297,10 @@ public final class TownGrowth {
         }
     }
 
-    /** Ground the world made: earth, stone, sand, snow and the plants on them. */
+    /** Ground the world made: earth, stone, sand, snow, boulders and the plants on them. */
     private static boolean natural(BlockState s) {
-        return s.is(BlockTags.DIRT) || s.is(Blocks.GRASS_BLOCK) || s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(BlockTags.SAND)
-                || s.is(Blocks.GRAVEL) || s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.CLAY) || s.is(Blocks.DIRT_PATH)
+        return s.is(BlockTags.SUBSTRATE_OVERWORLD) || s.is(BlockTags.BASE_STONE_OVERWORLD) || s.is(BlockTags.SAND)
+                || s.is(Blocks.GRAVEL) || s.is(Blocks.MOSSY_COBBLESTONE) || s.is(Blocks.SNOW) || s.is(Blocks.SNOW_BLOCK) || s.is(Blocks.CLAY)
                 || s.is(BlockTags.SMALL_FLOWERS) || s.is(Blocks.SHORT_GRASS) || s.is(Blocks.TALL_GRASS) || s.is(Blocks.FERN);
     }
 
@@ -383,7 +391,7 @@ public final class TownGrowth {
         }
         SITE_ROADS.put(b.id, siteRoads);
         blendEdges(level, b, land, roads);
-        verge(level, plan, front, roads);
+        frontPath(level, b, plan, roads);
         land.putBuilding(b);
         markDirty();
         BlockPos centre = BlockPos.containing(b.centerX(), baseY, b.centerZ());
@@ -406,27 +414,61 @@ public final class TownGrowth {
         return Component.translatable("building.townstead.kind." + plan.kind());
     }
 
-    /** A dirt path from the front door across the grass verge to the road. */
-    private static void verge(ServerLevel level, BuildingGenerator.Plan plan, Direction front, Map<Long, RoadRaster.Cell> roads) {
+    /**
+     * A walkable path from the front door straight out to the road: level with the floor as long as it can be, then
+     * stepping (with stairs) to meet the road, cut into a bank or banked up over a dip as needed. Laid when the site
+     * starts and again when the building is finished, in case anything settled on it meanwhile.
+     */
+    private static void frontPath(ServerLevel level, Building b, BuildingGenerator.Plan plan, Map<Long, RoadRaster.Cell> roads) {
         BlockPos door = null;
-        for (BuildingGenerator.Step s : plan.steps()) if (s.state().getBlock() instanceof DoorBlock) { door = s.pos(); break; }
+        for (BuildingGenerator.Step s : plan.steps()) {
+            if (s.state().getBlock() instanceof DoorBlock && s.pos().getY() == b.baseY) { door = s.pos(); break; }
+        }
         if (door == null) return;
-        for (int n = 1; n <= 16; n++) {
+        Direction front = b.front;
+        int reach = 0;
+        RoadRaster.Cell road = null;
+        for (int n = 1; n <= 16 && road == null; n++) {
             BlockPos p = door.relative(front, n);
-            if (roads.containsKey(RoadRaster.key(p.getX(), p.getZ()))) {
-                // A lamp post where the path meets the walk would block the way in: move it along the road.
-                RoadEditor.clearDecorationFor(level, p.getX(), p.getZ(), front.getClockWise());
-                return;
+            road = roads.get(RoadRaster.key(p.getX(), p.getZ()));
+            reach = n;
+        }
+        if (road == null || reach < 2) return;
+        // A lamp post where the path meets the walk would block the way in: move it along the road.
+        BlockPos at = door.relative(front, reach);
+        RoadEditor.clearDecorationFor(level, at.getX(), at.getZ(), front.getClockWise());
+        // Standing height per column: the floor's for as long as possible, then one block a step to the road's.
+        int last = reach - 1, target = road.y() + 1;
+        int[] h = new int[reach + 1];
+        h[0] = door.getY();
+        h[reach] = target;
+        for (int n = 1; n <= last; n++) h[n] = Math.clamp(door.getY(), target - (last - n), target + (last - n));
+        BlockState path = Blocks.DIRT_PATH.defaultBlockState(), dirt = Blocks.DIRT.defaultBlockState(), air = Blocks.AIR.defaultBlockState();
+        for (int n = 1; n <= last; n++) {
+            BlockPos c = door.relative(front, n);
+            int floor = h[n] - 1;
+            // Headroom: clear earth, plants, leaves and the garden's own walk and gate where the path dips (never
+            // anything else built).
+            for (int y = h[n]; y < h[n] + 3; y++) {
+                BlockPos q = new BlockPos(c.getX(), y, c.getZ());
+                BlockState s = level.getBlockState(q);
+                if (!s.isAir() && (natural(s) || s.canBeReplaced() || s.is(BlockTags.LEAVES) || s.is(Blocks.DIRT_PATH) || s.is(BlockTags.FENCE_GATES))) {
+                    level.setBlock(q, air, Block.UPDATE_ALL);
+                }
             }
-            int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, p.getX(), p.getZ()) - 1;
-            BlockPos ground = new BlockPos(p.getX(), top, p.getZ());
-            BlockState g = level.getBlockState(ground);
-            if (Math.abs(top - (door.getY() - 1)) > 2) return;
-            if (g.is(Blocks.GRASS_BLOCK) || g.is(Blocks.DIRT)) {
-                level.setBlock(ground, Blocks.DIRT_PATH.defaultBlockState(), Block.UPDATE_ALL);
-                BlockPos above = ground.above();
-                if (level.getBlockState(above).canBeReplaced()) level.setBlock(above, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+            // Bank it up from solid ground.
+            for (int y = floor - 1; y > floor - 10; y--) {
+                BlockPos q = new BlockPos(c.getX(), y, c.getZ());
+                BlockState s = level.getBlockState(q);
+                if (!(s.isAir() || !s.getFluidState().isEmpty() || s.canBeReplaced())) break;
+                level.setBlock(q, dirt, Block.UPDATE_ALL);
             }
+            BlockPos q = new BlockPos(c.getX(), floor, c.getZ());
+            BlockState s = level.getBlockState(q);
+            if (!(s.isAir() || natural(s) || s.canBeReplaced() || s.is(Blocks.DIRT_PATH) || s.is(Blocks.COBBLESTONE_STAIRS))) continue;
+            // The higher of two columns gets a stair facing up the step; the rest is a beaten path.
+            Direction up = h[n] > h[n - 1] ? front : h[n] > h[n + 1] ? front.getOpposite() : null;
+            level.setBlock(q, up == null ? path : Blocks.COBBLESTONE_STAIRS.defaultBlockState().setValue(StairBlock.FACING, up), Block.UPDATE_ALL);
         }
     }
 
@@ -565,6 +607,7 @@ public final class TownGrowth {
 
     private static void finish(ServerLevel level, City city, Building b, BuildingGenerator.Plan plan) {
         removeScaffold(level, plan);
+        frontPath(level, b, plan, ZoneRules.roadColumns(RoadNetwork.get(level), b.city));
         boolean upgrade = b.upgrading && !b.repairing, repaired = b.repairing;
         b.state = Building.State.ACTIVE;
         b.needs = null;
@@ -609,6 +652,11 @@ public final class TownGrowth {
         double speed = speed();
         long upgrading = mine.stream().filter(b -> b.upgrading).count();
         com.cloudkingtv.townstead.disaster.Fires.review(level, city, mine, model, REVIEW_INTERVAL * speed);
+        // One building a round has its front path looked over, in case a tree, a boulder or the weather settled on it.
+        Building walk = mine.get((int) Math.floorMod(level.getGameTime() / REVIEW_INTERVAL, (long) mine.size()));
+        if (walk.state == Building.State.ACTIVE && loaded(level, plan(walk))) {
+            frontPath(level, walk, plan(walk), ZoneRules.roadColumns(RoadNetwork.get(level), city.id()));
+        }
         for (Building b : mine) {
             boolean built = b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED;
             if (!built) continue;
