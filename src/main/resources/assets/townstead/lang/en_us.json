@@ -767,7 +767,8 @@
   "info.townstead.industry": "Industry",
   "info.townstead.industry_count": "%s raw producers · %s workshops · %s short of materials",
   "info.townstead.exports": "Surplus sold: %s a day",
-  "info.townstead.legend.industry": "Green: supplied · amber: half output (no power or water) · red: short of materials",
+  "info.townstead.legend.industry": "Green: supplied · amber: half output (no power or water)",
+  "info.townstead.legend.industry2": "Red: short of materials",
   "panel.townstead.made_by": "Made in town by %s (%s)",
   "panel.townstead.buy_in": "Nobody makes %s here: buy it in (L, Production) or drop some in the storehouse",
   "panel.townstead.nobody_makes": "Nobody in town makes %s yet: %s, or buy it in (L, Production)",
@@ -780,5 +781,5 @@
   "screen.townstead.town_hall.buy": "Buy 64 · %s",
   "screen.townstead.town_hall.buy_title": "Buy materials in",
   "screen.townstead.town_hall.in_stock": "%s in the storehouse",
-  "budget.townstead.scroll": "Scroll for more"
+  "budget.townstead.scroll": "%s-%s of %s · scroll for more"
 }

@@ -353,7 +353,7 @@ public class PlannerScreen extends Screen {
         if (BudgetPanel.click(event.x(), event.y())) return true;
         if (MilestonePanel.contains(event.x(), event.y())) return true;
         if (PolicyPanel.click(event.x(), event.y())) return true;
-        if (Advisor.click(event.x(), event.y())) { click(1.1f); return true; }
+        if (selectedTool != INFO && Advisor.click(event.x(), event.y())) { click(1.1f); return true; }
         for (Object[] hit : chirpHits) {
             int[] r = (int[]) hit[0];
             if (event.x() >= r[0] && event.x() < r[2] && event.y() >= r[1] && event.y() < r[3]) {
@@ -894,7 +894,7 @@ public class PlannerScreen extends Screen {
             else drawCursorInfo(g, city);
         }
         drawFlash(g, subCount() > 0 ? subY() : barY);
-        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, mouseX, mouseY);
+        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp && selectedTool != INFO) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, mouseX, mouseY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
         drawDistrictNames(g, city);
@@ -1471,6 +1471,7 @@ public class PlannerScreen extends Screen {
                 lines.add(Component.translatable("info.townstead.exports", com.cloudkingtv.townstead.economy.Budget.signed(Math.round(day.exportValue()))));
                 if (hovered != null && day.flow(hovered) != null) lines.addAll(flowLines(day.flow(hovered), true));
                 lines.add(Component.translatable("info.townstead.legend.industry"));
+                lines.add(Component.translatable("info.townstead.legend.industry2"));
             }
             case "happiness", "land_value", "pollution", "noise", "education" -> {
                 var m = PlannerClient.model();

@@ -190,7 +190,7 @@ final class BudgetPanel {
         int fit = Math.max(3, (bottom - topBar - 8 - PAD * 2 - 4) / ROW - 5);
         int shown = Math.min(Math.max(1, mats.size()), fit);
         scroll = Math.max(0, Math.min(scroll, mats.size() - shown));
-        h = PAD * 2 + ROW * (5 + shown) + 4;
+        h = PAD * 2 + ROW * (5 + shown + (mats.size() > shown ? 1 : 0)) + 4;
         left = (screenW - w) / 2;
         top = topBar + 4;
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, left, top, w, h);
@@ -225,8 +225,9 @@ final class BudgetPanel {
         if (mats.isEmpty()) g.text(font, Component.translatable("budget.townstead.no_industry"), x, y, DIM, true);
         int listTop = y, rows = mats.size();
         if (rows > shown) {
-            Component more = Component.literal((scroll > 0 ? "▲ " : "") + (scroll + shown < rows ? "▼ " : "")).append(Component.translatable("budget.townstead.scroll"));
-            g.text(font, more, right - font.width(more), listTop - ROW, DIM, false);
+            Component more = Component.literal((scroll > 0 ? "▲ " : "") + (scroll + shown < rows ? "▼ " : ""))
+                    .append(Component.translatable("budget.townstead.scroll", scroll + 1, scroll + shown, rows));
+            g.text(font, more, right - font.width(more), listTop + shown * ROW + 1, DIM, false);
         }
         for (var mat : mats.subList(scroll, Math.min(rows, scroll + shown))) {
             int have = m.stock.getOrDefault(mat, 0);
