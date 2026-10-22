@@ -19,17 +19,20 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 
 /**
- * The Town Hall's treasury: what the town has, what it makes a day, and emeralds in and out. Taxes, budgets and
- * loans are set in the planner's budget panel; this is the till.
+ * The Town Hall's treasury: what the town has, what it makes a day, emeralds in and out, and materials bought in
+ * for the storehouse at the import price. Taxes, budgets and loans are set in the planner's budget panel; this is the till.
  */
 public class TownHallScreen extends Screen {
     private static final Identifier PANEL = Townstead.id("planner/panel");
-    private static final int W = 230, H = 142;
+    private static final int W = 230, H = 196;
 
     private final UUID cityId;
     private final BlockPos pos;
     private Finance.@org.jspecify.annotations.Nullable Report day;
     private long dayAt;
+    /** The material the buy row is on. */
+    private static int buying = com.cloudkingtv.townstead.road.Material.PLANKS.ordinal();
+    private @org.jspecify.annotations.Nullable Button buy;
 
     public TownHallScreen(UUID cityId, BlockPos pos) {
         super(Component.translatable("screen.townstead.town_hall"));
@@ -47,7 +50,7 @@ public class TownHallScreen extends Screen {
 
     @Override
     protected void init() {
-        int x = left() + 8, y = top() + H - 52, w = (W - 16 - 8) / 3;
+        int x = left() + 8, y = top() + H - 106, w = (W - 16 - 8) / 3;
         int[] amounts = {1, 10, 64};
         for (int i = 0; i < amounts.length; i++) {
             int n = amounts[i];
@@ -58,6 +61,20 @@ public class TownHallScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("screen.townstead.town_hall.deposit_all"),
                 b -> ClientPacketDistributor.sendToServer(new EconomyPayloads.DepositAll(pos)))
                 .bounds(x, y + 24, W - 16, 20).build());
+        // Buying in: ‹ material › and a button for a stack.
+        int by = y + 66;
+        addRenderableWidget(Button.builder(Component.literal("‹"), b -> cycle(-1)).bounds(x, by, 20, 20).build());
+        addRenderableWidget(Button.builder(Component.literal("›"), b -> cycle(1)).bounds(x + 96, by, 20, 20).build());
+        buy = addRenderableWidget(Button.builder(Component.empty(), b -> ClientPacketDistributor.sendToServer(new EconomyPayloads.BuyAtHall(pos, buying, 64)))
+                .bounds(x + 120, by, W - 16 - 120, 20).build());
+        cycle(0);
+    }
+
+    private void cycle(int step) {
+        int n = com.cloudkingtv.townstead.road.Material.values().length;
+        buying = Math.floorMod(buying + step, n);
+        var m = com.cloudkingtv.townstead.road.Material.values()[buying];
+        if (buy != null) buy.setMessage(Component.translatable("screen.townstead.town_hall.buy", Budget.format(64L * m.importPrice())));
     }
 
     @Override
@@ -81,6 +98,15 @@ public class TownHallScreen extends Screen {
         g.text(font, Component.translatable("screen.townstead.town_hall.available",
                 Budget.format(com.cloudkingtv.townstead.economy.TownEconomy.withdrawable(city.treasury(), city.budget()))), x, y + 50, 0xFFDDDDDD, true);
         g.text(font, Component.translatable("screen.townstead.town_hall.hint"), x, y + 62, 0xFF9A9A9A, true);
+        // The buy row's heading and the material between the arrows.
+        int by = top() + H - 40;
+        g.text(font, Component.translatable("screen.townstead.town_hall.buy_title"), x, by - 12, 0xFFFFE9B0, true);
+        var m = com.cloudkingtv.townstead.road.Material.values()[buying];
+        g.item(m.icon(), x + 23, by + 2);
+        Component name = m.displayName();
+        g.text(font, font.width(name) > 52 ? Component.literal(font.substrByWidth(name, 50).getString()) : name, x + 41, by + 6, 0xFFF2F2F2, true);
+        int have = com.cloudkingtv.townstead.city.Stock.count(city.stock(), m);
+        g.text(font, Component.translatable("screen.townstead.town_hall.in_stock", have), x, by + 24, 0xFF9A9A9A, true);
     }
 
     @Override

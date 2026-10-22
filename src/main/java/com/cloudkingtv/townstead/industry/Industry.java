@@ -115,6 +115,17 @@ public final class Industry {
         return new Recipe(in, out);
     }
 
+    /** The trades that can make a material (at any level, in any style). */
+    public static List<Trade> makers(Material mat) {
+        List<Trade> out = new ArrayList<>();
+        for (Trade t : Trade.values()) {
+            for (String style : new String[] {"plains", "desert", "savanna"}) {
+                if (recipe(t, 3, style).out().containsKey(mat)) { out.add(t); break; }
+            }
+        }
+        return out;
+    }
+
     /** Batches a building could run in a day: its staff and level, halved without power or water. */
     public static double batches(Building b, TownModel m) {
         if (of(b) == null || !b.working() || b.fire > 0) return 0;

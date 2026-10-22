@@ -262,6 +262,16 @@ public final class PlannerWorldRenderer {
             }
             return;
         }
+        if (view.equals("industry")) {
+            // Workshops and raw industry: green supplied, amber half running (no power or water), red short of materials.
+            var day = model.industry();
+            for (var f : day.flows()) {
+                int color = f.shortOf() != null ? BAD : f.batches() <= 0 ? 0x90606060
+                        : !model.util.power(f.building()) || !model.util.water(f.building()) ? 0xA0E0B040 : GOOD;
+                for (long k : f.building().cellKeys()) cellQuad(p, buf, cam, k, f.building().baseY - 1, color, 0.3);
+            }
+            return;
+        }
         ServiceType service = ServiceType.find(view);
         for (Building b : ClientLand.get().buildingsOf(city.id())) {
             int color;

@@ -90,12 +90,23 @@ public final class BuildingPanel {
             case CONSTRUCTING -> out.add(new Line(Component.translatable(b.repairing ? "panel.townstead.repairing"
                     : b.upgrading ? "panel.townstead.upgrading" : "building.townstead.progress",
                     Math.round(100f * b.progress / plan.steps().size())), WARN, 0));
-            case PAUSED -> out.add(new Line(Component.translatable("building.townstead.waiting",
-                    b.needs == null ? Component.empty() : b.needs.displayName()), BAD, 0));
+            case PAUSED -> {
+                out.add(new Line(Component.translatable("building.townstead.waiting",
+                        b.needs == null ? Component.empty() : b.needs.displayName()), BAD, 0));
+                if (b.needs != null) out.add(supplier(b.needs, m));
+            }
             case ABANDONED -> out.add(new Line(Component.translatable(b.burned ? "panel.townstead.burned" : "panel.townstead.abandoned"), BAD, 0));
             case ACTIVE -> out.add(new Line(b.zone.residential()
                     ? Component.translatable("building.townstead.residents", Residents.people(b))
                     : Component.translatable("panel.townstead.jobs_open", b.jobs), GOOD, 0));
+        }
+        var flow = m.industry().flow(b);
+        if (flow != null) {
+            List<Component> lines = PlannerScreen.flowLines(flow, true);
+            for (int i = 0; i < lines.size(); i++) {
+                boolean shortLine = flow.shortOf() != null && i == lines.size() - 1;
+                out.add(new Line(lines.get(i), shortLine ? BAD : i == 0 ? TITLE : TEXT, i == 0 ? 0 : 4));
+            }
         }
         if (b.fire > 0) {
             boolean brigade = m.covered(b, com.cloudkingtv.townstead.service.ServiceType.FIRE_STATION);
@@ -184,6 +195,21 @@ public final class BuildingPanel {
     private static Component homeName(int id) {
         @Nullable Building h = ClientLand.get().building(id);
         return h == null ? Component.literal("?") : name(h);
+    }
+
+    /** Who could make what a waiting site needs: the town's own industry, or what to build (or buy) to get it. */
+    private static Line supplier(com.cloudkingtv.townstead.road.Material mat, TownModel m) {
+        var makers = com.cloudkingtv.townstead.industry.Industry.makers(mat);
+        var day = m.industry();
+        java.util.Map<com.cloudkingtv.townstead.industry.Industry.Trade, Integer> have = new java.util.EnumMap<>(com.cloudkingtv.townstead.industry.Industry.Trade.class);
+        for (var f : day.flows()) if (makers.contains(f.trade()) && day.made(mat) > 0) have.merge(f.trade(), 1, Integer::sum);
+        if (!have.isEmpty()) {
+            var e = have.entrySet().iterator().next();
+            return new Line(Component.translatable("panel.townstead.made_by", e.getKey().displayName(), e.getValue()), WARN, 4);
+        }
+        if (makers.isEmpty()) return new Line(Component.translatable("panel.townstead.buy_in", mat.displayName()), WARN, 4);
+        return new Line(Component.translatable("panel.townstead.nobody_makes", mat.displayName(),
+                Component.translatable("trade.townstead." + makers.getFirst().key() + ".how")), WARN, 4);
     }
 
     private BuildingPanel() {}

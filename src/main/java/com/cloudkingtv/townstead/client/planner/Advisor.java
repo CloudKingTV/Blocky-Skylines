@@ -85,6 +85,23 @@ final class Advisor {
             }
             if (hasPower && hasWater && (noPower > 0 || noWater > 0)) out.add(new Tip("more_utilities", new Object[] {noPower, noWater}));
             if (waiting > 0) out.add(new Tip("waiting", new Object[] {waiting}));
+            // Sites waiting on something the town doesn't make; workshops with nothing to work.
+            var day = m.industry();
+            for (Building b : town) {
+                if (b.state != Building.State.PAUSED || b.needs == null || day.made(b.needs) > 0) continue;
+                var makers = com.cloudkingtv.townstead.industry.Industry.makers(b.needs);
+                out.add(new Tip(makers.isEmpty() ? "supply_buy" : "supply", new Object[] {b.needs.displayName(),
+                        makers.isEmpty() ? Component.empty() : Component.translatable("trade.townstead." + makers.getFirst().key() + ".how")}));
+                break;
+            }
+            for (var f : day.flows()) {
+                if (f.shortOf() == null) continue;
+                long n = day.flows().stream().filter(o -> o.shortOf() != null).count();
+                var makers = com.cloudkingtv.townstead.industry.Industry.makers(f.shortOf());
+                out.add(new Tip("starved", new Object[] {n, f.shortOf().displayName(),
+                        makers.isEmpty() ? Component.empty() : Component.translatable("trade.townstead." + makers.getFirst().key() + ".how")}));
+                break;
+            }
             if (Finance.daily(m).net() < 0) out.add(new Tip("money", new Object[0]));
             if (unhappy >= 3) out.add(new Tip("unhappy", new Object[] {unhappy}));
             if (m.traffic.trips() > 60 && m.traffic.flowPercent() < 60) out.add(new Tip("traffic", new Object[] {m.traffic.flowPercent()}));

@@ -1368,6 +1368,7 @@ public class PlannerScreen extends Screen {
             case "power" -> new ItemStack(Items.REDSTONE);
             case "water" -> new ItemStack(Items.WATER_BUCKET);
             case "level" -> new ItemStack(Items.EXPERIENCE_BOTTLE);
+            case "industry" -> new ItemStack(Items.IRON_PICKAXE);
             case "happiness" -> new ItemStack(Items.POPPY);
             case "land_value" -> new ItemStack(Items.GOLD_INGOT);
             case "pollution" -> new ItemStack(Items.COAL);
@@ -1456,6 +1457,21 @@ public class PlannerScreen extends Screen {
                 for (Building b : town) if (!b.civic()) n[Math.min(3, b.level)]++;
                 lines.add(Component.translatable("info.townstead.levels", n[1], n[2], n[3]));
             }
+            case "industry" -> {
+                var m = PlannerClient.model();
+                if (m == null) break;
+                var day = m.industry();
+                int raw = 0, proc = 0, starved = 0;
+                for (var f : day.flows()) {
+                    if (f.trade().raw) raw++;
+                    else proc++;
+                    if (f.shortOf() != null) starved++;
+                }
+                lines.add(Component.translatable("info.townstead.industry_count", raw, proc, starved));
+                lines.add(Component.translatable("info.townstead.exports", com.cloudkingtv.townstead.economy.Budget.signed(Math.round(day.exportValue()))));
+                if (hovered != null && day.flow(hovered) != null) lines.addAll(flowLines(day.flow(hovered), true));
+                lines.add(Component.translatable("info.townstead.legend.industry"));
+            }
             case "happiness", "land_value", "pollution", "noise", "education" -> {
                 var m = PlannerClient.model();
                 if (m == null) break;
@@ -1501,6 +1517,29 @@ public class PlannerScreen extends Screen {
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
         for (int i = 0; i < lines.size(); i++) g.text(font, lines.get(i), x + 6, y + 5 + i * (font.lineHeight + 2), i == 0 ? 0xFFFFE9B0 : 0xFFDDDDDD, true);
         if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
+    }
+
+    /** What an industrial building makes and uses a day, and what it's short of. */
+    static List<Component> flowLines(com.cloudkingtv.townstead.industry.Industry.Flow f, boolean withTrade) {
+        List<Component> out = new ArrayList<>();
+        var r = com.cloudkingtv.townstead.industry.Industry.recipe(f.building());
+        if (withTrade) out.add(Component.translatable("industry.townstead.trade", f.trade().displayName()));
+        out.add(Component.translatable("industry.townstead.makes", goods(r.out(), f.ran())));
+        if (!r.in().isEmpty()) out.add(Component.translatable("industry.townstead.uses", goods(r.in(), f.ran())));
+        if (f.shortOf() != null) out.add(Component.translatable("industry.townstead.short_of", f.shortOf().displayName()));
+        return out;
+    }
+
+    /** "84 Planks, 28 Fences" for so many batches of a recipe side. */
+    private static Component goods(java.util.Map<com.cloudkingtv.townstead.road.Material, Integer> side, double batches) {
+        net.minecraft.network.chat.MutableComponent out = Component.empty();
+        boolean first = true;
+        for (var e : side.entrySet()) {
+            if (!first) out.append(", ");
+            out.append(Math.round(e.getValue() * batches) + " ").append(e.getKey().displayName());
+            first = false;
+        }
+        return out;
     }
 
     /**

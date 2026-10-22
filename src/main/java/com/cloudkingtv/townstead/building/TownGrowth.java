@@ -390,18 +390,6 @@ public final class TownGrowth {
         if (!felled.isEmpty()) {
             CityManager.get(level.getServer()).editStockQuiet(city, stock -> felled.forEach((item, n) -> Stock.add(stock, item, n)));
         }
-        // A quarry's pit is dug out with the levelling (the stone goes to the storehouse).
-        int dug = 0;
-        for (BlockPos p : plan.dig()) {
-            BlockState s = level.getBlockState(p);
-            if (s.isAir() || s.hasBlockEntity()) continue;
-            if (s.is(BlockTags.BASE_STONE_OVERWORLD)) dug++;
-            level.setBlock(p, air, Block.UPDATE_ALL);
-        }
-        if (dug > 0) {
-            int stone = dug;
-            CityManager.get(level.getServer()).editStockQuiet(city, stock -> Stock.add(stock, net.minecraft.world.item.Items.COBBLESTONE, stone));
-        }
         SITE_ROADS.put(b.id, siteRoads);
         blendEdges(level, b, land, roads);
         frontPath(level, b, plan, roads);
@@ -485,6 +473,19 @@ public final class TownGrowth {
         }
     }
 
+    /** Digs out a quarry's pit before its first block goes in; the stone goes to the storehouse. */
+    private static void dig(ServerLevel level, City city, BuildingGenerator.Plan plan) {
+        int stone = 0;
+        for (BlockPos p : plan.dig()) {
+            BlockState s = level.getBlockState(p);
+            if (s.isAir() || s.hasBlockEntity()) continue;
+            if (s.is(BlockTags.BASE_STONE_OVERWORLD)) stone++;
+            level.setBlock(p, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+        }
+        int n = stone;
+        if (n > 0) CityManager.get(level.getServer()).editStockQuiet(city, stock -> Stock.add(stock, net.minecraft.world.item.Items.COBBLESTONE, n));
+    }
+
     /** Road columns inside a lot (its edge rows may be road): yard work there is skipped. */
     private static Set<Long> siteRoads(ServerLevel level, Building b) {
         return SITE_ROADS.computeIfAbsent(b.id, id -> {
@@ -519,6 +520,7 @@ public final class TownGrowth {
             finish(level, city, b, plan);
             return false;
         }
+        if (b.progress == 0 && !plan.dig().isEmpty()) dig(level, city, plan);
         BuildingGenerator.Step step = plan.steps().get(b.progress);
         if (step.pos().getY() <= b.baseY && siteRoads(level, b).contains(RoadRaster.key(step.pos().getX(), step.pos().getZ()))) {
             b.progress++; // yard work that would land on the road

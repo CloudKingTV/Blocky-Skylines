@@ -32,11 +32,11 @@ public final class PlannerClient {
     public static final int CLEAR_BRUSH = ZoneType.PAINTABLE.size();
     /** Info view shown by the info tool: -1 none, else an index into {@link #INFO_VIEWS}. */
     public static int infoView = 0;
-    /** Info views: power, water, happiness, the land fields, education, traffic, levels, then each service's coverage. */
+    /** Info views: power, water, happiness, the land fields, education, traffic, levels, industry, then each service's coverage. */
     public static final java.util.List<String> INFO_VIEWS;
     static {
         java.util.List<String> views = new java.util.ArrayList<>(java.util.List.of("power", "water", "happiness", "land_value",
-                "pollution", "noise", "education", "traffic", "level"));
+                "pollution", "noise", "education", "traffic", "level", "industry"));
         for (com.cloudkingtv.townstead.service.ServiceType s : com.cloudkingtv.townstead.service.ServiceType.SERVICES) views.add(s.key());
         INFO_VIEWS = java.util.List.copyOf(views);
     }
