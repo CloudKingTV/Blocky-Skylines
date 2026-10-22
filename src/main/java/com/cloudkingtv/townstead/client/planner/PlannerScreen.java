@@ -1525,9 +1525,11 @@ public class PlannerScreen extends Screen {
         List<Component> out = new ArrayList<>();
         var r = com.cloudkingtv.townstead.industry.Industry.recipe(f.building());
         if (withTrade) out.add(Component.translatable("industry.townstead.trade", f.trade().displayName()));
-        out.add(Component.translatable("industry.townstead.makes", goods(r.out(), f.ran())));
-        if (!r.in().isEmpty()) out.add(Component.translatable("industry.townstead.uses", goods(r.in(), f.ran())));
-        if (f.shortOf() != null) out.add(Component.translatable("industry.townstead.short_of", f.shortOf().displayName()));
+        // What it makes at full supply; a shortage says how hard it's working.
+        out.add(Component.translatable("industry.townstead.makes", goods(r.out(), f.batches())));
+        if (!r.in().isEmpty()) out.add(Component.translatable("industry.townstead.uses", goods(r.in(), f.batches())));
+        if (f.shortOf() != null) out.add(Component.translatable("industry.townstead.short_of", f.shortOf().displayName(),
+                f.batches() <= 0 ? 0 : Math.round(100 * f.ran() / f.batches())));
         return out;
     }
 
