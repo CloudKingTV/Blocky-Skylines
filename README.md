@@ -259,7 +259,27 @@ slower.
 34. **Jungle and swamp towns.** Lots in jungles build in jungle and bamboo timber under bamboo
     roofs with mossy stone; lots in swamps and mangroves in mangrove timber on mud-brick footings.
 
-Breaking the Town Hall disbands the town. Next: the road to release (Phases 8–12, see the roadmap).
+35. **Industry makes your materials.** Every working industrial building now fills the Town
+    Storehouse each day, more with more workers and higher levels (half without power or water).
+    Specialised industry makes raw materials: **farms** hay and wool, **lumber yards** logs and
+    leaves (and planks once they reach level 2), **quarries** cobblestone and earth (sandstone in
+    the desert, terracotta in the savanna, dressed stone bricks from level 2). Ordinary workshops
+    each follow a trade, shown by the banner and the stack by their door, and work raw materials
+    up: the **carpenter** (logs to planks and fences), **mason** (cobblestone to stone bricks),
+    **glassworks** (glass), **brickworks** (bricks), **smithy** (lanterns) and **cooper**
+    (workstations). A workshop runs only what the storehouse can feed it, so a town wants both.
+36. **Quarry districts.** A new industry specialisation: lots grow as open pits cut in terraces
+    into the ground, with a timber crane, rubble heaps and a stone-cutting shed. Dusty and loud,
+    so keep them away from homes.
+37. **Room, exports and imports.** The storehouse holds 512 of each material, and 1024 more for
+    every Town Storehouse block. What the industry makes beyond that is sold every day (the
+    budget's **Exports** line). Short of something nobody in town makes? Buy a stack in at three
+    times its selling price: **L**, then the **Production** page (stock, made, used and sold a
+    day, days of supply), or at the Town Hall. The **Industry** info view colours each workshop
+    green (supplied), amber (half output) or red (short of materials); a waiting building site
+    says who in town could make what it needs, and the advisor points out shortages.
+
+Breaking the Town Hall disbands the town. Next: Phase 9, balance and a real play-through (see the roadmap).
 
 ## Screenshots (from the headless playtests)
 

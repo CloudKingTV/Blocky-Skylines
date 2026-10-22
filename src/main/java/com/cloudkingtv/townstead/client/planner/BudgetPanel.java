@@ -36,6 +36,8 @@ final class BudgetPanel {
     static boolean open;
     /** 0: money, 1: production. */
     static int page;
+    /** First material row shown on the production page. */
+    private static int scroll;
 
     /** A clickable area drawn this frame; {@code step} is what one click (or scroll notch up) adds. */
     private record Hit(int x0, int y0, int x1, int y1, Runnable click, @Nullable Runnable up, @Nullable Runnable down) {
@@ -184,7 +186,11 @@ final class BudgetPanel {
             if (m.stock.getOrDefault(mat, 0) > 0 || day.made(mat) > 0 || day.used(mat) > 0) mats.add(mat);
         }
         w = Math.min(MAX_W, screenW - 12);
-        h = PAD * 2 + ROW * (5 + Math.max(1, mats.size())) + 4;
+        // As many material rows as fit above the toolbar; the wheel scrolls the rest.
+        int fit = Math.max(3, (bottom - topBar - 8 - PAD * 2 - 4) / ROW - 5);
+        int shown = Math.min(Math.max(1, mats.size()), fit);
+        scroll = Math.max(0, Math.min(scroll, mats.size() - shown));
+        h = PAD * 2 + ROW * (5 + shown) + 4;
         left = (screenW - w) / 2;
         top = topBar + 4;
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, left, top, w, h);
@@ -217,7 +223,12 @@ final class BudgetPanel {
         g.text(font, Component.translatable("budget.townstead.col_days"), cDays, y, DIM, false);
         y += ROW;
         if (mats.isEmpty()) g.text(font, Component.translatable("budget.townstead.no_industry"), x, y, DIM, true);
-        for (var mat : mats) {
+        int listTop = y, rows = mats.size();
+        if (rows > shown) {
+            Component more = Component.literal((scroll > 0 ? "▲ " : "") + (scroll + shown < rows ? "▼ " : "")).append(Component.translatable("budget.townstead.scroll"));
+            g.text(font, more, right - font.width(more), listTop - ROW, DIM, false);
+        }
+        for (var mat : mats.subList(scroll, Math.min(rows, scroll + shown))) {
             int have = m.stock.getOrDefault(mat, 0);
             g.pose().pushMatrix();
             g.pose().translate(x, y - 2);
@@ -247,6 +258,8 @@ final class BudgetPanel {
                     Budget.format(mat.price)), mouseX, mouseY);
             y += ROW;
         }
+        // Scrolling, after the buttons so their clicks come first.
+        if (rows > shown) HITS.add(new Hit(x, listTop, right, listTop + shown * ROW, () -> {}, () -> scroll--, () -> scroll++));
     }
 
     /** "12" or "0.5": a day's amount, whole once it's worth counting. */

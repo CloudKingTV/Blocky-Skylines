@@ -275,7 +275,7 @@ for weeks and keep their world. Details in §19.
 
 | Phase | Deliverable | "Done" looks like |
 |---|---|---|
-| **8. Self-sufficient towns** | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
+| **8. Self-sufficient towns** ✓ | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
 | **9. Balance and a real play-through** | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
 | **10. Multiplayer and server** | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
 | **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
@@ -651,6 +651,41 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   producer would supply what they're waiting for.
 - **Model.** Production lives in the shared `TownModel` like everything else, so the client
   shows the same numbers the server applies.
+
+#### Phase 8 as built
+
+- `industry/Industry.java` holds the trades and recipes. Each working industrial building runs
+  4 batches per filled job a day (×1.5 at level 2, ×2 at level 3, half without power or water).
+  Per batch:
+
+  | Trade | Who | Takes | Makes |
+  |---|---|---|---|
+  | Farm | Farming districts | | 2 hay, 1 wool |
+  | Lumber yard | Forestry districts | | 3 logs, 1 leaves (+2 planks from level 2) |
+  | Quarry | Quarry districts | | 3 cobblestone (sandstone in the desert), 1 dirt (+1 terracotta in the savanna, +1 stone bricks from level 2) |
+  | Carpenter | Workshops | 1 log | 3 planks, 1 fence |
+  | Mason | Workshops | 2 cobblestone | 2 stone bricks |
+  | Glassworks | Workshops | 1 log (fuel) | 3 glass |
+  | Brickworks | Workshops | 2 dirt, 1 log | 3 bricks (+1 terracotta in desert and savanna) |
+  | Smithy | Workshops | 1 cobblestone, 1 log | 1 lantern |
+  | Cooper | Workshops | 2 planks | 1 workstation |
+
+  An ordinary workshop's trade comes from its seed. Raw trades run first, then processors in
+  the order above, each running only the batches the stock (plus what was made earlier that
+  day) can feed.
+- **Room:** 512 per material, plus 1024 per Town Storehouse block. Production beyond that is
+  sold at the material's price (1 to 20 hundredths of an emerald a unit); buying in costs three
+  times as much and never takes the treasury below zero. Players' own deposits aren't capped.
+- **Applied** at each settlement (a fortieth of a day, scaled by growth speed). Fractions carry
+  over per town, so slow trades still deliver. The model's day (`TownModel.industry()`) uses the
+  stock synced with the town, so the planner shows what the server will do.
+- **Quarry:** a stone-cutting shed by the road and a terraced pit (up to three blocks deep) dug
+  when construction starts. Plans gained a `dig` list for this. The stone dug out goes to the
+  storehouse. Quarries pollute 30% more than other industry and make twice the noise, reaching
+  further.
+- **UI:** the budget's second page (*Production*), the *Exports* line, the *Industry* info view,
+  the building panel's trade and daily flow, supplier hints on waiting sites, two advisor tips,
+  and a buy row at the Town Hall.
 
 ### Phase 9: balance and a real play-through
 

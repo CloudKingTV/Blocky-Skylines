@@ -410,6 +410,8 @@
   "trouble.townstead.unhappy": "unhappy (%s)",
   "screen.townstead.town_hall.available": "You can take %s (a 25 reserve and loans stay)",
   "material.townstead.bricks": "Bricks",
+  "material.townstead.sandstone": "Sandstone",
+  "material.townstead.terracotta": "Terracotta",
   "building.townstead.kind.farmhouse": "Farmhouse",
   "building.townstead.kind.manor": "Manor",
   "building.townstead.kind.terrace": "Terrace",
@@ -749,7 +751,7 @@
   "budget.townstead.tab_money": "Money",
   "budget.townstead.tab_production": "Production",
   "budget.townstead.production_title": "%s: production",
-  "budget.townstead.industry_summary": "%s raw producers, %s workshops · room for %s of each material (%s storehouses)",
+  "budget.townstead.industry_summary": "%s raw · %s workshops · room for %s each (%s storehouses)",
   "budget.townstead.exports_day": "Surplus sold: %s a day",
   "budget.townstead.starved": "%s workshops are short of materials",
   "budget.townstead.all_supplied": "Every workshop has what it needs",
@@ -777,5 +779,6 @@
   "advisor.townstead.starved": "%s workshops are short of %s. Raw materials come from specialised industry: %s.",
   "screen.townstead.town_hall.buy": "Buy 64 · %s",
   "screen.townstead.town_hall.buy_title": "Buy materials in",
-  "screen.townstead.town_hall.in_stock": "%s in the storehouse"
+  "screen.townstead.town_hall.in_stock": "%s in the storehouse",
+  "budget.townstead.scroll": "Scroll for more"
 }
