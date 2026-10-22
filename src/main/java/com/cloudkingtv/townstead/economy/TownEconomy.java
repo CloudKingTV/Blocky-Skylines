@@ -70,7 +70,8 @@ public final class TownEconomy {
         Cached c = MODELS.get(city.id());
         long now = level.getGameTime();
         if (c != null && c.key == key && now - c.time >= 0 && now - c.time < MODEL_TTL) return c.model;
-        TownModel m = TownModel.of(city.id(), town, roads, city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics());
+        TownModel m = TownModel.of(city.id(), town, roads, city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics(),
+                city.stock(), city.storehouses().size());
         MODELS.put(city.id(), new Cached(m, key, now));
         return m;
     }
@@ -86,7 +87,10 @@ public final class TownEconomy {
         com.cloudkingtv.townstead.progress.Milestones.check(level, city, town);
         Finance.Report day = Finance.daily(town);
         double share = TownGrowth.speed() * SETTLE_INTERVAL / 24000.0;
-        long income = Math.round(day.income() * share);
+        // The industry's slice of the day, against the stock as it is now; its surplus is sold.
+        long exported = produce(level, cities, city, com.cloudkingtv.townstead.industry.Industry.day(town,
+                com.cloudkingtv.townstead.industry.Industry.counts(city.stock()), city.storehouses().size(), share));
+        long income = Math.round((day.income() - day.exports()) * share) + exported;
         long upkeep = Math.round((day.expenses() - day.loans()) * share);
         boolean wasBroke = city.treasury() < 0;
         List<Loan> next = new ArrayList<>(), paidOff = new ArrayList<>();
@@ -116,7 +120,55 @@ public final class TownEconomy {
         }
     }
 
+    /** Fractions of a unit (and of a cent) the industry has made but not yet delivered, per town and material. */
+    private static final Map<java.util.UUID, double[]> CARRY = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Puts a slice of the industry's work into the storehouse; returns what the surplus sold for. */
+    private static long produce(ServerLevel level, CityManager cities, City city, com.cloudkingtv.townstead.industry.Industry.Day work) {
+        if (!work.any()) return 0;
+        com.cloudkingtv.townstead.road.Material[] mats = com.cloudkingtv.townstead.road.Material.values();
+        double[] carry = CARRY.computeIfAbsent(city.id(), k -> new double[mats.length + 1]);
+        int[] whole = new int[mats.length];
+        boolean any = false;
+        for (com.cloudkingtv.townstead.road.Material m : mats) {
+            double d = work.net(m) + carry[m.ordinal()];
+            whole[m.ordinal()] = (int) d; // toward zero, the rest carried
+            carry[m.ordinal()] = d - whole[m.ordinal()];
+            any |= whole[m.ordinal()] != 0;
+        }
+        double cents = work.exportValue() + carry[mats.length];
+        long sold = (long) Math.floor(cents);
+        carry[mats.length] = cents - sold;
+        if (any) cities.editStock(level.getServer(), city, stock -> {
+            for (com.cloudkingtv.townstead.road.Material m : mats) {
+                int n = whole[m.ordinal()];
+                if (n > 0) com.cloudkingtv.townstead.city.Stock.add(stock, m.item(), n);
+                else if (n < 0) com.cloudkingtv.townstead.city.Stock.consume(stock, Map.of(m, Math.min(-n, com.cloudkingtv.townstead.city.Stock.count(stock, m))));
+            }
+        });
+        return sold;
+    }
+
     // ---------------------------------------------------------------- the mayor's actions
+
+    /**
+     * Buys materials in for the storehouse at the import price (three times what they sell for), from the treasury
+     * and never into debt: a town that can't make something can still get it.
+     */
+    public static void buy(ServerPlayer player, City city, int material, int count) {
+        if (material < 0 || material >= com.cloudkingtv.townstead.road.Material.values().length || count <= 0) return;
+        com.cloudkingtv.townstead.road.Material m = com.cloudkingtv.townstead.road.Material.values()[material];
+        int n = Math.min(count, 64 * 27);
+        long cost = (long) n * m.importPrice();
+        if (city.treasury() - cost < 0) {
+            RoadEditor.notify(player, Component.translatable("economy.townstead.cant_afford_import", n, m.displayName(), Budget.format(cost)), false);
+            return;
+        }
+        CityManager.get(player.level().getServer()).addTreasury(player.level().getServer(), city, -cost);
+        CityManager.get(player.level().getServer()).editStock(player.level().getServer(), city, stock -> com.cloudkingtv.townstead.city.Stock.add(stock, m.item(), n));
+        player.level().playSound(null, player.blockPosition(), SoundEvents.VILLAGER_TRADE, SoundSource.NEUTRAL, 0.8f, 1.0f);
+        RoadEditor.notify(player, Component.translatable("economy.townstead.imported", n, m.displayName(), Budget.format(cost)), true);
+    }
 
     public static void setTax(ServerPlayer player, City city, int kind, int rate) {
         if (kind < 0 || kind >= Budget.TAX_KINDS) return;

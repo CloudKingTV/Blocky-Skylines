@@ -164,6 +164,6 @@ public final class City {
     }
 
     public CitySummary summary() {
-        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone, List.copyOf(lines), List.copyOf(districts), java.util.Set.copyOf(policies));
+        return new CitySummary(id, name, owner, ownerName, dimension, townHall, new ArrayList<>(tiles), treasury, Map.copyOf(stock), budget.copy(), milestone, List.copyOf(lines), List.copyOf(districts), java.util.Set.copyOf(policies), storehouses.size());
     }
 }

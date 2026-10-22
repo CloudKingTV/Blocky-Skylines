@@ -44,7 +44,9 @@ public final class BuildingGenerator {
     /** One construction step; a door's upper half rides along with its lower half. */
     public record Step(BlockPos pos, BlockState state) {}
 
-    public record Plan(List<Step> steps, BlockPos min, BlockPos max, int households, int jobs, String kind, List<BlockPos> scaffold) {
+    /** {@code dig}: ground to clear when the site is levelled (a quarry's pit), below the floor. */
+    public record Plan(List<Step> steps, BlockPos min, BlockPos max, int households, int jobs, String kind, List<BlockPos> scaffold,
+                       List<BlockPos> dig) {
         /** Every position the plan places a block at (door tops included). */
         public java.util.Set<BlockPos> positions() {
             java.util.Set<BlockPos> out = new java.util.HashSet<>();
@@ -75,6 +77,7 @@ public final class BuildingGenerator {
             case COMMERCIAL_HIGH -> "leisure".equals(b.spec) ? Trade.tavern(c) : Trade.market(c);
             case INDUSTRIAL -> switch (b.spec) {
                 case "farming" -> Trade.farm(c);
+                case "quarry" -> Trade.quarry(c);
                 case "forestry" -> Trade.lumberYard(c);
                 default -> Trade.workshop(c);
             };
@@ -119,6 +122,8 @@ public final class BuildingGenerator {
         private final List<int[]> masses = new ArrayList<>();
         private final java.util.Set<Long> doorways = new java.util.HashSet<>();
         final List<BlockPos> scaffold = new ArrayList<>();
+        /** Ground dug out when the site is levelled. */
+        final List<BlockPos> dig = new ArrayList<>();
         int households, jobs;
         /** Rooms the walls enclose: {x0, z0, x1, z1, y0, storeys, open (1: no floors inside, like a nave)}. */
         final List<int[]> rooms = new ArrayList<>();
@@ -170,6 +175,14 @@ public final class BuildingGenerator {
         }
 
         void put(int x, int y, int z, Block block, int phase) { put(x, y, z, block.defaultBlockState(), phase); }
+
+        /** Ground to dig out (nothing is built there). */
+        void dig(int x, int y, int z) {
+            BlockPos pos = at(x, y, z);
+            dig.add(pos);
+            states.remove(pos);
+            meta.remove(pos);
+        }
 
         /** Only where nothing is planned yet. */
         void soft(int x, int y, int z, BlockState s, int phase) { if (!has(x, y, z)) put(x, y, z, s, phase); }
@@ -814,10 +827,10 @@ public final class BuildingGenerator {
             steps.removeIf(s -> doorTops.contains(s.pos()));
             if (steps.isEmpty()) {
                 BlockPos o = at(0, 0, 0);
-                return new Plan(List.of(), o, o, households, jobs, kind, List.of());
+                return new Plan(List.of(), o, o, households, jobs, kind, List.of(), List.of());
             }
             return new Plan(List.copyOf(steps), new BlockPos(minX, minY, minZ), new BlockPos(maxX, maxY, maxZ), households, jobs, kind,
-                    List.copyOf(scaffold));
+                    List.copyOf(scaffold), List.copyOf(dig));
         }
 
         /** Scaffolding poles at the corners of the main mass while it goes up. */
@@ -1541,7 +1554,37 @@ public final class BuildingGenerator {
             c.chimney(shop.x1 + 1, shop.z1 - 1, ridge + 2);
             if (lv >= 3) c.chimney(shop.x1 + 1, shop.z0 + 1, ridge + 1);
             c.put(door - 1, 2, shop.z0 - 1, c.lantern(false), FIT);
-            c.banner(door + 3 <= shop.x1 ? door + 3 : shop.x1, 2, shop.z0 - 1, DyeColor.BLACK, c.front);
+            // Its trade shows by the door: the banner's colour, and a stack of what it makes.
+            var trade = com.cloudkingtv.townstead.industry.Industry.of(c.b);
+            DyeColor colour = trade == null ? DyeColor.BLACK : switch (trade) {
+                case CARPENTER -> DyeColor.BROWN;
+                case MASON -> DyeColor.GRAY;
+                case GLASSWORKS -> DyeColor.LIGHT_BLUE;
+                case BRICKWORKS -> DyeColor.RED;
+                case COOPER -> DyeColor.ORANGE;
+                default -> DyeColor.BLACK;
+            };
+            c.banner(door + 3 <= shop.x1 ? door + 3 : shop.x1, 2, shop.z0 - 1, colour, c.front);
+            if (trade != null && shop.x1 - 1 > door + 1) {
+                BlockState goods = switch (trade) {
+                    case CARPENTER -> c.p.floor().defaultBlockState();
+                    case MASON -> Blocks.STONE_BRICKS.defaultBlockState();
+                    case GLASSWORKS -> Blocks.GLASS.defaultBlockState();
+                    case BRICKWORKS -> Blocks.BRICKS.defaultBlockState();
+                    case COOPER -> Blocks.BARREL.defaultBlockState();
+                    default -> null;
+                };
+                if (goods != null) {
+                    c.put(shop.x1 - 1, 0, shop.z0 - 1, goods, GARDEN);
+                    c.put(shop.x1, 0, shop.z0 - 1, goods, GARDEN);
+                    c.put(shop.x1, 1, shop.z0 - 1, goods, GARDEN);
+                }
+                // The glassworks and brickworks fire kilns instead of a forge.
+                if (trade == com.cloudkingtv.townstead.industry.Industry.Trade.GLASSWORKS || trade == com.cloudkingtv.townstead.industry.Industry.Trade.BRICKWORKS) {
+                    c.put(shop.x1 - 1, 0, shop.z1 - 1, c.facing(Blocks.FURNACE, c.front), FIT);
+                    c.put(shop.x1 - 2, 0, shop.z1 - 1, c.facing(Blocks.FURNACE, c.front), FIT);
+                }
+            }
             // The yard: fence, log stacks, hay, barrels, a grindstone and a cart of crates.
             int yx0 = shop.x1 + 2, yx1 = c.W - 1;
             if (yx1 - yx0 >= 2) {
@@ -1690,6 +1733,83 @@ public final class BuildingGenerator {
             c.lampPost(c.W - 1, c.zf);
             c.jobs = 4 + (c.b.wide >= 2 ? 2 : 0) + (c.b.deep >= 2 ? 2 : 0) + lv * 2;
             return "lumber_yard";
+        }
+
+        /**
+         * Quarry industry: an open pit cut in terraces down into the ground, a timber crane over it with a block on
+         * the chain, rubble heaps and a stone-cutting shed by the road; a second saw and stacks of dressed stone from
+         * level 2, a cart track down into the pit at level 3.
+         */
+        static String quarry(Canvas c) {
+            int lv = c.level;
+            Wall w = Style.wall(c, true);
+            boolean desert = c.p.key().equals("desert");
+            BlockState stoneB = desert ? Blocks.CUT_SANDSTONE.defaultBlockState() : Blocks.STONE_BRICKS.defaultBlockState();
+            BlockState rough = desert ? Blocks.SANDSTONE.defaultBlockState() : Blocks.COBBLESTONE.defaultBlockState();
+            BlockState rubble = desert ? Blocks.SAND.defaultBlockState() : Blocks.GRAVEL.defaultBlockState();
+            Wall stone = new Wall(stoneB, w.beam(), rough, w.upper(), null, null, false, false);
+            boolean wide = c.W >= 12;
+            int z0 = c.zf + 2;
+            // The stone-cutting shed by the road.
+            Box shed = wide ? new Box(1, z0, 5, Math.min(z0 + 3, c.D - 2)) : new Box(1, z0, Math.min(5, c.W - 2), Math.min(z0 + 2, c.D - 2));
+            c.foundation(shed, c.p.foundation().defaultBlockState(), Blocks.COBBLESTONE.defaultBlockState());
+            int door = shed.cx();
+            c.doorway(door, 0, shed.z0);
+            int top = c.walls(shed, 0, 1, stone, c.p.floor().defaultBlockState());
+            c.roof(shed, top, true, w.upper());
+            c.door(door, shed.z0, c.back, DoorHingeSide.LEFT);
+            c.put(shed.x0 + 1, 0, shed.z1 - 1, Blocks.STONECUTTER.defaultBlockState(), FIT);
+            if (lv >= 2) c.put(shed.x1 - 1, 0, shed.z1 - 1, Blocks.STONECUTTER.defaultBlockState(), FIT);
+            c.put(door - 1 >= shed.x0 ? door - 1 : door + 1, 2, shed.z0 - 1, c.lantern(false), FIT);
+            c.banner(Math.min(door + 1, shed.x1), 2, shed.z0 - 1, DyeColor.GRAY, c.front);
+            c.scaffoldAround(shed);
+            // The pit: terraces a block deep each, deepest in the middle, floored with rough stone.
+            Box pit = wide ? new Box(shed.x1 + 2, z0, c.W - 2, c.D - 2) : new Box(1, shed.z1 + 2, c.W - 2, c.D - 2);
+            if (pit.w() >= 3 && pit.d() >= 3) {
+                int depth = Math.min(3, (Math.min(pit.w(), pit.d()) + 1) / 2);
+                for (int x = pit.x0; x <= pit.x1; x++) for (int z = pit.z0; z <= pit.z1; z++) {
+                    int ring = Math.min(Math.min(x - pit.x0, pit.x1 - x), Math.min(z - pit.z0, pit.z1 - z));
+                    int d = Math.min(depth, ring + 1);
+                    for (int y = -1; y >= -d; y--) c.dig(x, y, z);
+                    c.put(x, -d - 1, z, (x * 7 + z * 3) % 5 == 0 ? rubble : rough, GROUND);
+                }
+                // A cart track down the long side at level 3.
+                if (lv >= 3) {
+                    int tx = pit.x0 + 1;
+                    for (int z = pit.z0; z <= pit.z1; z++) {
+                        int ring = Math.min(Math.min(tx - pit.x0, pit.x1 - tx), Math.min(z - pit.z0, pit.z1 - z));
+                        c.put(tx, -Math.min(depth, ring + 1), z, Blocks.RAIL, FIT);
+                    }
+                }
+                // The crane: a post at the pit's edge, a jib out over it, a chain and a block of stone on the hook.
+                int px = wide ? pit.x0 - 1 : pit.x0, pz = wide ? pit.cz() : pit.z0 - 1;
+                Direction out = wide ? c.right : c.back;
+                for (int y = 0; y <= 4; y++) c.put(px, y, pz, c.log(c.p.post(), Direction.Axis.Y), FRAME);
+                int jib = Math.min(3, (wide ? pit.w() : pit.d()) / 2 + 1);
+                int jx = px, jz = pz;
+                for (int k = 1; k <= jib; k++) {
+                    jx = px + (wide ? k : 0);
+                    jz = pz + (wide ? 0 : k);
+                    c.put(jx, 5, jz, c.log(c.p.post(), wide ? c.right.getAxis() : c.back.getAxis()), FRAME);
+                }
+                c.put(px - (wide ? 1 : 0), 5, pz - (wide ? 0 : 1), Blocks.COBBLESTONE_WALL, FRAME); // counterweight
+                c.put(jx, 4, jz, Blocks.IRON_CHAIN.defaultBlockState(), FIT);
+                c.put(jx, 3, jz, Blocks.IRON_CHAIN.defaultBlockState(), FIT);
+                c.put(jx, 2, jz, stoneB, FIT);
+                c.put(px - (wide ? 0 : 1), 0, pz - (wide ? 1 : 0), Blocks.BARREL.defaultBlockState(), GARDEN);
+                c.put(px + (out == c.right ? 0 : 1), 0, pz + (out == c.right ? 1 : 0), Blocks.COMPOSTER, GARDEN);
+            }
+            // Rubble heaps and dressed stone along the front, clear of the door.
+            for (int x = 0; x < c.W; x++) {
+                if (!c.inLot(x, c.zf + 1) || Math.abs(x - door) <= 1 || (pit.contains(x, c.zf + 1))) continue;
+                int h = (x * 5) % 3;
+                if (h == 0) continue;
+                c.put(x, 0, c.zf + 1, x % 2 == 0 ? rubble : rough, GARDEN);
+                if (h == 2) c.put(x, 1, c.zf + 1, x % 4 == 0 && lv >= 2 ? stoneB : rubble, GARDEN);
+            }
+            c.path(door, c.zf, shed.z0 - 1);
+            c.jobs = 4 + (c.b.wide >= 2 ? 2 : 0) + (c.b.deep >= 2 ? 2 : 0) + lv * 2;
+            return "quarry";
         }
 
         /** Leisure: an inn with a beer garden: tables and benches under strings of lanterns, barrels stacked by the door. */

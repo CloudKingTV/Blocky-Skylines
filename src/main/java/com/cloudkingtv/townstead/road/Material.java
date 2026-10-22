@@ -13,21 +13,21 @@ import net.minecraft.world.item.Items;
  * {@code townstead:materials/}, so data packs can add modded blocks.
  */
 public enum Material {
-    DIRT("dirt", Items.DIRT),
-    COBBLESTONE("cobblestone", Items.COBBLESTONE),
-    STONE_BRICKS("stone_bricks", Items.STONE_BRICKS),
-    PLANKS("planks", Items.OAK_PLANKS),
-    LOGS("logs", Items.OAK_LOG),
-    FENCES("fences", Items.OAK_FENCE),
-    LANTERNS("lanterns", Items.LANTERN),
-    LEAVES("leaves", Items.OAK_LEAVES),
-    GLASS("glass", Items.GLASS_PANE),
-    WOOL("wool", Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE)),
-    WORKSTATIONS("workstations", Items.BARREL),
-    HAY("hay", Items.HAY_BLOCK),
-    SANDSTONE("sandstone", Items.SANDSTONE),
-    TERRACOTTA("terracotta", Items.TERRACOTTA),
-    BRICKS("bricks", Items.BRICKS);
+    DIRT("dirt", Items.DIRT, 1),
+    COBBLESTONE("cobblestone", Items.COBBLESTONE, 2),
+    STONE_BRICKS("stone_bricks", Items.STONE_BRICKS, 4),
+    PLANKS("planks", Items.OAK_PLANKS, 2),
+    LOGS("logs", Items.OAK_LOG, 4),
+    FENCES("fences", Items.OAK_FENCE, 3),
+    LANTERNS("lanterns", Items.LANTERN, 12),
+    LEAVES("leaves", Items.OAK_LEAVES, 1),
+    GLASS("glass", Items.GLASS_PANE, 4),
+    WOOL("wool", Items.WOOL.pick(net.minecraft.world.item.DyeColor.WHITE), 5),
+    WORKSTATIONS("workstations", Items.BARREL, 20),
+    HAY("hay", Items.HAY_BLOCK, 4),
+    SANDSTONE("sandstone", Items.SANDSTONE, 3),
+    TERRACOTTA("terracotta", Items.TERRACOTTA, 5),
+    BRICKS("bricks", Items.BRICKS, 5);
 
     /** Everything the Town Storehouse accepts. */
     public static final TagKey<Item> BUILDING_MATERIALS = ItemTags.create(Townstead.id("building_materials"));
@@ -35,12 +35,22 @@ public enum Material {
     private final String key;
     private final Item icon;
     private final TagKey<Item> tag;
+    /** What one unit fetches when the town sells a surplus, in hundredths of an emerald. */
+    public final int price;
 
-    Material(String key, Item icon) {
+    /** Buying in what the town can't make costs this many times the selling price. */
+    public static final int IMPORT_MARKUP = 3;
+
+    Material(String key, Item icon, int price) {
         this.key = key;
         this.icon = icon;
         this.tag = ItemTags.create(Townstead.id("materials/" + key));
+        this.price = price;
     }
+
+    /** The item the town's own workers make of this material. */
+    public Item item() { return icon; }
+    public int importPrice() { return price * IMPORT_MARKUP; }
 
     public TagKey<Item> tag() { return tag; }
     public ItemStack icon() { return new ItemStack(icon); }

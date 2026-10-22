@@ -15,13 +15,13 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
-/** Client-visible snapshot of a city (treasury in hundredths of an emerald). */
+/** Client-visible snapshot of a city (treasury in hundredths of an emerald; storehouses is how many Town Storehouses it has). */
 public record CitySummary(UUID id, String name, UUID owner, String ownerName, ResourceKey<Level> dimension,
                           BlockPos townHall, List<TilePos> tiles, long treasury, Map<Identifier, Integer> stock,
                           com.cloudkingtv.townstead.economy.Budget budget, int milestone,
                           List<com.cloudkingtv.townstead.transit.CoachLine> lines,
                           List<com.cloudkingtv.townstead.district.District> districts,
-                          java.util.Set<com.cloudkingtv.townstead.district.Policy> policies) {
+                          java.util.Set<com.cloudkingtv.townstead.district.Policy> policies, int storehouses) {
     public static final StreamCodec<ByteBuf, CitySummary> STREAM_CODEC = new StreamCodec<>() {
         private final StreamCodec<ByteBuf, List<TilePos>> tilesCodec = ByteBufCodecs.collection(ArrayList::new, TilePos.STREAM_CODEC);
         private final StreamCodec<ByteBuf, ResourceKey<Level>> dimCodec = ResourceKey.streamCodec(Registries.DIMENSION);
@@ -41,7 +41,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
                     UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), dimCodec.decode(buf),
                     BlockPos.STREAM_CODEC.decode(buf), tilesCodec.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), stockCodec.decode(buf),
                     com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), linesCodec.decode(buf),
-                    districtsCodec.decode(buf), policiesCodec.decode(buf));
+                    districtsCodec.decode(buf), policiesCodec.decode(buf), ByteBufCodecs.VAR_INT.decode(buf));
         }
 
         @Override
@@ -60,6 +60,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             linesCodec.encode(buf, c.lines());
             districtsCodec.encode(buf, c.districts());
             policiesCodec.encode(buf, c.policies());
+            ByteBufCodecs.VAR_INT.encode(buf, c.storehouses());
         }
     };
 

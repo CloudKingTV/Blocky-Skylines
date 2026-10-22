@@ -185,11 +185,12 @@ public final class TownGrowth {
         return shapes(zone, com.cloudkingtv.townstead.district.Specialization.NONE, seed);
     }
 
-    /** As {@link #shapes(ZoneType, long)}; farms and lumber yards want room for their fields and stacks. */
+    /** As {@link #shapes(ZoneType, long)}; farms, lumber yards and quarries want room for their fields, stacks and pits. */
     static List<int[]> shapes(ZoneType zone, com.cloudkingtv.townstead.district.Specialization spec, long seed) {
         int[][] all = {{2, 2}, {2, 1}, {1, 2}, {1, 1}};
         int[] weights = spec == com.cloudkingtv.townstead.district.Specialization.FARMING ? new int[] {60, 30, 10, 1}
-                : spec == com.cloudkingtv.townstead.district.Specialization.FORESTRY ? new int[] {40, 40, 20, 1} : switch (zone) {
+                : spec == com.cloudkingtv.townstead.district.Specialization.FORESTRY ? new int[] {40, 40, 20, 1}
+                : spec == com.cloudkingtv.townstead.district.Specialization.QUARRY ? new int[] {55, 35, 10, 1} : switch (zone) {
             case RESIDENTIAL -> new int[] {10, 30, 20, 40};
             case RESIDENTIAL_HIGH -> new int[] {35, 45, 10, 10};
             case COMMERCIAL -> new int[] {0, 35, 15, 50};
@@ -388,6 +389,18 @@ public final class TownGrowth {
         }
         if (!felled.isEmpty()) {
             CityManager.get(level.getServer()).editStockQuiet(city, stock -> felled.forEach((item, n) -> Stock.add(stock, item, n)));
+        }
+        // A quarry's pit is dug out with the levelling (the stone goes to the storehouse).
+        int dug = 0;
+        for (BlockPos p : plan.dig()) {
+            BlockState s = level.getBlockState(p);
+            if (s.isAir() || s.hasBlockEntity()) continue;
+            if (s.is(BlockTags.BASE_STONE_OVERWORLD)) dug++;
+            level.setBlock(p, air, Block.UPDATE_ALL);
+        }
+        if (dug > 0) {
+            int stone = dug;
+            CityManager.get(level.getServer()).editStockQuiet(city, stock -> Stock.add(stock, net.minecraft.world.item.Items.COBBLESTONE, stone));
         }
         SITE_ROADS.put(b.id, siteRoads);
         blendEdges(level, b, land, roads);

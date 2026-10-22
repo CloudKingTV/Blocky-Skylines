@@ -48,10 +48,16 @@ public final class TownModel {
     /** Working-age residents, those without a job, and the well educated among them. */
     public final int adults, unemployed, educated;
     private final Map<Integer, Happiness> happiness = new HashMap<>();
+    /** The storehouse as it stood (per material) and how many Town Storehouses the town has, for its industry. */
+    public final Map<com.cloudkingtv.townstead.road.Material, Integer> stock;
+    public final int storehouses;
+    private com.cloudkingtv.townstead.industry.Industry.@org.jspecify.annotations.Nullable Day industry;
 
     private TownModel(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury, Set<TilePos> tiles, BlockPos townHall,
-                      com.cloudkingtv.townstead.district.Civics civics) {
+                      com.cloudkingtv.townstead.district.Civics civics, Map<com.cloudkingtv.townstead.road.Material, Integer> stock, int storehouses) {
         this.city = city;
+        this.stock = stock;
+        this.storehouses = storehouses;
         this.town = List.copyOf(town);
         this.roads = roads;
         this.budget = budget;
@@ -114,7 +120,21 @@ public final class TownModel {
 
     public static TownModel of(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury,
                                Collection<TilePos> tiles, BlockPos townHall, com.cloudkingtv.townstead.district.Civics civics) {
-        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, civics);
+        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, civics, Map.of(), 0);
+    }
+
+    /** As above, with the storehouse's stock (item id to count) and Town Storehouses, so industry and trade can be worked out. */
+    public static TownModel of(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury,
+                               Collection<TilePos> tiles, BlockPos townHall, com.cloudkingtv.townstead.district.Civics civics,
+                               Map<net.minecraft.resources.Identifier, Integer> stock, int storehouses) {
+        return new TownModel(city, town, roads, budget, treasury, Set.copyOf(tiles), townHall, civics,
+                com.cloudkingtv.townstead.industry.Industry.counts(stock), storehouses);
+    }
+
+    /** A day of the town's industry against the stock this model was made with. */
+    public com.cloudkingtv.townstead.industry.Industry.Day industry() {
+        if (industry == null) industry = com.cloudkingtv.townstead.industry.Industry.day(this, stock, storehouses, 1.0);
+        return industry;
     }
 
     /** In debt: services and utilities run at half strength until the treasury is back above zero. */

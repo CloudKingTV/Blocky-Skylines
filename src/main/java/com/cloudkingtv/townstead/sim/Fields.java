@@ -74,8 +74,11 @@ public final class Fields {
                     var spec = com.cloudkingtv.townstead.district.Specialization.byKey(b.spec);
                     if (spec == com.cloudkingtv.townstead.district.Specialization.FARMING) dirty *= 0.15;
                     if (spec == com.cloudkingtv.townstead.district.Specialization.FORESTRY) dirty *= 0.6;
-                    f.pollution.add(new Source(x, z, (30 + 15 * l) * dirty, 24 + 8 * l));
-                    f.noise.add(new Source(x, z, 15 * quiet, 20));
+                    // Quarries: stone dust and the crack of blasting carry further than any forge.
+                    boolean quarry = spec == com.cloudkingtv.townstead.district.Specialization.QUARRY;
+                    if (quarry) dirty *= 1.3;
+                    f.pollution.add(new Source(x, z, (30 + 15 * l) * dirty, (24 + 8 * l) * (quarry ? 1.25 : 1)));
+                    f.noise.add(new Source(x, z, 15 * quiet * (quarry ? 2 : 1), quarry ? 30 : 20));
                 }
                 case SHOPS -> {
                     boolean big = b.zone == ZoneType.COMMERCIAL_HIGH;

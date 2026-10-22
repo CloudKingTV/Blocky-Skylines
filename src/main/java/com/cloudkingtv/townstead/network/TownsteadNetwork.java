@@ -122,12 +122,18 @@ public final class TownsteadNetwork {
                     case BUDGET -> TownEconomy.setBudget(player, city, msg.index(), msg.value());
                     case TAKE_LOAN -> TownEconomy.takeLoan(player, city, msg.index());
                     case REPAY_LOAN -> TownEconomy.repayLoan(player, city, msg.index());
+                    case BUY -> TownEconomy.buy(player, city, msg.index(), msg.value());
                 }
             });
         });
         r.playToServer(EconomyPayloads.Withdraw.TYPE, EconomyPayloads.Withdraw.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) TownEconomy.townHall(player, msg.pos())
                     .ifPresent(city -> TownEconomy.withdraw(player, city, msg.emeralds()));
+        });
+        r.playToServer(EconomyPayloads.BuyAtHall.TYPE, EconomyPayloads.BuyAtHall.STREAM_CODEC, (msg, ctx) -> {
+            if (ctx.player() instanceof ServerPlayer player) TownEconomy.townHall(player, msg.pos())
+                    .filter(city -> city.isMayor(player.getUUID()))
+                    .ifPresent(city -> TownEconomy.buy(player, city, msg.material(), msg.count()));
         });
         r.playToServer(EconomyPayloads.DepositAll.TYPE, EconomyPayloads.DepositAll.STREAM_CODEC, (msg, ctx) -> {
             if (ctx.player() instanceof ServerPlayer player) TownEconomy.townHall(player, msg.pos())
