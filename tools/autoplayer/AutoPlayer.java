@@ -396,8 +396,11 @@ public final class AutoPlayer {
             if (!m.util.power(b)) noPower++;
             if (!m.util.water(b)) noWater++;
         }
-        boolean powerBuilding = town.stream().anyMatch(b -> b.civic() && b.serviceType().kind == ServiceType.Kind.POWER && b.state != Building.State.ACTIVE);
-        boolean waterBuilding = town.stream().anyMatch(b -> b.civic() && b.serviceType().kind == ServiceType.Kind.WATER && b.state != Building.State.ACTIVE);
+        // Plants going up count against the shortfall: one at a time normally, more while many go without.
+        long powerSites = town.stream().filter(b -> b.civic() && b.serviceType().kind == ServiceType.Kind.POWER && b.state != Building.State.ACTIVE).count();
+        long waterSites = town.stream().filter(b -> b.civic() && b.serviceType().kind == ServiceType.Kind.WATER && b.state != Building.State.ACTIVE).count();
+        boolean powerBuilding = powerSites >= Math.max(1, Math.min(4, noPower / 15));
+        boolean waterBuilding = waterSites >= Math.max(1, Math.min(4, noWater / 15));
         if (!powerBuilding && (pc == 0 || noPower > 0 || pu > pc * 0.8)) {
             int[] at = without(m, town, true, 12, -2);
             if (Milestone.unlocked(city.milestone(), ServiceType.WATERMILL) && place(p, city, ServiceType.WATERMILL, at[0], at[1], true) != null) return;

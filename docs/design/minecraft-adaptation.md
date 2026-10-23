@@ -276,7 +276,7 @@ for weeks and keep their world. Details in §19.
 | Phase | Deliverable | "Done" looks like |
 |---|---|---|
 | **8. Self-sufficient towns** ✓ | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
-| **9. Balance and a real play-through** | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
+| **9. Balance and a real play-through** ✓ | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
 | **10. Multiplayer and server** | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
 | **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
 | **12. Release** | Save versioning with migrations, upgrade tests from older saves, crash-free long soak, translation readiness, mod metadata, licence, icon, CI builds, changelog, Modrinth/CurseForge page text and screenshots | A 1.0 jar and page ready for the author to publish; worlds from 0.x load in 1.0 |
@@ -698,6 +698,102 @@ Feedback: buildings were all one size and grew upward; the town looked stacked a
   a set time band, the treasury rarely negative, no zone demand pinned at 0 or 100 for long).
 - **Difficulty presets**: Relaxed / Normal / Hard (taxes, costs, demand, fire rate, growth
   time), as one server setting.
+
+#### Phase 9 as built
+
+**The autoplayer** (`tools/autoplayer`, not shipped) plays a town from founding in survival at
+growth speed 20 (a time-lapse: three real minutes per speed-1 hour), through the same calls the
+planner's payloads make, and logs a CSV row per in-game day. It brings a starter kit and gathers
+up to 1,500 blocks an hour by hand until Big Town, buys in the rest, and otherwise plays like a
+careful mayor (see its README). Twenty-odd runs drove the changes below; each fixed something a
+run showed.
+
+**Growth speed is a true time-lapse.** New sites and building reviews used fixed 40- and
+100-tick timers, so a sped-up town built faster but started sites at the normal rate. Both now
+scale with the speed (as construction, money and production already did).
+
+**The early game.**
+- Services and utilities the mayor places no longer take growth's two building places: a
+  windmill and a well waiting for stone used to stop the first homes.
+- The founding purse is 50 emeralds (was 25).
+- Unemployment costs a home at most 20 happiness (was up to 45), so a hamlet short of jobs
+  isn't abandoned before its first workshops open.
+- A town in debt runs at three-quarter strength (was half): half strength halved water and
+  power, which made buildings lose them, which made the town poorer.
+- More land early: a new town may buy two tiles straight away, and the early milestones give
+  2, 2, 3, 4 and 5 tiles (were 0, 1, 2, 3 and 4), so rough ground can't lock a town out of the
+  milestone that brings more land.
+
+**Materials.** A level-1 cottage costs about 218 units for one household; a young town makes and
+gathers about 5,000 units an hour, so growth was gathering-bound.
+- Builders get two blocks out of each unit (every other step is free; refunds and salvage
+  match).
+- Industry runs 10 batches per worker a day (was 4), and lumber yards saw planks from level 1.
+- Sidewalks cost cobblestone (was stone bricks, which a young town rarely has: streets kept
+  stalling on it).
+- A new ordinary workshop takes up the trade the town is shortest of (sites waiting, low stock),
+  instead of a random one, so bricks, glass and lanterns get made when they're needed.
+
+**Demand.** It planned 1.5 workers a household (Residents makes two adults) and jobs for only
+three quarters of them, so towns sat at 30-45% unemployment and stalled between milestones. Now
+two workers a household, shops planned for 40% of them and workshops 45%, offices for 60% of the
+well educated; and every bar is relative to the town's size (homes follow jobs per worker, the
+others how far their jobs fall short of their share), so it means the same in a hamlet as in a
+city and no longer pins at 0 or 100.
+
+**Money.** Taxable values up 20% (households 480 a day, shop jobs 600, workshop jobs 480, office
+jobs 840); the town's own exports and imports (Phase 8) do the rest.
+
+**Bigger towns build more at once:** one more building site for every 40 households (up to 8),
+one more upgrade for every 60 (up to 4).
+
+**Traffic.** Roads carry 2.5 times as much before they slow (lanes 75, streets 200, avenues 500
+trips a day): a sensible grid jammed at 400 people.
+
+**Fires** start a quarter as often (a building outside a brigade's reach about once in 70
+speed-1 hours).
+
+**Difficulty presets** (server setting `difficulty`):
+
+| | Relaxed | Normal | Hard |
+|---|---|---|---|
+| Taxes | ×1.25 | ×1 | ×0.85 |
+| Upkeep, land price | ×0.8 | ×1 | ×1.2 |
+| Imports cost (× selling price) | 2 | 3 | 4 |
+| Demand | +10 | 0 | −10 |
+| Fires | ×0.5 | ×1 | ×1.5 |
+| Building and levelling pace | ×1.3 | ×1 | ×0.8 |
+
+**Utilities** scale to a city: windmill 60 power (was 40), watermill 160 (80), well 40 water (30),
+water tower 180 (90). A 3,400-person run lost 76 homes and workshops to power cuts at the old
+capacities.
+
+**Results.** The autoplayer on levelled land (it landscapes each tile it buys, as builders do;
+on rough ground its straight street grid can't reach much of the land), in survival, Normal
+difficulty, hours at the default growth speed:
+
+| Milestone | Run 26 (before the utility change) |
+|---|---|
+| Worthy Village (40) | 0.6 h |
+| Tiny Town (100) | 1.6 h |
+| Boom Town (200) | 2.2 h |
+| Busy Town (350) | 3.1 h |
+| Big Town (550) | 3.4 h |
+| Small City (800) | 4.6 h |
+| Big City (1,100) | 5.1 h |
+| Grand City (1,500) | 5.9 h |
+| Capital City (2,000) | 6.9 h |
+| Colossal City (2,600) | 8.6 h |
+| Metropolis (3,300) | 13.2 h |
+
+Never in debt (46 days), demand bars between 10 and 80 after the first hours (offices pinned
+at 100 only while locked), happiness 60-70, unemployment near 0, traffic flow 65-100%. Material
+gathered by hand: the starter kit and about 1,500 blocks an hour until Big Town, none after;
+imports about 3,500 emeralds over the run, against about 2,400 a day earned at the end. The
+server tick reached 55-70 ms at 3,400 people and 1,300 buildings, which Phase 10's per-town
+performance budget needs to bring down.
+
+![Run 26: people, money, demand, and happiness/traffic/unemployment by hour](phase9-run26.png)
 
 ### Phase 10: multiplayer and server
 
