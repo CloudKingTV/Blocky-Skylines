@@ -6,6 +6,7 @@ import com.cloudkingtv.townstead.road.Material;
 import com.cloudkingtv.townstead.sim.TownModel;
 import com.cloudkingtv.townstead.zone.ZoneType;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
@@ -74,8 +75,39 @@ public final class Industry {
             case "farming" -> Trade.FARM;
             case "forestry" -> Trade.LUMBER;
             case "quarry" -> Trade.QUARRY;
-            default -> PROCESSORS[(int) Math.floorMod(b.seed >>> 11, (long) PROCESSORS.length)];
+            default -> {
+                // A workshop keeps the trade it opened with; older ones (and the gallery) follow their seed.
+                for (Trade t : PROCESSORS) if (t.key.equals(b.spec)) yield t;
+                yield PROCESSORS[(int) Math.floorMod(b.seed >>> 11, (long) PROCESSORS.length)];
+            }
         };
+    }
+
+    /**
+     * The trade a new workshop takes up: whatever the town is shortest of. Each trade scores for the materials it
+     * makes that building sites are waiting on and that the storehouse is low on, less a little for every workshop
+     * already in it; the seed breaks ties.
+     */
+    public static Trade pick(Collection<Building> town, Map<Material, Integer> stock, long seed) {
+        Map<Material, Integer> waiting = new EnumMap<>(Material.class);
+        Map<Trade, Integer> have = new EnumMap<>(Trade.class);
+        for (Building b : town) {
+            if (b.state == Building.State.PAUSED && b.needs != null) waiting.merge(b.needs, 1, Integer::sum);
+            Trade t = of(b);
+            if (t != null && !t.raw) have.merge(t, 1, Integer::sum);
+        }
+        Trade best = PROCESSORS[(int) Math.floorMod(seed >>> 11, (long) PROCESSORS.length)];
+        double bestScore = -1e9;
+        for (int k = 0; k < PROCESSORS.length; k++) {
+            Trade t = PROCESSORS[(int) Math.floorMod((seed >>> 11) + k, (long) PROCESSORS.length)];
+            double score = -2.0 * have.getOrDefault(t, 0);
+            for (Material m : recipe(t, 1, "plains").out().keySet()) {
+                score += 10 * waiting.getOrDefault(m, 0);
+                if (stock.getOrDefault(m, 0) < 128) score += 3;
+            }
+            if (score > bestScore) { bestScore = score; best = t; }
+        }
+        return best;
     }
 
     public static Recipe recipe(Building b) {

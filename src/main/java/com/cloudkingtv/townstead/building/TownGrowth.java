@@ -373,6 +373,11 @@ public final class TownGrowth {
         // A district's specialisation shapes the workshops (or shops) started in it.
         var spec = city.civics().spec(ZoneRules.cellKey(cx, cz));
         if (spec.need != null && spec.need == zone.need) b.spec = spec.key();
+        // An ordinary workshop takes up the trade the town is shortest of.
+        if (zone == ZoneType.INDUSTRIAL && b.spec.isEmpty()) {
+            b.spec = com.cloudkingtv.townstead.industry.Industry.pick(land.buildingsOf(city.id()),
+                    com.cloudkingtv.townstead.industry.Industry.counts(city.stock()), b.seed).key();
+        }
         BuildingGenerator.Plan plan = plan(b);
         b.households = plan.households();
         b.jobs = plan.jobs();

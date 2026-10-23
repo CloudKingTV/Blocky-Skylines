@@ -262,10 +262,10 @@ slower.
 35. **Industry makes your materials.** Every working industrial building now fills the Town
     Storehouse each day, more with more workers and higher levels (half without power or water).
     Specialised industry makes raw materials: **farms** hay and wool, **lumber yards** logs and
-    leaves (and planks once they reach level 2), **quarries** cobblestone and earth (sandstone in
+    leaves and planks (more of each from level 2), **quarries** cobblestone and earth (sandstone in
     the desert, terracotta in the savanna, dressed stone bricks from level 2). Ordinary workshops
-    each follow a trade, shown by the banner and the stack by their door, and work raw materials
-    up: the **carpenter** (logs to planks and fences), **mason** (cobblestone to stone bricks),
+    each follow a trade, shown by the banner and the stack by their door (a new one takes up
+    whatever the town is shortest of), and work raw materials up: the **carpenter** (logs to planks and fences), **mason** (cobblestone to stone bricks),
     **glassworks** (glass), **brickworks** (bricks), **smithy** (lanterns) and **cooper**
     (workstations). A workshop runs only what the storehouse can feed it, so a town wants both.
 36. **Quarry districts.** A new industry specialisation: lots grow as open pits cut in terraces
