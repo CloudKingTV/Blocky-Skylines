@@ -14,24 +14,25 @@ import org.jspecify.annotations.Nullable;
  * so the planner can grey out what's still locked and say exactly what it takes.
  */
 public enum Milestone {
-    // One tile to buy from the start, so a town on rough ground can always find room to reach the next milestone.
-    LITTLE_HAMLET(0, 0, 1,
+    // Two tiles to buy from the start, and a little more land at each early milestone, so a town on rough ground
+    // can always find room to reach the next one.
+    LITTLE_HAMLET(0, 0, 2,
             List.of(RoadType.LANE, RoadType.STREET),
             List.of(ZoneType.RESIDENTIAL, ZoneType.COMMERCIAL, ZoneType.INDUSTRIAL),
             List.of(ServiceType.WINDMILL, ServiceType.WELL, ServiceType.PARK)),
-    WORTHY_VILLAGE(40, 40, 1,
+    WORTHY_VILLAGE(40, 40, 2,
             List.of(RoadType.AVENUE),
             List.of(),
             List.of(ServiceType.CLINIC, ServiceType.SCHOOL, ServiceType.GUARD_HOUSE, ServiceType.COACH_HOUSE, ServiceType.FOUNDERS_FOUNTAIN)),
-    TINY_TOWN(100, 80, 2,
+    TINY_TOWN(100, 80, 3,
             List.of(),
             List.of(ZoneType.RESIDENTIAL_HIGH, ZoneType.COMMERCIAL_HIGH),
             List.of(ServiceType.FIRE_STATION, ServiceType.COMPOST_YARD, ServiceType.WATER_TOWER)),
-    BOOM_TOWN(200, 150, 3,
+    BOOM_TOWN(200, 150, 4,
             List.of(),
             List.of(ZoneType.OFFICE),
             List.of(ServiceType.WATERMILL, ServiceType.CLOCK_TOWER)),
-    BUSY_TOWN(350, 250, 4,
+    BUSY_TOWN(350, 250, 5,
             List.of(),
             List.of(),
             List.of(ServiceType.CHAPEL)),
