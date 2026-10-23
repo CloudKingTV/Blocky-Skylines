@@ -76,7 +76,7 @@ public final class Fires {
                 if (covered && b.fire >= PUT_OUT / Math.max(0.25, model.strength(ServiceType.FIRE_STATION))) putOut(level, city, b);
                 else if (!covered && b.fire >= BURN_DOWN) burnDown(level, city, b);
                 else if (random.nextDouble() < (covered ? 0.02 : 0.07) * dt / 100) spread(level, city, b, mine, model);
-            } else if (canBurn(b) && random.nextDouble() < dt / MEAN_TICKS * risk(b, model)) {
+            } else if (canBurn(b) && random.nextDouble() < dt / MEAN_TICKS * risk(b, model) * com.cloudkingtv.townstead.Difficulty.current().fires) {
                 ignite(level, city, b);
             }
         }

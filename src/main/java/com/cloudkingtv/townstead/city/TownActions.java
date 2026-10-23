@@ -26,7 +26,7 @@ public final class TownActions {
 
     /** Price of a town's next tile of land, in emeralds: 40 for the first bought, 40 more for each after. */
     public static long tilePrice(int ownedTiles) {
-        return 40L * Math.max(1, ownedTiles - 8);
+        return Math.round(40L * Math.max(1, ownedTiles - 8) * com.cloudkingtv.townstead.Difficulty.current().costs);
     }
 
     /** Why a tile can't be bought right now (a translation key), or null if it can. Shared by the planner and the server. */

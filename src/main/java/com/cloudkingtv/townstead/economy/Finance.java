@@ -42,33 +42,34 @@ public final class Finance {
     }
 
     public static Report daily(TownModel m) {
+        com.cloudkingtv.townstead.Difficulty d = com.cloudkingtv.townstead.Difficulty.current();
         long[] taxes = new long[Budget.TAX_KINDS];
         long[] upkeep = new long[ServiceType.Department.values().length];
         for (Building b : m.town) {
             if (b.civic()) {
                 if (b.state == Building.State.ACTIVE || b.upgrading) {
                     ServiceType s = b.serviceType();
-                    upkeep[s.department.ordinal()] += (long) s.upkeep * m.budget.budget(s.department) / 100;
+                    upkeep[s.department.ordinal()] += Math.round(s.upkeep * m.budget.budget(s.department) / 100.0 * d.costs);
                 }
                 continue;
             }
             if (!b.working()) continue;
             int kind = Happiness.taxKind(b);
-            taxes[kind] += Math.round(value(b, m) * m.budget.tax(kind) / 100.0 * taxShare(b, m));
+            taxes[kind] += Math.round(value(b, m) * m.budget.tax(kind) / 100.0 * taxShare(b, m) * d.taxes);
         }
         long roads = 0;
         for (RoadSegment s : m.roads.segments()) {
-            if (s.city().equals(m.city)) roads += Math.round(s.curve().length() * roadUpkeep(s.type()));
+            if (s.city().equals(m.city)) roads += Math.round(s.curve().length() * roadUpkeep(s.type()) * d.costs);
         }
         long loans = 0;
         for (Loan l : m.budget.loans) loans += Math.min(l.daily(), l.owed());
         // Coaches cost their upkeep (from the transport budget) and earn fares.
         int transport = ServiceType.Department.TRANSPORT.ordinal();
         for (var line : m.traffic.lines().values()) {
-            upkeep[transport] += (long) line.coaches() * COACH_UPKEEP * m.budget.budget(ServiceType.Department.TRANSPORT) / 100;
+            upkeep[transport] += Math.round(line.coaches() * COACH_UPKEEP * m.budget.budget(ServiceType.Department.TRANSPORT) / 100.0 * d.costs);
         }
         long fares = m.civics.policies().contains(com.cloudkingtv.townstead.district.Policy.FREE_COACHES) ? 0 : (long) m.traffic.riders() * FARE;
-        return new Report(taxes, upkeep, roads, loans, fares, policyCost(m), Math.round(m.industry().exportValue()));
+        return new Report(taxes, upkeep, roads, loans, fares, Math.round(policyCost(m) * d.costs), Math.round(m.industry().exportValue()));
     }
 
     /** How much of its tax a building pays under the town's policies and its specialisation. */

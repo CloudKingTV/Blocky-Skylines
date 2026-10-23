@@ -43,7 +43,7 @@ public final class Progression {
         if (b.level >= 2 && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.OLD_TOWN)) return out; // Old Town: no further
         Collection<Building> town = m.town;
         int next = b.level + 1;
-        long need = (long) (LEVEL_TIME[b.level] / speed);
+        long need = (long) (LEVEL_TIME[b.level] / speed / com.cloudkingtv.townstead.Difficulty.current().building);
         long settled = b.state == Building.State.ACTIVE ? now - b.activeSince : 0;
         long left = Math.max(0, need - settled);
         out.add(new Factor(left == 0 ? Component.translatable("level.townstead.settled")

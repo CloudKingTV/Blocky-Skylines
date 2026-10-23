@@ -72,6 +72,7 @@ public final class TownGrowth {
     private static final Map<Long, Set<BlockPos>> PLANNED = new HashMap<>();
     private static final Map<Integer, Set<Long>> SITE_ROADS = new HashMap<>();
     private static boolean landDirty;
+    private static double buildCarry;
 
     private static long key(Building b) {
         return ((long) b.id << 8) | ((long) b.level << 4) | (b.style.hashCode() & 0xF);
@@ -95,6 +96,11 @@ public final class TownGrowth {
         landDirty = true;
     }
 
+    /** A speed-1 interval at the current speed, at least a tick. */
+    static int every(int ticks, double speed) {
+        return Math.max(1, (int) Math.round(ticks / speed));
+    }
+
     public static double speed() {
         return TownsteadConfig.GROWTH_SPEED.get();
     }
@@ -107,10 +113,12 @@ public final class TownGrowth {
         LandData land = LandData.get(level);
         double speed = speed();
         if (time % BUILD_INTERVAL == 0) {
-            // Below speed 1, skip build ticks; above it, place several blocks per tick.
-            int every = speed < 1 ? (int) Math.round(1 / speed) : 1;
-            int perTick = speed < 1 ? 1 : (int) Math.round(speed);
-            if ((time / BUILD_INTERVAL) % every == 0) {
+            // Blocks per build tick: the speed times the difficulty's building pace, fractions carried over
+            // (below one, some build ticks place nothing).
+            buildCarry += speed * com.cloudkingtv.townstead.Difficulty.current().building;
+            int perTick = (int) buildCarry;
+            buildCarry -= perTick;
+            if (perTick > 0) {
                 for (Building b : List.copyOf(land.buildings())) {
                     if (b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
                     cities.byId(b.city).ifPresent(city -> {
@@ -119,10 +127,11 @@ public final class TownGrowth {
                 }
             }
         }
-        if (time % GROWTH_INTERVAL == 0) {
+        // New sites and reviews come round faster at a higher speed (time-lapse), slower below 1.
+        if (time % every(GROWTH_INTERVAL, speed) == 0) {
             for (City city : cities.all()) if (city.dimension().equals(level.dimension())) grow(level, city, land);
         }
-        if (time % REVIEW_INTERVAL == 0) {
+        if (time % every(REVIEW_INTERVAL, speed) == 0) {
             for (City city : cities.all()) if (city.dimension().equals(level.dimension())) review(level, city, land);
         }
         if (time % CATCH_UP_INTERVAL == 0) catchUp(level, cities, land);
@@ -139,7 +148,8 @@ public final class TownGrowth {
 
     private static void grow(ServerLevel level, City city, LandData land) {
         List<Building> mine = land.buildingsOf(city.id());
-        if (mine.stream().filter(b -> b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= MAX_SITES) return;
+        // Services and utilities the mayor placed don't take growth's places.
+        if (mine.stream().filter(b -> !b.civic() && b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= MAX_SITES) return;
         Demand demand = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city).demand;
         Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
         Set<TilePos> tiles = city.tiles();
@@ -666,9 +676,10 @@ public final class TownGrowth {
         com.cloudkingtv.townstead.sim.TownModel model = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city);
         double speed = speed();
         long upgrading = mine.stream().filter(b -> b.upgrading).count();
-        com.cloudkingtv.townstead.disaster.Fires.review(level, city, mine, model, REVIEW_INTERVAL * speed);
+        double dt = every(REVIEW_INTERVAL, speed) * speed; // speed-1 ticks since the last review
+        com.cloudkingtv.townstead.disaster.Fires.review(level, city, mine, model, dt);
         // One building a round has its front path looked over, in case a tree, a boulder or the weather settled on it.
-        Building walk = mine.get((int) Math.floorMod(level.getGameTime() / REVIEW_INTERVAL, (long) mine.size()));
+        Building walk = mine.get((int) Math.floorMod(level.getGameTime() / every(REVIEW_INTERVAL, speed), (long) mine.size()));
         if (walk.state == Building.State.ACTIVE && loaded(level, plan(walk))) {
             frontPath(level, walk, plan(walk), ZoneRules.roadColumns(RoadNetwork.get(level), city.id()));
         }
@@ -678,8 +689,8 @@ public final class TownGrowth {
             Component trouble = Progression.trouble(b, model);
             int before = b.trouble;
             // Capped, so recovery takes the same time however long the trouble lasted.
-            if (trouble != null) b.trouble = Math.min(Progression.ABANDON_AFTER, b.trouble + (int) Math.round(REVIEW_INTERVAL * speed));
-            else b.trouble = Math.max(0, b.trouble - (int) Math.round(REVIEW_INTERVAL * 2 * speed));
+            if (trouble != null) b.trouble = Math.min(Progression.ABANDON_AFTER, b.trouble + (int) Math.round(dt));
+            else b.trouble = Math.max(0, b.trouble - (int) Math.round(dt * 2));
             if (b.trouble != before) { land.setDirty(); markDirty(); }
             if (before == 0 && b.trouble > 0 && trouble != null && b.state == Building.State.ACTIVE) {
                 com.cloudkingtv.townstead.progress.Chirps.post(level, city, "trouble", BlockPos.containing(b.centerX(), b.baseY, b.centerZ()), false,

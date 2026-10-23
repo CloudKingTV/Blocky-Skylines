@@ -48,6 +48,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.fires")
             .define("fires", true);
 
+    public static final ModConfigSpec.EnumValue<Difficulty> DIFFICULTY = SERVER
+            .comment("Relaxed: more taxes, cheaper upkeep and imports, more demand, fewer fires, faster building. Hard: the reverse")
+            .translation("townstead.configuration.difficulty")
+            .defineEnum("difficulty", Difficulty.NORMAL);
+
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 
     private TownsteadConfig() {}

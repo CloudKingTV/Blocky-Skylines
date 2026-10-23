@@ -38,9 +38,6 @@ public enum Material {
     /** What one unit fetches when the town sells a surplus, in hundredths of an emerald. */
     public final int price;
 
-    /** Buying in what the town can't make costs this many times the selling price. */
-    public static final int IMPORT_MARKUP = 3;
-
     Material(String key, Item icon, int price) {
         this.key = key;
         this.icon = icon;
@@ -50,7 +47,8 @@ public enum Material {
 
     /** The item the town's own workers make of this material. */
     public Item item() { return icon; }
-    public int importPrice() { return price * IMPORT_MARKUP; }
+    /** Buying in what the town can't make costs a multiple of the selling price (three times on Normal). */
+    public int importPrice() { return price * com.cloudkingtv.townstead.Difficulty.current().importMarkup; }
 
     public TagKey<Item> tag() { return tag; }
     public ItemStack icon() { return new ItemStack(icon); }

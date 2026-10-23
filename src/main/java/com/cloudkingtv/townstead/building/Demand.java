@@ -52,11 +52,12 @@ public record Demand(int residential, int commercial, int industrial, int office
         int people = households * PEOPLE_PER_HOUSEHOLD;
         int workers = people / 2;
         int[] t = taxes == null ? new int[] {NEUTRAL_TAX, NEUTRAL_TAX, NEUTRAL_TAX, NEUTRAL_TAX} : taxes;
-        int r = Mth.clamp(40 + (jc + ji + jo + jv - workers) * 3 + taxPush(t[0]), 0, 100);
-        int c = Mth.clamp((int) Math.round((people / 6.0 - jc) * 6) + taxPush(t[1]) + shopPush, 0, 100);
-        int i = Mth.clamp((int) Math.round((people / 5.0 - ji) * 5) + 10 + taxPush(t[2]) + workshopPush, 0, 100);
+        int easy = com.cloudkingtv.townstead.Difficulty.current().demand;
+        int r = Mth.clamp(40 + (jc + ji + jo + jv - workers) * 3 + taxPush(t[0]) + easy, 0, 100);
+        int c = Mth.clamp((int) Math.round((people / 6.0 - jc) * 6) + taxPush(t[1]) + shopPush + easy, 0, 100);
+        int i = Mth.clamp((int) Math.round((people / 5.0 - ji) * 5) + 10 + taxPush(t[2]) + workshopPush + easy, 0, 100);
         double officeRoom = educated < 0 ? people / 8.0 - jo : educated * 0.75 - jo;
-        int o = people < ZoneType.OFFICE.minPopulation ? 0 : Mth.clamp((int) Math.round(officeRoom * 5) + taxPush(t[3]), 0, 100);
+        int o = people < ZoneType.OFFICE.minPopulation ? 0 : Mth.clamp((int) Math.round(officeRoom * 5) + taxPush(t[3]) + easy, 0, 100);
         return new Demand(r, c, i, o, population, people, workers, jc, ji, jo, jv, Math.max(0, educated));
     }
 

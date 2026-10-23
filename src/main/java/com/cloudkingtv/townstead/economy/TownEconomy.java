@@ -40,7 +40,7 @@ public final class TownEconomy {
     /** One emerald, in the treasury's hundredths. */
     public static final long EMERALD = 100;
     /** What a new town starts with; it stays in the treasury as a reserve (it can't be withdrawn). */
-    public static final long FOUNDING_PURSE = 25 * EMERALD;
+    public static final long FOUNDING_PURSE = 50 * EMERALD;
 
     /** What the mayor may take out: the treasury beyond the reserve and what's still owed on loans. */
     public static long withdrawable(long treasury, Budget budget) {

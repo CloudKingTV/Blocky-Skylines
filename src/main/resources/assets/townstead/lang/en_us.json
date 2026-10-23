@@ -408,7 +408,7 @@
   "status.townstead.unhappy": "Unhappy",
   "trouble.townstead.no_educated": "not enough well-educated workers",
   "trouble.townstead.unhappy": "unhappy (%s)",
-  "screen.townstead.town_hall.available": "You can take %s (a 25 reserve and loans stay)",
+  "screen.townstead.town_hall.available": "You can take %s (a 50 reserve and loans stay)",
   "material.townstead.bricks": "Bricks",
   "material.townstead.sandstone": "Sandstone",
   "material.townstead.terracotta": "Terracotta",
@@ -781,5 +781,9 @@
   "screen.townstead.town_hall.buy": "Buy 64 · %s",
   "screen.townstead.town_hall.buy_title": "Buy materials in",
   "screen.townstead.town_hall.in_stock": "%s in the storehouse",
-  "budget.townstead.scroll": "%s-%s of %s · scroll for more"
+  "budget.townstead.scroll": "%s-%s of %s · scroll for more",
+  "townstead.configuration.difficulty": "Difficulty",
+  "difficulty.townstead.relaxed": "Relaxed",
+  "difficulty.townstead.normal": "Normal",
+  "difficulty.townstead.hard": "Hard"
 }
