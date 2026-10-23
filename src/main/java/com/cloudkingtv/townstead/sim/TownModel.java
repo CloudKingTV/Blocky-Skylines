@@ -137,14 +137,14 @@ public final class TownModel {
         return industry;
     }
 
-    /** In debt: services and utilities run at half strength until the treasury is back above zero. */
+    /** In debt: services and utilities run at three-quarter strength until the treasury is back above zero. */
     public boolean broke() {
         return treasury < 0;
     }
 
     /** How hard a department works: its budget (1.0 at 100%), halved while the town is broke. */
     public double strength(ServiceType s) {
-        return budget.budget(s.department) / 100.0 * (broke() ? 0.5 : 1.0);
+        return budget.budget(s.department) / 100.0 * (broke() ? 0.75 : 1.0);
     }
 
     /** A service's reach in blocks: 80% at a 50% budget, 120% at 150%. */

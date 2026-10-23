@@ -151,7 +151,7 @@ for free, and the server config option `freeBuild` turns materials off for every
     happy and demand falls; below it the opposite. Every service department has a budget from 50%
     to 150%, which scales its upkeep and its reach (or a plant's output). Roads cost upkeep by
     length. Three loans are on offer (50, 150 and 400 emeralds at 5–12% interest), paid back
-    daily or early. A town in debt runs its services at half strength. The bars show recent
+    daily or early. A town in debt runs its services at three-quarter strength. The bars show recent
     settlements.
 19. **People.** Every resident has an education level (unschooled to highly educated); a school in
     reach of their home adds one. Offices, the clinic and the school need well-educated workers,

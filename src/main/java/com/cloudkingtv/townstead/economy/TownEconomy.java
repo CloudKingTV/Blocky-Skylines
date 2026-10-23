@@ -30,7 +30,7 @@ import net.neoforged.neoforge.event.tick.LevelTickEvent;
 /**
  * The town's books, server side. Every half minute a slice of the day's taxes comes in and a slice of upkeep and
  * loan payments goes out (scaled by the growth speed, like everything else), and the ledger records it. A town in
- * debt runs its services at half strength until the treasury is back above zero. Also the mayor's money actions:
+ * debt runs its services at three-quarter strength until the treasury is back above zero. Also the mayor's money actions:
  * taxes, budgets, loans, and emeralds in and out at the Town Hall.
  */
 @EventBusSubscriber(modid = Townstead.MODID)
