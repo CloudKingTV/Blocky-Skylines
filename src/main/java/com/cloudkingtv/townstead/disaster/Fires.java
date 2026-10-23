@@ -49,7 +49,7 @@ import org.jspecify.annotations.Nullable;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class Fires {
     /** A building outside any fire station's reach catches fire about once in this many ticks. */
-    static final double MEAN_TICKS = 1_200_000;
+    static final double MEAN_TICKS = 5_000_000;
     /** How long an unattended fire burns before the building is lost. */
     public static final int BURN_DOWN = 2400;
     /** How long the brigade takes to put a fire out at full budget. */
