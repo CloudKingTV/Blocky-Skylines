@@ -17,9 +17,9 @@ import com.cloudkingtv.townstead.zone.ZoneType;
  */
 public final class Finance {
     /** Taxable value per household per day, at level 1 and land value 50. */
-    public static final int HOUSEHOLD_VALUE = 400;
+    public static final int HOUSEHOLD_VALUE = 480;
     /** Taxable value per filled job per day at level 1: shops, workshops, offices. */
-    public static final int SHOP_JOB_VALUE = 500, WORKSHOP_JOB_VALUE = 400, OFFICE_JOB_VALUE = 700;
+    public static final int SHOP_JOB_VALUE = 600, WORKSHOP_JOB_VALUE = 480, OFFICE_JOB_VALUE = 840;
     private static final double[] LEVEL_MULTIPLIER = {1.0, 1.5, 2.25};
 
     /** Fare per coach rider per day, and a coach's running cost at a 100% transport budget. */

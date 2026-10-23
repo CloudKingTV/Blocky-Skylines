@@ -60,7 +60,7 @@ public final class Industry {
     private static final Trade[] PROCESSORS = {Trade.CARPENTER, Trade.MASON, Trade.GLASSWORKS, Trade.BRICKWORKS, Trade.SMITHY, Trade.COOPER};
 
     /** Batches each worker runs a day, at level 1. */
-    public static final int BATCHES_PER_WORKER = 4;
+    public static final int BATCHES_PER_WORKER = 10;
     private static final double[] LEVEL = {1.0, 1.5, 2.0};
     /** Room for each material: a base in the Town Hall's cellars, and more with every Town Storehouse. */
     public static final int BASE_CAPACITY = 512, PER_STOREHOUSE = 1024;

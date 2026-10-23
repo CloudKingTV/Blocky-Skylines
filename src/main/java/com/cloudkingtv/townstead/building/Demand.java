@@ -6,8 +6,8 @@ import net.minecraft.util.Mth;
 
 /**
  * Demand for homes, shops, workshops and offices (the R, C, I and O bars), 0-100, from the town's buildings.
- * Deliberately simple and explainable: homes follow jobs, shops and workshops follow population, offices follow a
- * bigger population. Sites under construction count, so a town doesn't over-build while they go up. Abandoned
+ * Deliberately simple and explainable: homes follow jobs, shops and workshops follow the working population (about a
+ * third and two fifths of it), offices follow a bigger population. Sites under construction count, so a town doesn't over-build while they go up. Abandoned
  * buildings count for nothing. Offices follow the well-educated workers the town has, and taxes push demand down
  * (above 9%) or up (below it), three points per percent.
  */
@@ -15,6 +15,10 @@ public record Demand(int residential, int commercial, int industrial, int office
                      int shopJobs, int workshopJobs, int officeJobs, int civicJobs, int educated) {
     /** Average household size, for planning (actual residents come from {@link Residents}). */
     public static final int PEOPLE_PER_HOUSEHOLD = 3;
+    /** Working-age adults a household brings, and the shares of them shops and workshops are planned to employ. */
+    public static final int WORKERS_PER_HOUSEHOLD = 2;
+    public static final double SHOP_SHARE = 0.35, WORKSHOP_SHARE = 0.4;
+
     /** Demand a zone needs before a new site starts. */
     public static final int GROWTH_THRESHOLD = 15;
 
@@ -50,12 +54,14 @@ public record Demand(int residential, int commercial, int industrial, int office
             }
         }
         int people = households * PEOPLE_PER_HOUSEHOLD;
-        int workers = people / 2;
+        // Two working-age adults a household (as Residents makes them); shops and workshops between them
+        // employ most of them, offices and services the rest.
+        int workers = households * WORKERS_PER_HOUSEHOLD;
         int[] t = taxes == null ? new int[] {NEUTRAL_TAX, NEUTRAL_TAX, NEUTRAL_TAX, NEUTRAL_TAX} : taxes;
         int easy = com.cloudkingtv.townstead.Difficulty.current().demand;
         int r = Mth.clamp(40 + (jc + ji + jo + jv - workers) * 3 + taxPush(t[0]) + easy, 0, 100);
-        int c = Mth.clamp((int) Math.round((people / 6.0 - jc) * 6) + taxPush(t[1]) + shopPush + easy, 0, 100);
-        int i = Mth.clamp((int) Math.round((people / 5.0 - ji) * 5) + 10 + taxPush(t[2]) + workshopPush + easy, 0, 100);
+        int c = Mth.clamp((int) Math.round((workers * SHOP_SHARE - jc) * 5) + taxPush(t[1]) + shopPush + easy, 0, 100);
+        int i = Mth.clamp((int) Math.round((workers * WORKSHOP_SHARE - ji) * 4) + 10 + taxPush(t[2]) + workshopPush + easy, 0, 100);
         double officeRoom = educated < 0 ? people / 8.0 - jo : educated * 0.75 - jo;
         int o = people < ZoneType.OFFICE.minPopulation ? 0 : Mth.clamp((int) Math.round(officeRoom * 5) + taxPush(t[3]) + easy, 0, 100);
         return new Demand(r, c, i, o, population, people, workers, jc, ji, jo, jv, Math.max(0, educated));

@@ -64,7 +64,7 @@ public final class TownGrowth {
     private static final int REVIEW_INTERVAL = 100;
     /** Ticks between catch-ups of sites in unloaded chunks. */
     private static final int CATCH_UP_INTERVAL = 600;
-    private static final int MAX_SITES = 2, MAX_UPGRADES = 1, MAX_SLOPE = 4, SITE_CLEAR_HEIGHT = 32;
+    private static final int MAX_SITES = 2, MAX_SITES_CAP = 8, MAX_UPGRADES = 1, MAX_SLOPE = 4, SITE_CLEAR_HEIGHT = 32;
     /** How far a lot may sit above or below its road: the front path climbs it in steps. */
     private static final int PATH_RISE = 2;
 
@@ -149,7 +149,11 @@ public final class TownGrowth {
     private static void grow(ServerLevel level, City city, LandData land) {
         List<Building> mine = land.buildingsOf(city.id());
         // Services and utilities the mayor placed don't take growth's places.
-        if (mine.stream().filter(b -> !b.civic() && b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= MAX_SITES) return;
+        // A bigger town has more builders: one more site for every 40 households, up to eight.
+        int households = 0;
+        for (Building b : mine) if (b.working()) households += b.households;
+        int sites = Math.min(MAX_SITES_CAP, MAX_SITES + households / 40);
+        if (mine.stream().filter(b -> !b.civic() && b.state != Building.State.ACTIVE && b.state != Building.State.ABANDONED && !b.upgrading).count() >= sites) return;
         Demand demand = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city).demand;
         Map<Long, RoadRaster.Cell> roads = ZoneRules.roadColumns(RoadNetwork.get(level), city.id());
         Set<TilePos> tiles = city.tiles();
@@ -676,6 +680,9 @@ public final class TownGrowth {
         com.cloudkingtv.townstead.sim.TownModel model = com.cloudkingtv.townstead.economy.TownEconomy.model(level, city);
         double speed = speed();
         long upgrading = mine.stream().filter(b -> b.upgrading).count();
+        int households = 0;
+        for (Building b : mine) if (b.working()) households += b.households;
+        int upgrades = Math.min(4, MAX_UPGRADES + households / 60); // more builders in a bigger town
         double dt = every(REVIEW_INTERVAL, speed) * speed; // speed-1 ticks since the last review
         com.cloudkingtv.townstead.disaster.Fires.review(level, city, mine, model, dt);
         // One building a round has its front path looked over, in case a tree, a boulder or the weather settled on it.
@@ -704,7 +711,7 @@ public final class TownGrowth {
                 repair(level, city, b);
                 continue;
             }
-            if (b.state == Building.State.ACTIVE && b.fire == 0 && trouble == null && upgrading < MAX_UPGRADES
+            if (b.state == Building.State.ACTIVE && b.fire == 0 && trouble == null && upgrading < upgrades
                     && Progression.canLevel(Progression.nextLevel(b, model, level.getGameTime(), speed))) {
                 upgrade(level, city, b);
                 upgrading++;
