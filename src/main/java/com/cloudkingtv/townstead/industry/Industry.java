@@ -89,9 +89,10 @@ public final class Industry {
         switch (t) {
             case FARM -> { out.put(Material.HAY, 2); out.put(Material.WOOL, 1); }
             case LUMBER -> {
-                out.put(Material.LOGS, 3);
+                // The saw shed cuts planks from the start; the sawmill at level 2 fells and saws more.
+                out.put(Material.LOGS, level >= 2 ? 3 : 2);
+                out.put(Material.PLANKS, level >= 2 ? 3 : 2);
                 out.put(Material.LEAVES, 1);
-                if (level >= 2) out.put(Material.PLANKS, 2); // the sawmill
             }
             case QUARRY -> {
                 if ("desert".equals(style)) out.put(Material.SANDSTONE, 3);

@@ -202,8 +202,8 @@ slower.
 
 24. **Traffic.** Everyone who works drives to work, households run errands to the nearest shop
     and workshops deliver to shops. These trips are routed over your road network and pile up
-    on its roads: lanes carry about 30 trips a day before they slow, streets 80, avenues 200. A
-    single lane joining two busy streets jams by around 70 people; carts on a jammed road crawl.
+    on its roads: lanes carry about 75 trips a day before they slow, streets 200, avenues 500. A
+    single lane joining two busy streets jams by around 175 people; carts on a jammed road crawl.
     The **traffic info view** (Info tool, **8**) colours every road green, yellow or red and
     shows the town's *traffic flow* (100% means nobody is held up). Jammed commutes make people
     unhappy, and busier roads are louder.

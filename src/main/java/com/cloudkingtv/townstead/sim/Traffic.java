@@ -216,9 +216,9 @@ public final class Traffic {
     /** Trips a road could carry before it slows: per day, per direction pair. */
     public static double capacity(RoadType type) {
         return switch (type) {
-            case LANE -> 30;
-            case STREET -> 80;
-            case AVENUE -> 200;
+            case LANE -> 75;
+            case STREET -> 200;
+            case AVENUE -> 500;
         };
     }
 
