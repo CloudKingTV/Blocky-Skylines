@@ -15,10 +15,10 @@ import net.minecraft.world.item.Items;
  * clinics, fire and police stations, schools, landfills and parks.
  */
 public enum ServiceType implements StringRepresentable {
-    WINDMILL("windmill", Kind.POWER, Items.GRINDSTONE, 40, 0, 2, Department.POWER, 300),
-    WATERMILL("watermill", Kind.POWER, Items.OAK_TRAPDOOR, 80, 0, 3, Department.POWER, 500),
-    WELL("well", Kind.WATER, Items.WATER_BUCKET, 30, 0, 0, Department.WATER, 150),
-    WATER_TOWER("water_tower", Kind.WATER, Items.BARREL, 90, 0, 1, Department.WATER, 450),
+    WINDMILL("windmill", Kind.POWER, Items.GRINDSTONE, 60, 0, 2, Department.POWER, 300),
+    WATERMILL("watermill", Kind.POWER, Items.OAK_TRAPDOOR, 160, 0, 3, Department.POWER, 500),
+    WELL("well", Kind.WATER, Items.WATER_BUCKET, 40, 0, 0, Department.WATER, 150),
+    WATER_TOWER("water_tower", Kind.WATER, Items.BARREL, 180, 0, 1, Department.WATER, 450),
     CLINIC("clinic", Kind.SERVICE, Items.BREWING_STAND, 0, 48, 4, Department.HEALTH, 500),
     FIRE_STATION("fire_station", Kind.SERVICE, Items.CAULDRON, 0, 56, 5, Department.FIRE, 500),
     GUARD_HOUSE("guard_house", Kind.SERVICE, Items.IRON_SWORD, 0, 56, 4, Department.POLICE, 450),

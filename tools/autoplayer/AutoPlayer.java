@@ -167,6 +167,8 @@ public final class AutoPlayer {
         level.setBlock(hall, state, 3);
         state.getBlock().setPlacedBy(level, hall, state, p, TownsteadRegistry.TOWN_HALL_ITEM.get().getDefaultInstance());
         City city = city(server);
+        // A builder's first job: level the town's land (and each tile bought later) so the streets can go in.
+        for (TilePos tp : List.copyOf(city.tiles())) terraform(level, tp, hall.getY());
         hcx = Math.floorDiv(hall.getX(), 8);
         hcz = Math.floorDiv(hall.getZ(), 8);
         // A Town Storehouse beside the hall, and the starter kit: about a day of gathering by hand.
@@ -213,6 +215,28 @@ public final class AutoPlayer {
 
     static City city(MinecraftServer server) {
         return CityManager.get(server).ownedBy(server.getPlayerList().getPlayers().getFirst().getUUID()).orElseThrow();
+    }
+
+    /**
+     * Levels a tile to the town's ground height, as a builder landscapes before laying out streets: earth filled up
+     * to it, hills cut down to it (24 blocks of headroom). Anything the mod placed, and containers, are left alone.
+     */
+    static void terraform(ServerLevel level, TilePos tp, int gy) {
+        BlockState grass = net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState(), dirt = net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState(),
+                air = net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+        int x0 = tp.minBlockX(), z0 = tp.minBlockZ();
+        for (int x = x0; x < x0 + TilePos.SIZE; x++) for (int z = z0; z < z0 + TilePos.SIZE; z++) {
+            level.getChunk(x >> 4, z >> 4);
+            int top = level.getHeight(Heightmap.Types.OCEAN_FLOOR, x, z);
+            for (int y = Math.min(top, gy) - 3; y <= Math.max(top, gy) + 24; y++) {
+                BlockPos bp = new BlockPos(x, y, z);
+                BlockState here = level.getBlockState(bp);
+                if (here.getBlock().builtInRegistryHolder().key().identifier().getNamespace().equals("townstead") || here.hasBlockEntity()) continue;
+                BlockState want = y < gy - 1 ? dirt : y == gy - 1 ? grass : air;
+                if (y < gy - 1 && !here.isAir() && here.getFluidState().isEmpty()) continue; // keep what's underground
+                if (!here.equals(want)) level.setBlock(bp, want, 2 | 16);
+            }
+        }
     }
 
     // ---------------------------------------------------------------- the street grid
@@ -618,7 +642,10 @@ public final class AutoPlayer {
         int before = owned.size();
         TownActions.buyTile(p, city, best);
         lastLand = now;
-        if (city.tiles().size() > before) log("bought tile " + best.x() + "," + best.z() + " for " + need + " (" + city.tiles().size() + " tiles)");
+        if (city.tiles().size() > before) {
+            terraform(p.level(), best, hall.getY());
+            log("bought tile " + best.x() + "," + best.z() + " for " + need + " (" + city.tiles().size() + " tiles)");
+        }
     }
 
     /** The most jammed lane becomes a street, once the purse allows (one a round). */

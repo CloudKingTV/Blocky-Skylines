@@ -119,8 +119,8 @@ for free, and the server config option `freeBuild` turns materials off for every
     blocks they owe and build them when the chunk next loads, or every 30 seconds by loading
     it briefly. New sites can open anywhere on town land.
 
-14. **Utilities** (toolbar, fourth button): **1** windmill (40 power), **2** watermill (80 power,
-    needs a river or lake beside its lot), **3** well (30 water), **4** water tower (90 water).
+14. **Utilities** (toolbar, fourth button): **1** windmill (60 power), **2** watermill (160 power,
+    needs a river or lake beside its lot), **3** well (40 water), **4** water tower (180 water).
     Power and water run along the roads: every building on a connected road network shares the
     plants and wells on it. When a network asks for more than it has, the oldest buildings are
     served first and the rest go without. Homes use one unit per household, shops and offices one
@@ -163,7 +163,11 @@ for free, and the server config option `freeBuild` turns materials off for every
     noise lower it) each have an info view. Level 3 homes and shops need land value 50.
 
 The server setting `growthSpeed` (default 1) makes towns build, level and decline faster or
-slower.
+slower: everything (new sites, levels, money, industry) scales together, like a time-lapse.
+The server setting `difficulty` picks **Relaxed**, **Normal** (default) or **Hard**: Relaxed
+pays a quarter more tax, costs a fifth less upkeep and land, imports at twice the selling price
+instead of three times, adds 10 to every demand bar, halves fires and builds 30% faster; Hard
+the reverse (tax ×0.85, costs ×1.2, imports ×4, demand −10, fires ×1.5, building ×0.8).
 
 20. **Milestones.** The town earns titles as it grows, as in Cities: Skylines. Each pays a
     purse of emeralds into the treasury, allows more land, and unlocks new things to build. The
@@ -279,7 +283,15 @@ slower.
     green (supplied), amber (half output) or red (short of materials); a waiting building site
     says who in town could make what it needs, and the advisor points out shortages.
 
-Breaking the Town Hall disbands the town. Next: Phase 9, balance and a real play-through (see the roadmap).
+38. **Balanced by an autoplayer.** Phase 9 tuned the numbers from towns played start to finish by
+    a scripted mayor (`tools/autoplayer`): demand now plans enough jobs for a town's workers and
+    reads the same in a hamlet and a city; builders get two blocks out of each unit of material;
+    industry makes two and a half times as much; sidewalks cost cobblestone; roads carry more;
+    fires are rarer; a bigger town has more building sites at once; and the early milestones give
+    a little more land. On levelled land the autoplayer's survival town reaches Capital City in
+    about 7 hours at the default speed (the design doc has the curve).
+
+Breaking the Town Hall disbands the town. Next: Phase 10, multiplayer and server (see the roadmap).
 
 ## Screenshots (from the headless playtests)
 
