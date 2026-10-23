@@ -173,7 +173,7 @@ slower.
 
     | Milestone | People | Reward | Land | Unlocks |
     |---|---|---|---|---|
-    | Little Hamlet | 0 | | 3×3 tiles | lane, street; homes, shops, industry; windmill, well, park |
+    | Little Hamlet | 0 | | 3×3 tiles, +1 | lane, street; homes, shops, industry; windmill, well, park |
     | Worthy Village | 40 | 40 emeralds | +1 tile | avenue; clinic, school, guard house; Founders' Fountain |
     | Tiny Town | 100 | 80 | +2 | dense homes and shops; fire station, compost yard, water tower |
     | Boom Town | 200 | 150 | +3 | offices; watermill; Clock Tower |
