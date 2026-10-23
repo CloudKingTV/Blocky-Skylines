@@ -103,7 +103,7 @@ public final class LandEditor {
         for (int i = Math.min(b.progress, steps.size()) - 1; i >= 0; i--) {
             BuildingGenerator.Step s = steps.get(i);
             if (!rec.get(s.pos()).is(s.state().getBlock())) continue;
-            Material m = BuildCost.of(s.state());
+            Material m = TownGrowth.charged(plan, i); // back what it cost, no more
             if (m != null) refund.merge(m, 1, Integer::sum);
             if (s.state().getBlock() instanceof DoorBlock) rec.set(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
             rec.set(s.pos(), s.pos().getY() < b.baseY ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
@@ -136,7 +136,7 @@ public final class LandEditor {
         for (int i = Math.min(b.progress, steps.size()) - 1; i >= 0; i--) {
             BuildingGenerator.Step s = steps.get(i);
             if (!rec.get(s.pos()).is(s.state().getBlock())) continue; // changed by hand since: leave it (panes and stairs reshape, so compare blocks)
-            Material m = BuildCost.of(s.state());
+            Material m = TownGrowth.charged(plan, i); // back what it cost, no more
             if (m != null) refund.merge(m, 1, Integer::sum);
             if (s.state().getBlock() instanceof DoorBlock) rec.set(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
             boolean ground = s.pos().getY() < b.baseY;

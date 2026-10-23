@@ -415,14 +415,22 @@ public final class TownGrowth {
         return b;
     }
 
-    /** The bill of materials for a whole plan (for previews). */
+    /** The bill of materials for a whole plan (for previews): what {@link #charged} steps cost. */
     public static Map<Material, Integer> bill(BuildingGenerator.Plan plan) {
         Map<Material, Integer> out = new java.util.EnumMap<>(Material.class);
-        for (BuildingGenerator.Step s : plan.steps()) {
-            Material m = BuildCost.of(s.state());
+        for (int i = 0; i < plan.steps().size(); i++) {
+            Material m = charged(plan, i);
             if (m != null) out.merge(m, 1, Integer::sum);
         }
         return out;
+    }
+
+    /** Builders get {@link #BUILD_YIELD} blocks out of each unit of material: every other step of a plan is free. */
+    public static final int BUILD_YIELD = 2;
+
+    /** What step {@code i} of a plan takes from the storehouse, or null if nothing. */
+    static @Nullable Material charged(BuildingGenerator.Plan plan, int i) {
+        return i % BUILD_YIELD == 0 ? BuildCost.of(plan.steps().get(i).state()) : null;
     }
 
     public static Component kindName(BuildingGenerator.Plan plan) {
@@ -546,7 +554,7 @@ public final class TownGrowth {
             land.setDirty();
             return true;
         }
-        Material cost = BuildCost.of(step.state());
+        Material cost = charged(plan, b.progress);
         boolean free = isFree(level, city);
         if (cost != null && !free) {
             if (Stock.count(city.stock(), cost) < 1) {
@@ -729,7 +737,7 @@ public final class TownGrowth {
         for (int i = old.steps().size() - 1; i >= 0; i--) {
             BuildingGenerator.Step s = old.steps().get(i);
             if (keep.contains(s.pos()) || !level.getBlockState(s.pos()).is(s.state().getBlock())) continue;
-            Material m = BuildCost.of(s.state());
+            Material m = charged(old, i);
             if (m != null) salvage.merge(m, 1, Integer::sum);
             if (s.state().getBlock() instanceof DoorBlock) level.setBlock(s.pos().above(), Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE);
             level.setBlock(s.pos(), s.pos().getY() < b.baseY ? Blocks.GRASS_BLOCK.defaultBlockState() : Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
