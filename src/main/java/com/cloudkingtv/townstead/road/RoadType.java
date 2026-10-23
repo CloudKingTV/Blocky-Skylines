@@ -70,7 +70,8 @@ public enum RoadType implements StringRepresentable {
         };
     }
 
+    /** What a column costs: sidewalks are paid in cobblestone (the crew dresses it), the rest in earth. */
     public static Material material(Part part) {
-        return part == Part.SIDEWALK ? Material.STONE_BRICKS : Material.DIRT;
+        return part == Part.SIDEWALK ? Material.COBBLESTONE : Material.DIRT;
     }
 }

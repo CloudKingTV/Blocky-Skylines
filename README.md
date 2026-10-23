@@ -67,7 +67,7 @@ you designed.
    **Ctrl+Shift+Z** redoes it. Blocks you've changed by hand since are left alone. The last 32
    edits per town are kept until the world is closed.
 
-Costs: one dirt per dirt-path or grass block, one stone brick per walk block, dirt or
+Costs: one dirt per dirt-path or grass block, one cobblestone per walk block, dirt or
 cobblestone (in water) for fill, two fences and a lantern per lamp post, one leaves block per
 hedge. Digging returns dirt, cobblestone and logs to the storehouse. Creative-mode players build
 for free, and the server config option `freeBuild` turns materials off for everyone.
