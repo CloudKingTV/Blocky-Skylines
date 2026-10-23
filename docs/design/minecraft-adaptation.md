@@ -276,7 +276,7 @@ for weeks and keep their world. Details in §19.
 | Phase | Deliverable | "Done" looks like |
 |---|---|---|
 | **8. Self-sufficient towns** ✓ | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
-| **9. Balance and a real play-through** ✓ | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
+| **9. Balance and a real play-through** ✓ (Megalopolis in 10-15 h not yet: Metropolis at 10.6 h, §19) | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
 | **10. Multiplayer and server** | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
 | **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
 | **12. Release** | Save versioning with migrations, upgrade tests from older saves, crash-free long soak, translation readiness, mod metadata, licence, icon, CI builds, changelog, Modrinth/CurseForge page text and screenshots | A 1.0 jar and page ready for the author to publish; worlds from 0.x load in 1.0 |
@@ -772,28 +772,42 @@ capacities.
 on rough ground its straight street grid can't reach much of the land), in survival, Normal
 difficulty, hours at the default growth speed:
 
-| Milestone | Run 26 (before the utility change) |
-|---|---|
-| Worthy Village (40) | 0.6 h |
-| Tiny Town (100) | 1.6 h |
-| Boom Town (200) | 2.2 h |
-| Busy Town (350) | 3.1 h |
-| Big Town (550) | 3.4 h |
-| Small City (800) | 4.6 h |
-| Big City (1,100) | 5.1 h |
-| Grand City (1,500) | 5.9 h |
-| Capital City (2,000) | 6.9 h |
-| Colossal City (2,600) | 8.6 h |
-| Metropolis (3,300) | 13.2 h |
+| Milestone | Run 26 | Run 28 (final tuning) |
+|---|---|---|
+| Worthy Village (40) | 0.6 h | 0.4 h |
+| Tiny Town (100) | 1.6 h | 1.3 h |
+| Boom Town (200) | 2.2 h | 1.9 h |
+| Busy Town (350) | 3.1 h | 2.4 h |
+| Big Town (550) | 3.4 h | 2.8 h |
+| Small City (800) | 4.6 h | 3.3 h |
+| Big City (1,100) | 5.1 h | 3.8 h |
+| Grand City (1,500) | 5.9 h | 4.6 h |
+| Capital City (2,000) | 6.9 h | 5.6 h |
+| Colossal City (2,600) | 8.6 h | 7.1 h |
+| Metropolis (3,300) | 13.2 h | 10.6 h |
+| Megalopolis (4,000) | not in 14.7 h | not in 14.9 h (3,626 people) |
 
-Never in debt (46 days), demand bars between 10 and 80 after the first hours (offices pinned
-at 100 only while locked), happiness 60-70, unemployment near 0, traffic flow 65-100%. Material
-gathered by hand: the starter kit and about 1,500 blocks an hour until Big Town, none after;
-imports about 3,500 emeralds over the run, against about 2,400 a day earned at the end. The
-server tick reached 55-70 ms at 3,400 people and 1,300 buildings, which Phase 10's per-town
-performance budget needs to bring down.
+Both runs: never in debt (46 and 38 days), demand bars between 10 and 80 after the first hours
+(offices pinned at 100 only while locked), happiness 60-70, unemployment near 0, traffic flow
+65-100%. Hand-gathered material: the starter kit and about 1,500 blocks an hour until Big Town,
+none after; imports about 3,400 emeralds over a run, against about 2,800 a day earned by its end.
 
-![Run 26: people, money, demand, and happiness/traffic/unemployment by hour](phase9-run26.png)
+**Where the target stands.** Never stuck and never broke: met. Megalopolis in 10-15 hours: not
+yet; the best run reached Metropolis at 10.6 h and was still growing at about 100 people an hour
+at 15 h. What holds a big town back, from the runs:
+- *Pollution*: by 15 h about a fifth of the buildings were abandoned, mostly homes next to the
+  industry. That's the autoplayer's layout (homes right up to the industrial district) more than
+  the balance, but the game could do more to show it coming (an advisor tip at the first
+  abandonment for pollution).
+- *Processed materials*: a fast-growing town waits on bricks and glass. Brickworks and glassworks
+  open when they're short, but each one needs bricks and glass to build; imports bridge it if the
+  mayor buys decisively. Runs vary a lot with how early processors open.
+- *Server time*: 40-70 ms a tick at 3,500 people and 1,400 buildings; Phase 10's per-town
+  performance budget has to bring this down, or a big town runs slower than real time.
+- *Variance*: runs on the same land and settings differ by an hour or two at each milestone
+  (fires, which lots go first, when processors open).
+
+![Run 28: people, money, demand, and happiness/traffic/unemployment by hour](phase9-run28.png)
 
 ### Phase 10: multiplayer and server
 

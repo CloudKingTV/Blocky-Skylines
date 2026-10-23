@@ -288,8 +288,10 @@ the reverse (tax ×0.85, costs ×1.2, imports ×4, demand −10, fires ×1.5, bu
     reads the same in a hamlet and a city; builders get two blocks out of each unit of material;
     industry makes two and a half times as much; sidewalks cost cobblestone; roads carry more;
     fires are rarer; a bigger town has more building sites at once; and the early milestones give
-    a little more land. On levelled land the autoplayer's survival town reaches Capital City in
-    about 7 hours at the default speed (the design doc has the curve).
+    a little more land, and utilities supply more. On levelled land the autoplayer's survival
+    town reaches Big Town in under 3 hours at the default speed, Capital City in under 6 and
+    Metropolis in under 11, never in debt (the design doc has the curve and what still slows a
+    big town down).
 
 Breaking the Town Hall disbands the town. Next: Phase 10, multiplayer and server (see the roadmap).
 

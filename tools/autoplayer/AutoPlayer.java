@@ -347,7 +347,7 @@ public final class AutoPlayer {
     static void imports(ServerPlayer p, City city, List<Building> town) {
         Map<Material, Integer> wanted = new EnumMap<>(Material.class);
         for (Building b : town) if (b.state == Building.State.PAUSED && b.needs != null) wanted.merge(b.needs, 1, Integer::sum);
-        wanted.forEach((mat, n) -> supply(p, city, mat, 64 * Math.min(4, n), "site"));
+        wanted.forEach((mat, n) -> supply(p, city, mat, 64 * Math.min(8, 2 * n), "site"));
     }
 
     /** Gets {@code n} of a material into the storehouse: by hand while the town is small and the hour's budget lasts, else bought in. */
@@ -371,7 +371,7 @@ public final class AutoPlayer {
 
     static void importStack(ServerPlayer p, City city, Material mat, String why) {
         long now = p.level().getGameTime();
-        if (now - lastImport.getOrDefault(mat, -100000L) < 400) return; // give a delivery time to land
+        if (now - lastImport.getOrDefault(mat, -100000L) < 100) return; // give a delivery time to land
         long cost = 64L * mat.importPrice();
         // Keep a reserve, and save up for land while growth waits on it.
         long reserve = 20 * TownEconomy.EMERALD + (p.level().getGameTime() - landWanted < 2 * DAY
@@ -521,7 +521,8 @@ public final class AutoPlayer {
     /** Which need a cell is for: industry east, shops along the main streets, homes and offices elsewhere. */
     static ZoneType.Need sector(int rx, int rz) {
         if (rx >= 10) return ZoneType.Need.WORKSHOPS;
-        if (rz == 1 || rz == 3 || rx == 2 || rx == 4) return ZoneType.Need.SHOPS;
+        // Shops on the main streets, and a buffer of shops and offices between the homes and the industry.
+        if (rz == 1 || rz == 3 || rx == 2 || rx == 4 || rx >= 7) return ZoneType.Need.SHOPS;
         return ZoneType.Need.HOMES;
     }
 
@@ -787,6 +788,11 @@ public final class AutoPlayer {
             log("taxes up to " + b.tax(0) + "/" + b.tax(1) + "/" + b.tax(2) + " (net " + Budget.format(net) + ")");
         } else if (net > 0 && city.treasury() > 150 * TownEconomy.EMERALD) {
             for (int k = 0; k < 3; k++) if (b.tax(k) > 9) TownEconomy.setTax(p, city, k, b.tax(k) - 1);
+        }
+        // Smoke hoods for the workshops once the town is big and can pay for them.
+        if (city.milestone() >= Milestone.BIG_TOWN.ordinal() && net > 0 && !city.policies().contains(com.cloudkingtv.townstead.district.Policy.CLEAN_HEARTHS)) {
+            DistrictEditor.setPolicy(p, city, -1, com.cloudkingtv.townstead.district.Policy.CLEAN_HEARTHS, true);
+            log("policy: Clean Hearths town-wide");
         }
         boolean trimmed = b.budget(ServiceType.Department.PARKS) < 100;
         if (city.treasury() < 0 && net < 0 && !trimmed) {
