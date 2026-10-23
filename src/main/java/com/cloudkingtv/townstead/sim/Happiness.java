@@ -56,7 +56,8 @@ public record Happiness(int total, List<Factor> factors) {
         if (tax != Demand.NEUTRAL_TAX) f.add(new Factor(Component.translatable("happy.townstead.taxes", tax), (Demand.NEUTRAL_TAX - tax) * 2));
         if (home) {
             int u = m.unemploymentRate();
-            if (u > 10) f.add(new Factor(Component.translatable("happy.townstead.unemployment", u), -(u - 10) / 2));
+            // Capped: a town short of jobs is glum, but it's the jobs that are missing, not reasons to leave.
+            if (u > 10) f.add(new Factor(Component.translatable("happy.townstead.unemployment", u), -Math.min(20, (u - 10) / 2)));
         } else {
             int staff = m.staff(b);
             if (b.jobs > 0 && staff < b.jobs) f.add(new Factor(Component.translatable("happy.townstead.short_staffed", staff, b.jobs),
