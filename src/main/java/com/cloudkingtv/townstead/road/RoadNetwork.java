@@ -216,7 +216,11 @@ public final class RoadNetwork extends SavedData {
 
     /** A scratch copy to plan an edit on; {@link #adopt} it once the edit is accepted. */
     public RoadNetwork copy() {
-        return new RoadNetwork(nextId, List.copyOf(nodes.values()), List.copyOf(segments.values()));
+        RoadNetwork copy = new RoadNetwork(nextId, List.copyOf(nodes.values()), List.copyOf(segments.values()));
+        // Rasters and column maps are never changed once worked out (an edit drops them), so the copy can share them.
+        copy.rasterCache.putAll(rasterCache);
+        copy.columns.putAll(columns);
+        return copy;
     }
 
     public void adopt(RoadNetwork planned) {

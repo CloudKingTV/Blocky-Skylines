@@ -11,7 +11,6 @@ import com.cloudkingtv.townstead.sim.TownModel;
 import com.cloudkingtv.townstead.zone.ZoneRules;
 import com.cloudkingtv.townstead.zone.ZoneType;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.core.Direction;
@@ -41,7 +40,6 @@ public final class Progression {
         List<Factor> out = new ArrayList<>();
         if (b.level >= Building.MAX_LEVEL || b.civic()) return out;
         if (b.level >= 2 && m.civics.has(b, com.cloudkingtv.townstead.district.Policy.OLD_TOWN)) return out; // Old Town: no further
-        Collection<Building> town = m.town;
         int next = b.level + 1;
         long need = (long) (LEVEL_TIME[b.level] / speed / com.cloudkingtv.townstead.Difficulty.current().building);
         long settled = b.state == Building.State.ACTIVE ? now - b.activeSince : 0;
@@ -60,9 +58,9 @@ public final class Progression {
         switch (b.zone.need) {
             case CIVIC -> {}
             case HOMES -> {
-                out.add(new Factor(Component.translatable("level.townstead.shop_near", 32), nearby(b, town, 32, ZoneType.Need.SHOPS) > 0));
+                out.add(new Factor(Component.translatable("level.townstead.shop_near", 32), m.workingNear(b, 32, ZoneType.Need.SHOPS) > 0));
                 if (next >= 3) {
-                    boolean work = nearby(b, town, 64, ZoneType.Need.WORKSHOPS) + nearby(b, town, 64, ZoneType.Need.OFFICES) > 0;
+                    boolean work = m.workingNear(b, 64, ZoneType.Need.WORKSHOPS) + m.workingNear(b, 64, ZoneType.Need.OFFICES) > 0;
                     out.add(new Factor(Component.translatable("level.townstead.work_near", 64), work));
                 }
             }
@@ -71,7 +69,7 @@ public final class Progression {
                 out.add(new Factor(Component.translatable("level.townstead.customers", customers, 32, have), have >= customers));
             }
             case WORKSHOPS -> {
-                int shops = next >= 3 ? 2 : 1, have = count(town, ZoneType.Need.SHOPS);
+                int shops = next >= 3 ? 2 : 1, have = m.working(ZoneType.Need.SHOPS);
                 out.add(new Factor(Component.translatable("level.townstead.shops_sell", shops, have), have >= shops));
             }
             case OFFICES -> {
@@ -98,8 +96,7 @@ public final class Progression {
 
     /** What's wrong for this building right now, or null if nothing is. */
     public static @Nullable Component trouble(Building b, TownModel m) {
-        Map<Long, RoadRaster.Cell> cols = ZoneRules.roadColumns(m.roads, b.city);
-        if (ZoneRules.frontage(b.cellX, b.cellZ, cols, m.tiles) == null) return Component.translatable("trouble.townstead.no_road");
+        if (!m.hasFrontage(b)) return Component.translatable("trouble.townstead.no_road");
         if (b.civic()) return null;
         // Level 2 and up was built for power and water: losing them is trouble.
         if (b.level >= 2 && !m.util.power(b)) return Component.translatable("trouble.townstead.no_power");
@@ -123,22 +120,6 @@ public final class Progression {
     }
 
     // ---------------------------------------------------------------- helpers
-
-    private static double dist(Building a, Building b) {
-        return a.distanceTo(b);
-    }
-
-    private static int nearby(Building b, Collection<Building> town, double radius, ZoneType.Need need) {
-        int n = 0;
-        for (Building o : town) if (o != b && o.zone.need == need && o.working() && dist(b, o) <= radius) n++;
-        return n;
-    }
-
-    private static int count(Collection<Building> town, ZoneType.Need need) {
-        int n = 0;
-        for (Building o : town) if (o.zone.need == need && o.working()) n++;
-        return n;
-    }
 
     /** The type of road the building faces, or null. */
     public static @Nullable RoadType frontRoad(Building b, RoadNetwork roads) {

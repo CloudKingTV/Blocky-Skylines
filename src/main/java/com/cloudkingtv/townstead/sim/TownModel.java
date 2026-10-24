@@ -52,6 +52,12 @@ public final class TownModel {
     public final Map<com.cloudkingtv.townstead.road.Material, Integer> stock;
     public final int storehouses;
     private com.cloudkingtv.townstead.industry.Industry.@org.jspecify.annotations.Nullable Day industry;
+    /** Working services and utilities by type, so "is this lot in reach of a clinic" looks only at clinics. */
+    private final Map<String, List<Building>> services = new HashMap<>();
+    /** Working buildings by {@link #NEAR_CELL}-block square of their centre, for "what's near this lot". */
+    private final Map<Long, List<Building>> near = new HashMap<>();
+    private final Map<com.cloudkingtv.townstead.zone.ZoneType.Need, Integer> working = new java.util.EnumMap<>(com.cloudkingtv.townstead.zone.ZoneType.Need.class);
+    private static final int NEAR_CELL = 32;
 
     private TownModel(UUID city, Collection<Building> town, RoadNetwork roads, Budget budget, long treasury, Set<TilePos> tiles, BlockPos townHall,
                       com.cloudkingtv.townstead.district.Civics civics, Map<com.cloudkingtv.townstead.road.Material, Integer> stock, int storehouses) {
@@ -65,6 +71,12 @@ public final class TownModel {
         this.tiles = tiles;
         this.civics = civics;
         this.lines = civics.lines();
+        for (Building b : this.town) {
+            if (b.civic() && b.state == Building.State.ACTIVE) services.computeIfAbsent(b.service, k -> new ArrayList<>()).add(b);
+            if (!b.working()) continue;
+            near.computeIfAbsent(nearKey(b.centerX(), b.centerZ()), k -> new ArrayList<>()).add(b);
+            working.merge(b.zone.need, 1, Integer::sum);
+        }
         this.util = Utilities.compute(this.town, roads, this::strength);
         for (Building b : this.town) {
             if (b.zone.residential() && (covered(b, ServiceType.SCHOOL) || civics.has(b, com.cloudkingtv.townstead.district.Policy.EVENING_CLASSES))) {
@@ -153,18 +165,50 @@ public final class TownModel {
     }
 
     public boolean covered(Building b, ServiceType s) {
-        if (Utilities.covered(b, town, s, radius(s))) return true;
+        if (reaches(b, s)) return true;
         // Monuments that do a service's work across their (huge) reach.
         ServiceType also = switch (s) {
             case GUARD_HOUSE, FIRE_STATION -> ServiceType.CASTLE_KEEP;
             case SCHOOL -> ServiceType.GREAT_LIBRARY;
             default -> null;
         };
-        return also != null && Utilities.covered(b, town, also, radius(also));
+        return also != null && reaches(b, also);
+    }
+
+    /** Whether a working service of this type reaches the building (as {@link Utilities#covered}, from the index). */
+    private boolean reaches(Building b, ServiceType s) {
+        double r = radius(s);
+        for (Building o : services.getOrDefault(s.key(), List.of())) if (o.distanceTo(b) <= r) return true;
+        return false;
+    }
+
+    private static long nearKey(double x, double z) {
+        return ((long) Math.floorDiv((int) Math.floor(x), NEAR_CELL) << 32) | (Math.floorDiv((int) Math.floor(z), NEAR_CELL) & 0xFFFFFFFFL);
     }
 
     public Happiness happiness(Building b) {
         return happiness.computeIfAbsent(b.id, k -> Happiness.of(b, this));
+    }
+
+    /** Whether the building's lot still faces one of the town's roads, on its land. */
+    public boolean hasFrontage(Building b) {
+        return frontage.computeIfAbsent(ZoneRules.cellKey(b.cellX, b.cellZ),
+                k -> ZoneRules.frontage(b.cellX, b.cellZ, ZoneRules.roadColumns(roads, b.city), tiles) != null);
+    }
+
+    private final Map<Long, Boolean> frontage = new HashMap<>();
+
+    /**
+     * Works out up front what the server's reviews will ask of every building (its lot's land fields and its
+     * happiness), so a model built off the server thread hands over with nothing left to work out on it.
+     */
+    public TownModel warm() {
+        for (Building b : town) {
+            hasFrontage(b);
+            fields.landValue(b);
+            if (!b.civic()) happiness(b);
+        }
+        return this;
     }
 
     /** Average happiness of the town's homes and workplaces, weighted by people and jobs (0-100). */
@@ -191,12 +235,32 @@ public final class TownModel {
 
     /** People living in working homes within {@code radius} blocks. */
     public int residentsNear(Building b, double radius) {
-        int n = 0;
-        for (Building o : town) {
-            if (!o.zone.residential() || !o.working()) continue;
-            if (o.distanceTo(b) <= radius) n += Residents.people(o);
+        int[] n = {0};
+        near(b, radius, o -> { if (o.zone.residential()) n[0] += Residents.people(o); });
+        return n[0];
+    }
+
+    /** Other working buildings of a kind within {@code radius} blocks (centre to centre). */
+    public int workingNear(Building b, double radius, com.cloudkingtv.townstead.zone.ZoneType.Need need) {
+        int[] n = {0};
+        near(b, radius, o -> { if (o.id != b.id && o.zone.need == need) n[0]++; });
+        return n[0];
+    }
+
+    /** Working buildings of a kind in the whole town. */
+    public int working(com.cloudkingtv.townstead.zone.ZoneType.Need need) {
+        return working.getOrDefault(need, 0);
+    }
+
+    private void near(Building b, double radius, java.util.function.Consumer<Building> each) {
+        double x = b.centerX(), z = b.centerZ();
+        int x0 = Math.floorDiv((int) Math.floor(x - radius), NEAR_CELL), x1 = Math.floorDiv((int) Math.floor(x + radius), NEAR_CELL);
+        int z0 = Math.floorDiv((int) Math.floor(z - radius), NEAR_CELL), z1 = Math.floorDiv((int) Math.floor(z + radius), NEAR_CELL);
+        for (int gx = x0; gx <= x1; gx++) for (int gz = z0; gz <= z1; gz++) {
+            for (Building o : near.getOrDefault(((long) gx << 32) | (gz & 0xFFFFFFFFL), List.of())) {
+                if (o.distanceTo(b) <= radius) each.accept(o);
+            }
         }
-        return n;
     }
 
     /** Average education (0-3) of a home's residents. */

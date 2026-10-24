@@ -212,24 +212,30 @@ public final class Fires {
             if (b.fire <= 0) continue;
             BlockPos at = center(b);
             if (!level.isLoaded(at)) continue;
-            BuildingGenerator.Plan plan = TownGrowth.plan(b);
-            List<BuildingGenerator.Step> steps = plan.steps();
-            // Smoke pouring off the roof (seen from far off in the planner), flames licking out of the walls.
-            for (int i = 0; i < 3; i++) {
-                level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, true, true, at.getX() + 0.5 + random.nextGaussian() * 1.5, plan.max().getY() + 0.5,
-                        at.getZ() + 0.5 + random.nextGaussian() * 1.5, 0, 0, 0.1, 0, 1);
-            }
-            level.sendParticles(ParticleTypes.LARGE_SMOKE, true, true, at.getX() + 0.5, plan.max().getY(), at.getZ() + 0.5, 10, 2, 0.5, 2, 0.03);
-            for (int i = 0; i < 6 && !steps.isEmpty(); i++) {
-                BlockPos p = steps.get(random.nextInt(steps.size())).pos();
-                Direction side = Direction.getRandom(random);
-                if (!level.getBlockState(p.relative(side)).isAir() || level.getBlockState(p).isAir()) continue;
-                BlockPos f = p.relative(side);
-                level.sendParticles(ParticleTypes.FLAME, f.getX() + 0.5, f.getY() + 0.3, f.getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.01);
-                if (random.nextInt(3) == 0) level.sendParticles(ParticleTypes.LAVA, f.getX() + 0.5, f.getY() + 0.5, f.getZ() + 0.5, 1, 0.2, 0.2, 0.2, 0);
-            }
-            if (level.getGameTime() % 20 == 2) level.playSound(null, at, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, 2.0f, 0.6f + random.nextFloat() * 0.3f);
+            com.cloudkingtv.townstead.TownProfiler.begin(b.city, com.cloudkingtv.townstead.TownProfiler.Section.FIRES);
+            try { flames(level, b, at, random); } finally { com.cloudkingtv.townstead.TownProfiler.end(); }
         }
+    }
+
+    /** Smoke, flames and the roar of a burning building. */
+    private static void flames(ServerLevel level, Building b, BlockPos at, RandomSource random) {
+        BuildingGenerator.Plan plan = TownGrowth.plan(b);
+        List<BuildingGenerator.Step> steps = plan.steps();
+        // Smoke pouring off the roof (seen from far off in the planner), flames licking out of the walls.
+        for (int i = 0; i < 3; i++) {
+            level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, true, true, at.getX() + 0.5 + random.nextGaussian() * 1.5, plan.max().getY() + 0.5,
+                    at.getZ() + 0.5 + random.nextGaussian() * 1.5, 0, 0, 0.1, 0, 1);
+        }
+        level.sendParticles(ParticleTypes.LARGE_SMOKE, true, true, at.getX() + 0.5, plan.max().getY(), at.getZ() + 0.5, 10, 2, 0.5, 2, 0.03);
+        for (int i = 0; i < 6 && !steps.isEmpty(); i++) {
+            BlockPos p = steps.get(random.nextInt(steps.size())).pos();
+            Direction side = Direction.getRandom(random);
+            if (!level.getBlockState(p.relative(side)).isAir() || level.getBlockState(p).isAir()) continue;
+            BlockPos f = p.relative(side);
+            level.sendParticles(ParticleTypes.FLAME, f.getX() + 0.5, f.getY() + 0.3, f.getZ() + 0.5, 4, 0.3, 0.3, 0.3, 0.01);
+            if (random.nextInt(3) == 0) level.sendParticles(ParticleTypes.LAVA, f.getX() + 0.5, f.getY() + 0.5, f.getZ() + 0.5, 1, 0.2, 0.2, 0.2, 0);
+        }
+        if (level.getGameTime() % 20 == 2) level.playSound(null, at, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, 2.0f, 0.6f + random.nextFloat() * 0.3f);
     }
 
     /** The nearest building of the town to {@code pos} that can catch fire, or null. */

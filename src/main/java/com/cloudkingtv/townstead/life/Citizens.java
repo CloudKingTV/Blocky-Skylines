@@ -57,6 +57,12 @@ public final class Citizens {
     @SubscribeEvent
     static void tick(LevelTickEvent.Post event) {
         if (!(event.getLevel() instanceof ServerLevel level) || level.getGameTime() % 20 != 7) return;
+        com.cloudkingtv.townstead.TownProfiler.begin(com.cloudkingtv.townstead.TownProfiler.SERVER, com.cloudkingtv.townstead.TownProfiler.Section.CITIZENS);
+        try { walk(level); } finally { com.cloudkingtv.townstead.TownProfiler.end(); }
+    }
+
+    /** Keeps a share of the town's people out on the streets around each player in it. */
+    private static void walk(ServerLevel level) {
         CityManager cities = CityManager.get(level.getServer());
         Set<CitizenNpc> keep = new HashSet<>();
         for (ServerPlayer player : level.players()) {

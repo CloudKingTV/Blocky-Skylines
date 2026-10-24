@@ -1,5 +1,6 @@
 package com.cloudkingtv.townstead.building;
 
+import com.cloudkingtv.townstead.TownProfiler;
 import com.cloudkingtv.townstead.Townstead;
 import com.cloudkingtv.townstead.TownsteadConfig;
 import com.cloudkingtv.townstead.city.City;
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
@@ -86,10 +88,37 @@ public final class TownGrowth {
         return PLANNED.computeIfAbsent(key(b), k -> plan(b).positions());
     }
 
+    /** Plans being worked out in the background for buildings about to level up, by plan key. */
+    private static final Map<Long, java.util.concurrent.CompletableFuture<BuildingGenerator.Plan>> NEXT_PLANS = new HashMap<>();
+
+    /** The building's plan at its next level if it's ready; if not, it's started off the server thread and this is null. */
+    private static BuildingGenerator.@Nullable Plan nextPlan(Building b) {
+        Building next = b.copy();
+        next.level++;
+        long k = key(next);
+        BuildingGenerator.Plan ready = PLANS.get(k);
+        if (ready != null) return ready;
+        var pending = NEXT_PLANS.get(k);
+        if (pending == null) {
+            NEXT_PLANS.put(k, java.util.concurrent.CompletableFuture.supplyAsync(() -> BuildingGenerator.plan(next), com.cloudkingtv.townstead.Worker.EXECUTOR));
+            return null;
+        }
+        if (!pending.isDone()) return null;
+        NEXT_PLANS.remove(k);
+        BuildingGenerator.Plan plan = pending.exceptionally(e -> {
+            Townstead.LOGGER.error("Planning building {} at level {} failed", next.id, next.level, e);
+            return null;
+        }).join();
+        if (plan == null) plan = BuildingGenerator.plan(next);
+        PLANS.put(k, plan);
+        return plan;
+    }
+
     public static void forget(int buildingId) {
         PLANS.keySet().removeIf(k -> (k >> 8) == buildingId);
         PLANNED.keySet().removeIf(k -> (k >> 8) == buildingId);
         SITE_ROADS.remove(buildingId);
+        NEXT_PLANS.keySet().removeIf(k -> (k >> 8) == buildingId);
     }
 
     public static void markDirty() {
@@ -112,6 +141,32 @@ public final class TownGrowth {
         CityManager cities = CityManager.get(level.getServer());
         LandData land = LandData.get(level);
         double speed = speed();
+        // New sites and reviews come round faster at a higher speed (time-lapse), slower below 1. Each town has its
+        // own turn in the interval, so several towns don't all work out their models on the same tick; a town over
+        // its tick budget has its turn on a later tick.
+        int growEvery = every(GROWTH_INTERVAL, speed), reviewEvery = every(REVIEW_INTERVAL, speed);
+        for (City city : List.copyOf(cities.all())) {
+            if (!city.dimension().equals(level.dimension())) continue;
+            UUID id = city.id();
+            if ((time + phase(id, growEvery)) % growEvery == 0) DUE_GROW.add(id);
+            if ((time + phase(id, reviewEvery)) % reviewEvery == 0) DUE_REVIEW.add(id);
+            if (DUE_REVIEW.contains(id)) {
+                if (TownProfiler.over(id)) TownProfiler.deferred(id);
+                else {
+                    DUE_REVIEW.remove(id);
+                    TownProfiler.begin(id, TownProfiler.Section.REVIEW);
+                    try { review(level, city, land); } finally { TownProfiler.end(); }
+                }
+            }
+            if (DUE_GROW.contains(id)) {
+                if (TownProfiler.over(id)) TownProfiler.deferred(id);
+                else {
+                    DUE_GROW.remove(id);
+                    TownProfiler.begin(id, TownProfiler.Section.GROW);
+                    try { grow(level, city, land); } finally { TownProfiler.end(); }
+                }
+            }
+        }
         if (time % BUILD_INTERVAL == 0) {
             // Blocks per build tick: the speed times the difficulty's building pace, fractions carried over
             // (below one, some build ticks place nothing).
@@ -119,29 +174,41 @@ public final class TownGrowth {
             int perTick = (int) buildCarry;
             buildCarry -= perTick;
             if (perTick > 0) {
-                for (Building b : List.copyOf(land.buildings())) {
+                // Starting somewhere new each time, so when a town runs out of time it's not always the same sites that wait.
+                List<Building> all = List.copyOf(land.buildings());
+                int start = all.isEmpty() ? 0 : (int) Math.floorMod(time / BUILD_INTERVAL * 7919, (long) all.size());
+                for (int n = 0; n < all.size(); n++) {
+                    Building b = all.get((start + n) % all.size());
                     if (b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
-                    cities.byId(b.city).ifPresent(city -> {
+                    City city = cities.byId(b.city).orElse(null);
+                    if (city == null) continue;
+                    if (TownProfiler.over(city.id())) { TownProfiler.deferred(city.id()); continue; }
+                    TownProfiler.begin(city.id(), TownProfiler.Section.BUILD);
+                    try {
                         for (int i = 0; i < perTick; i++) if (!build(level, city, land, b, false)) break;
-                    });
+                    } finally { TownProfiler.end(); }
                 }
             }
         }
-        // New sites and reviews come round faster at a higher speed (time-lapse), slower below 1.
-        if (time % every(GROWTH_INTERVAL, speed) == 0) {
-            for (City city : cities.all()) if (city.dimension().equals(level.dimension())) grow(level, city, land);
-        }
-        if (time % every(REVIEW_INTERVAL, speed) == 0) {
-            for (City city : cities.all()) if (city.dimension().equals(level.dimension())) review(level, city, land);
-        }
         if (time % CATCH_UP_INTERVAL == 0) catchUp(level, cities, land);
         if (time % 20 == 0) {
-            cities.flush(level.getServer());
-            if (landDirty) {
-                landDirty = false;
-                PacketDistributor.sendToPlayersInDimension(level, LandSnapshotPayload.of(land));
-            }
+            TownProfiler.begin(TownProfiler.SERVER, TownProfiler.Section.SYNC);
+            try {
+                cities.flush(level.getServer());
+                if (landDirty) {
+                    landDirty = false;
+                    PacketDistributor.sendToPlayersInDimension(level, LandSnapshotPayload.of(land));
+                }
+            } finally { TownProfiler.end(); }
         }
+    }
+
+    /** Towns waiting for their turn to find new sites or review their buildings. */
+    private static final Set<UUID> DUE_GROW = new HashSet<>(), DUE_REVIEW = new HashSet<>();
+
+    /** A town's offset within an interval: its turn comes on a different tick from other towns'. */
+    private static long phase(UUID city, int interval) {
+        return Math.floorMod(city.hashCode(), interval);
     }
 
     // ---------------------------------------------------------------- new sites
@@ -609,16 +676,26 @@ public final class TownGrowth {
             if (b.owed <= 0 || b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
             City city = cities.byId(b.city).orElse(null);
             if (city == null) continue;
-            BuildingGenerator.Plan plan = plan(b);
-            for (int x = plan.min().getX() >> 4; x <= plan.max().getX() >> 4; x++) {
-                for (int z = plan.min().getZ() >> 4; z <= plan.max().getZ() >> 4; z++) level.getChunk(x, z);
-            }
-            int owed = b.owed;
-            b.owed = 0;
-            for (int i = 0; i < owed; i++) if (!build(level, city, land, b, true)) break;
-            if (b.progress >= plan.steps().size() && b.state != Building.State.ACTIVE) finish(level, city, b, plan);
-            markDirty();
+            // Loading a site's chunks is slow: a town out of time this tick leaves the rest owed for the next round.
+            if (TownProfiler.over(city.id())) { TownProfiler.deferred(city.id()); continue; }
+            TownProfiler.begin(city.id(), TownProfiler.Section.CATCH_UP);
+            try {
+                catchUp(level, city, land, b);
+            } finally { TownProfiler.end(); }
         }
+    }
+
+    /** Loads a site's chunks and places the blocks it was owed while nobody was near. */
+    private static void catchUp(ServerLevel level, City city, LandData land, Building b) {
+        BuildingGenerator.Plan plan = plan(b);
+        for (int x = plan.min().getX() >> 4; x <= plan.max().getX() >> 4; x++) {
+            for (int z = plan.min().getZ() >> 4; z <= plan.max().getZ() >> 4; z++) level.getChunk(x, z);
+        }
+        int owed = b.owed;
+        b.owed = 0;
+        for (int i = 0; i < owed; i++) if (!build(level, city, land, b, true)) break;
+        if (b.progress >= plan.steps().size() && b.state != Building.State.ACTIVE) finish(level, city, b, plan);
+        markDirty();
     }
 
     /** Scaffolding beside the walls tracks the height being built. */
@@ -726,7 +803,8 @@ public final class TownGrowth {
             }
             if (b.state == Building.State.ACTIVE && b.fire == 0 && trouble == null && upgrading < upgrades
                     && Progression.canLevel(Progression.nextLevel(b, model, level.getGameTime(), speed))) {
-                upgrade(level, city, b);
+                // Its new plan is worked out in the background first; the upgrade starts on a later review.
+                if (nextPlan(b) != null) upgrade(level, city, b);
                 upgrading++;
             }
         }

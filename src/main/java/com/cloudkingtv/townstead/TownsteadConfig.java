@@ -53,6 +53,11 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.difficulty")
             .defineEnum("difficulty", Difficulty.NORMAL);
 
+    public static final ModConfigSpec.DoubleValue TOWN_TICK_BUDGET = SERVER
+            .comment("Milliseconds of each server tick a town may use; past it, construction and growth wait for the next tick (see /townstead perf)")
+            .translation("townstead.configuration.townTickBudget")
+            .defineInRange("townTickBudget", 5.0, 0.5, 50.0);
+
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 
     private TownsteadConfig() {}

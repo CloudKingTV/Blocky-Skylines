@@ -54,14 +54,18 @@ public final class TownEconomy {
         if (!(event.getLevel() instanceof ServerLevel level) || level.getGameTime() % SETTLE_INTERVAL != 0) return;
         CityManager cities = CityManager.get(level.getServer());
         for (City city : List.copyOf(cities.all())) {
-            if (city.dimension().equals(level.dimension())) settle(level, cities, city);
+            if (!city.dimension().equals(level.dimension())) continue;
+            com.cloudkingtv.townstead.TownProfiler.begin(city.id(), com.cloudkingtv.townstead.TownProfiler.Section.ECONOMY);
+            try { settle(level, cities, city); } finally { com.cloudkingtv.townstead.TownProfiler.end(); }
         }
     }
 
     /**
      * The town's model as it stands. Working it out takes a while in a big town (every trip routed), so it's kept
      * while the town's buildings, roads and plans are unchanged, for up to {@link #MODEL_TTL} ticks (taxes, budgets
-     * and the treasury may lag that long).
+     * and the treasury may lag that long). When it's out of date the last one is used while a new one is worked
+     * out off the server thread, from a copy of the town as it stood, so a big town never stalls a tick on it; only
+     * a town's very first model is worked out on the spot.
      */
     public static TownModel model(ServerLevel level, City city) {
         List<Building> town = LandData.get(level).buildingsOf(city.id());
@@ -70,15 +74,59 @@ public final class TownEconomy {
         Cached c = MODELS.get(city.id());
         long now = level.getGameTime();
         if (c != null && c.key == key && now - c.time >= 0 && now - c.time < MODEL_TTL) return c.model;
-        TownModel m = TownModel.of(city.id(), town, roads, city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics(),
-                city.stock(), city.storehouses().size());
-        MODELS.put(city.id(), new Cached(m, key, now));
-        return m;
+        com.cloudkingtv.townstead.TownProfiler.begin(city.id(), com.cloudkingtv.townstead.TownProfiler.Section.MODEL);
+        try {
+            if (c == null) {
+                TownModel m = TownModel.of(city.id(), town, roads, city.budget(), city.treasury(), city.tiles(), city.townHall(), city.civics(),
+                        city.stock(), city.storehouses().size());
+                MODELS.put(city.id(), new Cached(m, key, now));
+                return m;
+            }
+            if (PENDING.add(city.id())) {
+                // Copies of everything the server thread goes on changing: buildings, roads, the budget and the stock.
+                java.util.UUID id = city.id();
+                List<Building> copies = new ArrayList<>(town.size());
+                for (Building b : town) copies.add(b.copy());
+                RoadNetwork roadCopy = roads.copy();
+                Budget budget = city.budget().copy();
+                long treasury = city.treasury();
+                var tiles = java.util.Set.copyOf(city.tiles());
+                BlockPos hall = city.townHall();
+                var civics = city.civics();
+                var stock = Map.copyOf(city.stock());
+                int storehouses = city.storehouses().size();
+                long generation = GENERATION.get();
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    long t0 = System.nanoTime();
+                    try {
+                        TownModel m = TownModel.of(id, copies, roadCopy, budget, treasury, tiles, hall, civics, stock, storehouses).warm();
+                        if (GENERATION.get() == generation) MODELS.put(id, new Cached(m, key, now));
+                        com.cloudkingtv.townstead.TownProfiler.background(id, System.nanoTime() - t0);
+                    } catch (RuntimeException e) {
+                        Townstead.LOGGER.error("Working out the model of town {} failed", id, e);
+                    } finally {
+                        PENDING.remove(id);
+                    }
+                }, com.cloudkingtv.townstead.Worker.EXECUTOR);
+            }
+            return c.model;
+        } finally { com.cloudkingtv.townstead.TownProfiler.end(); }
     }
 
     private static final int MODEL_TTL = 100;
     private record Cached(TownModel model, long key, long time) {}
     private static final Map<java.util.UUID, Cached> MODELS = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Towns whose model is being worked out in the background. */
+    private static final java.util.Set<java.util.UUID> PENDING = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Bumped when the server stops, so a model finishing late isn't kept for the next world. */
+    private static final java.util.concurrent.atomic.AtomicLong GENERATION = new java.util.concurrent.atomic.AtomicLong();
+
+    @SubscribeEvent
+    static void stopped(net.neoforged.neoforge.event.server.ServerStoppedEvent event) {
+        GENERATION.incrementAndGet();
+        MODELS.clear();
+        CARRY.clear();
+    }
 
 
 
