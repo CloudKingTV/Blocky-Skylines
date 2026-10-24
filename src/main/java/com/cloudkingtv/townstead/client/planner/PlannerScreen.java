@@ -977,7 +977,10 @@ public class PlannerScreen extends Screen {
                     (next == null ? Component.translatable("milestone.townstead.top", reached.displayName())
                             : Component.translatable("milestone.townstead.progress", reached.displayName(), people, next.population, next.displayName()))
                             .getVisualOrderText(),
-                    Component.translatable("hud.townstead.tiles", city.tiles().size()).getVisualOrderText()), mouseX, TOP_BAR_H + 14);
+                    Component.translatable("hud.townstead.tiles", city.tiles().size()).getVisualOrderText(),
+                    Component.translatable("hud.townstead.mayor", city.ownerName()).getVisualOrderText(),
+                    (city.coMayors().isEmpty() ? Component.translatable("hud.townstead.no_comayors")
+                            : Component.translatable("hud.townstead.comayors", String.join(", ", city.coMayors()))).getVisualOrderText()), mouseX, TOP_BAR_H + 14);
         }
         int x = width - 8;
         int stored = city.stock().values().stream().mapToInt(Integer::intValue).sum();
@@ -1493,7 +1496,7 @@ public class PlannerScreen extends Screen {
                             .ifPresent(h -> lines.add(Component.translatable("info.townstead.road_load", Math.round(m.traffic.flow(h.segment().id())),
                                     Math.round(m.traffic.ratio(h.segment()) * 100))));
                 }
-                lines.add(Component.translatable("info.townstead.legend.traffic"));
+                lines.add(Palette.legend("info.townstead.legend.traffic"));
             }
             case "level" -> {
                 int[] n = new int[4];
@@ -1513,8 +1516,8 @@ public class PlannerScreen extends Screen {
                 lines.add(Component.translatable("info.townstead.industry_count", raw, proc, starved));
                 lines.add(Component.translatable("info.townstead.exports", com.cloudkingtv.townstead.economy.Budget.signed(Math.round(day.exportValue()))));
                 if (hovered != null && day.flow(hovered) != null) lines.addAll(flowLines(day.flow(hovered), true));
-                lines.add(Component.translatable("info.townstead.legend.industry"));
-                lines.add(Component.translatable("info.townstead.legend.industry2"));
+                lines.add(Palette.legend("info.townstead.legend.industry"));
+                lines.add(Palette.legend("info.townstead.legend.industry2"));
             }
             case "happiness", "land_value", "pollution", "noise", "education" -> {
                 var m = PlannerClient.model();
@@ -1542,7 +1545,7 @@ public class PlannerScreen extends Screen {
                     int v = view.equals("land_value") ? m.fields.landValue(cx, cz) : view.equals("pollution") ? m.fields.pollution(cx, cz) : m.fields.noise(cx, cz);
                     lines.add(Component.translatable("info.townstead.here", v));
                 }
-                lines.add(Component.translatable("info.townstead.legend." + view));
+                lines.add(Palette.legend("info.townstead.legend." + view));
             }
             default -> {
                 ServiceType st = ServiceType.byKey(view);

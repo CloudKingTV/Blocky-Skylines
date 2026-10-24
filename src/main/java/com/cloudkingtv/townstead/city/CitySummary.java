@@ -21,7 +21,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
                           com.cloudkingtv.townstead.economy.Budget budget, int milestone,
                           List<com.cloudkingtv.townstead.transit.CoachLine> lines,
                           List<com.cloudkingtv.townstead.district.District> districts,
-                          java.util.Set<com.cloudkingtv.townstead.district.Policy> policies, int storehouses) {
+                          java.util.Set<com.cloudkingtv.townstead.district.Policy> policies, int storehouses, List<String> coMayors) {
     public static final StreamCodec<ByteBuf, CitySummary> STREAM_CODEC = new StreamCodec<>() {
         private final StreamCodec<ByteBuf, List<TilePos>> tilesCodec = ByteBufCodecs.collection(ArrayList::new, TilePos.STREAM_CODEC);
         private final StreamCodec<ByteBuf, ResourceKey<Level>> dimCodec = ResourceKey.streamCodec(Registries.DIMENSION);
@@ -32,6 +32,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
         private final StreamCodec<ByteBuf, java.util.Set<com.cloudkingtv.townstead.district.Policy>> policiesCodec =
                 ByteBufCodecs.VAR_INT.<com.cloudkingtv.townstead.district.Policy>map(o -> com.cloudkingtv.townstead.district.Policy.values()[o], Enum::ordinal)
                         .apply(ByteBufCodecs.collection(java.util.HashSet::new));
+        private final StreamCodec<ByteBuf, List<String>> namesCodec = ByteBufCodecs.stringUtf8(64).apply(ByteBufCodecs.collection(ArrayList::new, 64));
         private final StreamCodec<ByteBuf, Map<Identifier, Integer>> stockCodec =
                 ByteBufCodecs.map(HashMap::new, Identifier.STREAM_CODEC, ByteBufCodecs.VAR_INT);
 
@@ -41,7 +42,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
                     UUIDUtil.STREAM_CODEC.decode(buf), ByteBufCodecs.STRING_UTF8.decode(buf), dimCodec.decode(buf),
                     BlockPos.STREAM_CODEC.decode(buf), tilesCodec.decode(buf), ByteBufCodecs.VAR_LONG.decode(buf), stockCodec.decode(buf),
                     com.cloudkingtv.townstead.economy.Budget.STREAM_CODEC.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), linesCodec.decode(buf),
-                    districtsCodec.decode(buf), policiesCodec.decode(buf), ByteBufCodecs.VAR_INT.decode(buf));
+                    districtsCodec.decode(buf), policiesCodec.decode(buf), ByteBufCodecs.VAR_INT.decode(buf), namesCodec.decode(buf));
         }
 
         @Override
@@ -61,6 +62,7 @@ public record CitySummary(UUID id, String name, UUID owner, String ownerName, Re
             districtsCodec.encode(buf, c.districts());
             policiesCodec.encode(buf, c.policies());
             ByteBufCodecs.VAR_INT.encode(buf, c.storehouses());
+            namesCodec.encode(buf, c.coMayors());
         }
     };
 

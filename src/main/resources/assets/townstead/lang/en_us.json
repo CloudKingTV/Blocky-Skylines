@@ -699,7 +699,7 @@
   "advisor.townstead.unhappy.title": "Unhappy residents",
   "advisor.townstead.unhappy": "%s buildings are unhappy and may be abandoned. With the Inspect tool, click one to see its happiness factors: often it's a missing service, noise, pollution or a long commute.",
   "advisor.townstead.traffic.title": "Traffic is jammed",
-  "advisor.townstead.traffic": "Traffic flow is down to %s%%. Open the Info tool and press 8: red roads are over capacity. Widen them (lane to street, street to avenue), add a second route, or run a coach line along them.",
+  "advisor.townstead.traffic": "Traffic flow is down to %s%%. Open the Info tool and press 8 to see which roads are over capacity. Widen them (lane to street, street to avenue), add a second route, or run a coach line along them.",
   "advisor.townstead.service.title": "Homes want a %s",
   "advisor.townstead.service": "%2$s homes have no %1$s in reach. Services make people happier and let buildings level up. Place one in the middle of them (Services or Parks tool); its ring shows what it covers.",
   "advisor.townstead.demand.title": "Your town wants %s",
@@ -864,5 +864,16 @@
   "townstead.configuration.giveGuide": "Give new players the Townstead Guide",
   "hud.townstead.open_guide": "Townstead Guide (opens at the chapter on the tool in hand)",
   "hud.townstead.open_settings": "Townstead settings",
-  "guide.townstead.page": "%s / %s"
+  "guide.townstead.page": "%s / %s",
+  "hud.townstead.mayor": "Mayor: %s",
+  "hud.townstead.comayors": "Co-mayors: %s",
+  "hud.townstead.no_comayors": "No co-mayors (/townstead comayor add <player>)",
+  "info.townstead.legend.happiness.cb": "Orange unhappy · grey content · blue happy",
+  "info.townstead.legend.traffic.cb": "Yellow clear · grey busy · dark blue jammed",
+  "info.townstead.legend.industry.cb": "Blue: supplied · grey: half output (no power or water)",
+  "info.townstead.legend.industry2.cb": "Orange: short of materials",
+  "info.townstead.legend.land_value.cb": "Parks, services, shops and the Town Hall raise it; pollution and noise lower it",
+  "info.townstead.legend.pollution.cb": "From workshops and the compost yard",
+  "info.townstead.legend.noise.cb": "From shops, workshops, the fire station and busy roads",
+  "info.townstead.legend.education.cb": "Darker: better educated. Schools add a level"
 }

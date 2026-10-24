@@ -34,7 +34,7 @@ import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 @EventBusSubscriber(modid = Townstead.MODID)
 public final class TownsteadNetwork {
     /** Bump whenever a payload's wire format changes. */
-    private static final String PROTOCOL = "9";
+    private static final String PROTOCOL = "10";
 
     @SubscribeEvent
     static void register(RegisterPayloadHandlersEvent event) {

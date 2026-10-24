@@ -68,6 +68,7 @@ public final class PlannerWorldRenderer {
             roadQuads(p, buf, cam, city, pulse);
             landQuads(p, buf, level, cam, city, pulse);
             serviceQuads(p, buf, level, cam, city, pulse);
+            fireQuads(p, buf, cam, city, pulse);
             if (PlannerScreen.landActive()) {
                 // A faint wash over every tile for sale, stronger (or red) under the cursor.
                 TilePos hoverTile = PlannerClient.hoverTile;
@@ -84,6 +85,54 @@ public final class PlannerWorldRenderer {
                 }
             }
         });
+    }
+
+    // ---------------------------------------------------------------- fires
+
+    /**
+     * A burning building, as the planner sees it: its lot glows orange and a column of smoke rises over it, puffs
+     * drifting up, swelling and thinning out, so a fire is plain from anywhere in town.
+     */
+    private static void fireQuads(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, CitySummary city, float pulse) {
+        double now = (Util.getMillis() % 1_000_000L) / 1000.0;
+        for (Building b : ClientLand.get().buildingsOf(city.id())) {
+            if (b.fire <= 0) continue;
+            for (long k : b.cellKeys()) cellQuad(p, buf, cam, k, b.baseY, ARGB.color(Math.round(0x28 + 0x38 * pulse), 255, 120, 30), 0.4);
+            double cx = b.centerX(), cz = b.centerZ(), base = b.baseY + 8;
+            int puffs = 16;
+            for (int i = 0; i < puffs; i++) {
+                double rise = (now * 2.0 + i * (32.0 / puffs)) % 32.0, f = rise / 32.0;
+                double sway = Math.sin(now * 0.6 + i * 1.9) * (0.4 + rise * 0.08);
+                double size = 0.7 + rise * 0.09;
+                int grey = (int) Math.round(40 + 110 * f);
+                int alpha = (int) Math.round(0x90 * (1 - f * f) * Math.min(1, rise / 1.5));
+                puff(p, buf, cam, cx + sway + rise * 0.18, base + rise, cz + sway * 0.6, size, ARGB.color(alpha, grey, grey - 3, grey - 6), now * 0.3 + i);
+            }
+        }
+    }
+
+    /**
+     * A round-ish puff of smoke facing the camera: two squares, one turned an eighth of a turn, so where they overlap
+     * reads as a soft octagon. Drawn both ways round, so it shows from any side.
+     */
+    private static void puff(PoseStack.Pose p, VertexConsumer buf, Vec3 cam, double x, double y, double z, double r, int color, double spin) {
+        double dx = x - cam.x, dz = z - cam.z, n = Math.max(1e-6, Math.hypot(dx, dz));
+        double rx = -dz / n, rz = dx / n; // the camera's right, along the ground
+        int half = ARGB.color(ARGB.alpha(color) / 2, ARGB.red(color), ARGB.green(color), ARGB.blue(color));
+        for (int k = 0; k < 2; k++) {
+            double a = spin + k * Math.PI / 4;
+            double ca = Math.cos(a) * r, sa = Math.sin(a) * r;
+            // Corners: centre +/- (right * ca + up * sa) and +/- (right * -sa + up * ca).
+            float[][] c = new float[4][3];
+            double[][] o = {{ca, sa}, {-sa, ca}, {-ca, -sa}, {sa, -ca}};
+            for (int j = 0; j < 4; j++) {
+                c[j][0] = (float) (x + rx * o[j][0] - cam.x);
+                c[j][1] = (float) (y + o[j][1] - cam.y);
+                c[j][2] = (float) (z + rz * o[j][0] - cam.z);
+            }
+            for (int j = 0; j < 4; j++) buf.addVertex(p, c[j][0], c[j][1], c[j][2]).setColor(half);
+            for (int j = 3; j >= 0; j--) buf.addVertex(p, c[j][0], c[j][1], c[j][2]).setColor(half);
+        }
     }
 
     // ---------------------------------------------------------------- land for sale
@@ -229,7 +278,7 @@ public final class PlannerWorldRenderer {
 
     // ---------------------------------------------------------------- services and info views
 
-    private static final int GOOD = 0x9E9EE37D, BAD = 0x9EFF6B5B, SUPPLY = 0xB060B8FF;
+    private static final int SUPPLY = 0xB060B8FF;
     private static final int[] LEVEL_COLORS = {0xA0BFE3FF, 0xA06EA8FF, 0xA02A5FE0}; // deeper blue per level
 
     /** The lot ghost while placing, and the info tool's colouring of every building. */
@@ -266,8 +315,8 @@ public final class PlannerWorldRenderer {
             // Workshops and raw industry: green supplied, amber half running (no power or water), red short of materials.
             var day = model.industry();
             for (var f : day.flows()) {
-                int color = f.shortOf() != null ? BAD : f.batches() <= 0 ? 0x90606060
-                        : !model.util.power(f.building()) || !model.util.water(f.building()) ? 0xA0E0B040 : GOOD;
+                int color = f.shortOf() != null ? Palette.bad(0x9E) : f.batches() <= 0 ? 0x90606060
+                        : !model.util.power(f.building()) || !model.util.water(f.building()) ? Palette.warn(0xA0) : Palette.good(0x9E);
                 for (long k : f.building().cellKeys()) cellQuad(p, buf, cam, k, f.building().baseY - 1, color, 0.3);
             }
             return;
@@ -299,7 +348,7 @@ public final class PlannerWorldRenderer {
                     case "water" -> util.water(b);
                     default -> service != null && model.covered(b, service);
                 };
-                color = has ? GOOD : BAD;
+                color = has ? Palette.good(0x9E) : Palette.bad(0x9E);
             }
             for (long k : b.cellKeys()) cellQuad(p, buf, cam, k, b.baseY - 1, color, 0.3);
         }
@@ -332,12 +381,9 @@ public final class PlannerWorldRenderer {
         }
     }
 
-    /** Red (0) through yellow to green (1). */
+    /** Bad (0) through middling to good (1), in the palette in use. */
     private static int gradient(float f, int alpha) {
-        f = Mth.clamp(f, 0f, 1f);
-        int r = f < 0.5f ? 230 : Math.round(230 - (f - 0.5f) * 2 * 140);
-        int g = f < 0.5f ? Math.round(70 + f * 2 * 150) : 220;
-        return ARGB.color(alpha, r, g, 70);
+        return Palette.gradient(f, alpha);
     }
 
     /** Coverage rings: the hovered lot's while placing a service, and every service of the viewed type. */

@@ -46,7 +46,9 @@ import org.jspecify.annotations.Nullable;
 /**
  * The town's streets come alive, client side only (no server entities, so it costs nothing on the server): horse
  * carts drive the roads, as many as each road's traffic says, and coaches run every coach line, stopping at each
- * stop. They're puppets: vanilla horses, minecarts and villagers that are never added to the world, moved along
+ * stop. A fire brigade's cart (a water cauldron on a two-horse cart) drives from the nearest fire station to every
+ * fire it reaches and waits there until the fire is out, and each compost yard's cart does its rounds of the homes
+ * around it. They're puppets: vanilla horses, minecarts and villagers that are never added to the world, moved along
  * the road graph each tick and drawn with the vanilla renderers.
  */
 @EventBusSubscriber(modid = Townstead.MODID, value = Dist.CLIENT)
@@ -65,6 +67,11 @@ public final class StreetLife {
 
     private static final List<Vehicle> CARTS = new ArrayList<>();
     private static final Map<Integer, List<Vehicle>> COACHES = new HashMap<>();
+    /** Fire carts by the burning building they're at, and compost carts by their yard. */
+    private static final Map<Integer, Vehicle> FIRE_CARTS = new HashMap<>(), COMPOST_CARTS = new HashMap<>();
+    /** Buildings and yards with no way there by road, not tried again until the roads change. */
+    private static final java.util.Set<Integer> NO_ROUTE = new java.util.HashSet<>();
+    private static @Nullable Object serviceKey;
     private static final List<Drawn> DRAWN = new ArrayList<>();
     private static final RandomSource RANDOM = RandomSource.create();
     /** Puppets need ids (renderers seed animations with them); negative ones never clash with real entities. */
@@ -151,6 +158,8 @@ public final class StreetLife {
         int dwell;
         int nextStop;
         final double[] stops;
+        /** Stays at the end of its path instead of leaving the street (a fire cart at the fire). */
+        boolean park;
 
         Vehicle(Path path, AbstractHorse[] team, Minecart cart, Villager[] riders, double speed, double s, double[] stops) {
             this.path = path;
@@ -183,7 +192,11 @@ public final class StreetLife {
                     nextStop = (nextStop + 1) % stops.length;
                 }
             }
-            if (!path.loop && s >= path.total - 2.2) return false;
+            if (!path.loop && s >= path.total - 2.2) {
+                if (!park) return false;
+                s = path.total - 2.2;
+                dwell = 1;
+            }
             double[] c = path.at(net, s), h = path.at(net, s + 2.1);
             if (c == null || h == null) return false;
             place(cart, c[0], c[1], c[2], (float) c[3] + 90f, false);
@@ -243,6 +256,9 @@ public final class StreetLife {
         };
         CARTS.removeIf(v -> !v.tick(net, pace) || far(v, cam));
         for (List<Vehicle> list : COACHES.values()) for (Vehicle v : list) v.tick(net, pace);
+        serviceCarts(level, city, m, router);
+        FIRE_CARTS.values().removeIf(v -> !v.tick(net, pace));
+        COMPOST_CARTS.values().removeIf(v -> !v.tick(net, pace));
         spawnCarts(level, m, router, net, cam);
     }
 
@@ -301,6 +317,78 @@ public final class StreetLife {
             }
             COACHES.put(line.id(), list);
         }
+    }
+
+    /** Sends a fire cart to each fire a brigade reaches (and calls back those whose fire is out); one compost cart a yard. */
+    private static void serviceCarts(ClientLevel level, CitySummary city, TownModel m, RoadRouter router) {
+        if (!java.util.Objects.equals(serviceKey, modelKey)) { serviceKey = modelKey; NO_ROUTE.clear(); }
+        List<com.cloudkingtv.townstead.building.Building> town = ClientLand.get().buildingsOf(city.id());
+        java.util.Set<Integer> burning = new java.util.HashSet<>();
+        for (var b : town) if (b.fire > 0) burning.add(b.id);
+        FIRE_CARTS.keySet().removeIf(id -> !burning.contains(id));
+        for (var b : town) {
+            if (b.fire <= 0 || FIRE_CARTS.containsKey(b.id) || NO_ROUTE.contains(b.id)) continue;
+            if (!m.covered(b, com.cloudkingtv.townstead.service.ServiceType.FIRE_STATION)) continue;
+            com.cloudkingtv.townstead.building.Building station = nearest(town, b, com.cloudkingtv.townstead.service.ServiceType.FIRE_STATION,
+                    com.cloudkingtv.townstead.service.ServiceType.CASTLE_KEEP);
+            List<RoadRouter.Leg> legs = station == null ? null : route(m, router, station, b);
+            if (legs == null) { NO_ROUTE.add(b.id); continue; }
+            Minecart cart = puppet(new Minecart(EntityTypes.MINECART, level));
+            cart.setCustomDisplayBlockState(Optional.of(Blocks.WATER_CAULDRON.defaultBlockState()
+                    .setValue(net.minecraft.world.level.block.LayeredCauldronBlock.LEVEL, 3)));
+            Vehicle v = new Vehicle(new Path(legs, router, false), new AbstractHorse[] {horse(level, EntityTypes.HORSE, b.id), horse(level, EntityTypes.HORSE, b.id + 2)},
+                    cart, new Villager[] {villager(level, b.id)}, 0.34, 0, new double[0]);
+            v.park = true;
+            FIRE_CARTS.put(b.id, v);
+        }
+        java.util.Set<Integer> yards = new java.util.HashSet<>();
+        for (var y : town) {
+            if (!y.civic() || y.state != com.cloudkingtv.townstead.building.Building.State.ACTIVE
+                    || y.serviceType() != com.cloudkingtv.townstead.service.ServiceType.COMPOST_YARD) continue;
+            yards.add(y.id);
+            if (COMPOST_CARTS.containsKey(y.id) || NO_ROUTE.contains(-y.id)) continue;
+            // Its rounds: out to three homes in its reach, the furthest-flung first, and back to the yard.
+            double reach = m.radius(com.cloudkingtv.townstead.service.ServiceType.COMPOST_YARD);
+            List<com.cloudkingtv.townstead.building.Building> homes = new ArrayList<>();
+            for (var h : town) if (h.zone.residential() && h.working() && h.distanceTo(y) <= reach) homes.add(h);
+            homes.sort(java.util.Comparator.comparingInt(h -> Math.floorMod(h.id * 7919 + y.id, 1000)));
+            List<RoadRouter.Leg> loop = new ArrayList<>();
+            com.cloudkingtv.townstead.building.Building at = y;
+            for (var h : homes.subList(0, Math.min(3, homes.size()))) {
+                List<RoadRouter.Leg> part = route(m, router, at, h);
+                if (part == null) continue;
+                loop.addAll(part);
+                at = h;
+            }
+            List<RoadRouter.Leg> back = at == y ? null : route(m, router, at, y);
+            if (back == null) { NO_ROUTE.add(-y.id); continue; }
+            loop.addAll(back);
+            Minecart cart = puppet(new Minecart(EntityTypes.MINECART, level));
+            cart.setCustomDisplayBlockState(Optional.of(Blocks.COMPOSTER.defaultBlockState()));
+            COMPOST_CARTS.put(y.id, new Vehicle(new Path(loop, router, true), new AbstractHorse[] {horse(level, EntityTypes.DONKEY, y.id)},
+                    cart, new Villager[] {villager(level, y.id + 3)}, 0.12, 0, new double[0]));
+        }
+        COMPOST_CARTS.keySet().removeIf(id -> !yards.contains(id));
+    }
+
+    /** The nearest working service of either type to a building, or null. */
+    private static com.cloudkingtv.townstead.building.@Nullable Building nearest(List<com.cloudkingtv.townstead.building.Building> town,
+                                                                                 com.cloudkingtv.townstead.building.Building to,
+                                                                                 com.cloudkingtv.townstead.service.ServiceType... types) {
+        com.cloudkingtv.townstead.building.Building best = null;
+        for (var b : town) {
+            if (!b.civic() || b.state != com.cloudkingtv.townstead.building.Building.State.ACTIVE || !List.of(types).contains(b.serviceType())) continue;
+            if (best == null || b.distanceTo(to) < best.distanceTo(to)) best = b;
+        }
+        return best;
+    }
+
+    private static @Nullable List<RoadRouter.Leg> route(TownModel m, RoadRouter router, com.cloudkingtv.townstead.building.Building from,
+                                                        com.cloudkingtv.townstead.building.Building to) {
+        RoadRouter.Access a = m.traffic.access(from), b = m.traffic.access(to);
+        if (a == null || b == null) return null;
+        List<RoadRouter.Leg> legs = router.route(a, b, router::freeTime);
+        return legs == null || legs.isEmpty() ? null : legs;
     }
 
     private static int firstStopAfter(double[] stops, double s) {
@@ -393,6 +481,10 @@ public final class StreetLife {
     private static void clear() {
         CARTS.clear();
         COACHES.clear();
+        FIRE_CARTS.clear();
+        COMPOST_CARTS.clear();
+        NO_ROUTE.clear();
+        serviceKey = null;
         DRAWN.clear();
         coachKey = null;
         model = null;
@@ -404,12 +496,14 @@ public final class StreetLife {
     @SubscribeEvent
     static void extract(ExtractLevelRenderStateEvent event) {
         DRAWN.clear();
-        if (CARTS.isEmpty() && COACHES.isEmpty()) return;
+        if (CARTS.isEmpty() && COACHES.isEmpty() && FIRE_CARTS.isEmpty() && COMPOST_CARTS.isEmpty()) return;
         EntityRenderDispatcher dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
         float partial = event.getDeltaTracker().getGameTimeDeltaPartialTick(false);
         Vec3 cam = event.getCamera().position();
         List<Vehicle> all = new ArrayList<>(CARTS);
         for (List<Vehicle> l : COACHES.values()) all.addAll(l);
+        all.addAll(FIRE_CARTS.values());
+        all.addAll(COMPOST_CARTS.values());
         for (Vehicle v : all) {
             if (v.cart.tickCount == 0 || Math.hypot(v.cart.getX() - cam.x, v.cart.getZ() - cam.z) > RADIUS + 8) continue;
             try {
