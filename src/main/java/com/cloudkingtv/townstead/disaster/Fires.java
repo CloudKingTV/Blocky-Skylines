@@ -219,7 +219,8 @@ public final class Fires {
 
     /** Smoke, flames and the roar of a burning building. */
     private static void flames(ServerLevel level, Building b, BlockPos at, RandomSource random) {
-        BuildingGenerator.Plan plan = TownGrowth.plan(b);
+        BuildingGenerator.Plan plan = TownGrowth.planIfReady(b);
+        if (plan == null) return; // being worked out (just after a restart): the flames start in a moment
         List<BuildingGenerator.Step> steps = plan.steps();
         // Smoke pouring off the roof (seen from far off in the planner), flames licking out of the walls.
         for (int i = 0; i < 3; i++) {

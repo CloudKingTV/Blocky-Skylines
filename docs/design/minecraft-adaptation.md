@@ -277,7 +277,7 @@ for weeks and keep their world. Details in §19.
 |---|---|---|
 | **8. Self-sufficient towns** ✓ | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
 | **9. Balance and a real play-through** ✓ (Megalopolis in 10-15 h not yet: Metropolis at 10.6 h, §19) | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
-| **10. Multiplayer and server** | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
+| **10. Multiplayer and server** ✓ | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
 | **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
 | **12. Release** | Save versioning with migrations, upgrade tests from older saves, crash-free long soak, translation readiness, mod metadata, licence, icon, CI builds, changelog, Modrinth/CurseForge page text and screenshots | A 1.0 jar and page ready for the author to publish; worlds from 0.x load in 1.0 |
 
@@ -802,8 +802,8 @@ at 15 h. What holds a big town back, from the runs:
 - *Processed materials*: a fast-growing town waits on bricks and glass. Brickworks and glassworks
   open when they're short, but each one needs bricks and glass to build; imports bridge it if the
   mayor buys decisively. Runs vary a lot with how early processors open.
-- *Server time*: 40-70 ms a tick at 3,500 people and 1,400 buildings; Phase 10's per-town
-  performance budget has to bring this down, or a big town runs slower than real time.
+- *Server time*: 40-70 ms a tick at 3,500 people and 1,400 buildings (at growth speed 20); Phase
+  10 brought the same town under 1 ms a tick at speed 1, with a 5 ms budget per town.
 - *Variance*: runs on the same land and settings differ by an hour or two at each milestone
   (fires, which lots go first, when processors open).
 
@@ -816,6 +816,129 @@ at 15 h. What holds a big town back, from the runs:
 - Towns that span unloaded chunks, players logging out mid-construction, server restarts during
   fires and builds, a town whose mayor never comes back (admin transfer command).
 - A per-town tick budget with a profiler readout (`/townstead perf`).
+
+#### Phase 10 as built
+
+**The test.** `tools/multiplayer` (not shipped) runs a dedicated server and two headless clients,
+Alice and Bob. They act only through what a real client sends: chat commands, block placement
+and the planner's payloads.
+- **Alice.** The town is the Phase 9 run-28 town (3,650 people, 1,460 buildings), whose mayor
+  never comes back. Alice takes it over with `/townstead transfer` and makes Bob her co-mayor.
+  Every 20 seconds she makes a random mayor's edit: zoning, a road, a tax, a budget, a policy, a
+  park, an import, or an undo then redo.
+- **Bob.** He founds a town 1,600 blocks away by placing a Town Hall and tries the griefer's
+  checklist (below). Then he runs his own town, and once he's co-mayor he takes turns editing
+  Alice's.
+- **The script.** It restarts the server while a fire burns. It also logs Bob out for four
+  minutes, just after he's knocked down four of his homes so new ones are going up. His town's
+  chunks unload while he's away.
+- **Desync checks.** Both sides log the same state line per town (buildings and their states,
+  people, progress, treasury, taxes, budgets, stock, roads, land, lines, districts, policies). A
+  script compares them.
+
+**Serverbound payloads.** Every one now registers through a helper that rate-limits per player.
+Each player has a bucket of 40 tokens that refills by one a tick. World edits (roads, zoning,
+services, bulldozing, undo, land, rename, the planner itself) cost 4 tokens, and settings cost 1.
+A flood is dropped, with a "slow down" note at most every five seconds. The audit's other fixes:
+- *Ownership.* Planner edits are checked against the town's mayor or a co-mayor and the planner
+  being open. Loans, withdrawals, renaming and co-mayors stay with the mayor.
+- *Distance.* Storehouse and Town Hall screens check reach and that the chunk is loaded before
+  reading the block. A crafted far-off position used to load (or generate) its chunk.
+- *Input bounds.* Road curves and coach stops must be finite numbers: NaN slipped past every
+  length check. Ordinals and list sizes were already bounded.
+- *Admin.* `/townstead transfer <player> [town]` works from the console.
+
+| Bob's check | Result |
+|---|---|
+| Bulldoze, tax change and rename in Alice's town before he's co-mayor | refused, town unchanged |
+| A road with NaN and infinite coordinates | ignored |
+| Town Hall and storehouse payloads two million blocks away | ignored, no chunks loaded |
+| 300 edits in one tick | 40 tokens' worth through, 260 dropped; his next edit 4 s later accepted |
+| As co-mayor: a tax change in Alice's town / a loan for it | accepted / refused (mayor only) |
+
+**Performance.** `TownProfiler` times each town's work by section: build, new sites, review,
+catch-up, model, economy and fires. A nested section is charged only its own time. Work done for
+every town at once (sync, citizens) is counted separately. `/townstead perf` shows the last ten
+seconds.
+
+**The tick budget.** `townTickBudget` (5 ms) caps what a town does in one tick. Once a town is
+over it:
+- sites wait for the next build tick, starting from a different site each time;
+- the review and the new-site search move to a later tick;
+- catch-up leaves the rest owed.
+
+Each town also gets its own tick within the growth and review intervals, so towns don't all
+review at once. On the big town the profiler found:
+- *Reviews spiked a tick to 150-500 ms every five seconds.* Two causes.
+  - Service reach and "what's near" checks scanned the whole town for every building (O(n²)).
+    The model now indexes working services by type and working buildings in a 32-block grid.
+    The probe checks the indexes against the old scans every five minutes: 34,556 checks,
+    0 different.
+  - The land fields (pollution, noise, land value) were worked out lazily per lot, each from
+    every source including thousands of road-noise samples, on the server thread, once per new
+    model.
+- *The model.* It takes 100-300 ms for this town and is now worked out on a background thread,
+  from copies of the buildings, roads, budget and stock, while the last one serves. Its lots'
+  fields, happiness and frontage are worked out there too. Only a town's very first model, at
+  server start, is built on the spot. Road network copies share their rasters.
+- *Plans.* Generating a big building's plan takes tens of milliseconds, and after a restart none
+  are cached. A building's next-level plan, and its present one, are generated in the background
+  one review ahead of the upgrade. A burning building's flames wait for its plan the same way.
+- *Towns out of sight.* Catch-up read a site's chunks from disk on the server thread, taking
+  30-60 ms a site. It now asks for them in the background and places the owed blocks when
+  they're in. The new-site search loads at most one unloaded lot's chunks per search, and skips
+  for five minutes a lot whose ground won't take a building. Before that fix, an empty town
+  nobody was near cost 26-43 ms every two seconds.
+
+Result: reviews take 3-6 ms, and the town averages 0.03-0.7 ms a tick. Its worst tick in a
+ten-second window is usually 2-15 ms. Up to about 45 ms happens when an upgrade starts and clears
+the old building's blocks. Phase 9 measured 40-70 ms at speed 20. Only server start is slow:
+each town's first model is built on the spot, about half a second for this one, before anyone
+can join.
+
+**What the soak found besides.**
+- *The planner camera on a dedicated server.* On opening, the client could place the camera from
+  the height of a column it hadn't loaded yet (the bottom of the world), about 144 blocks from
+  where the server had put the body. The server turned the move back ("moved too quickly";
+  singleplayer skips that check for its owner). The camera now holds still until the ground under
+  it arrives. This caused 39 warnings in the first hour and none after.
+- *Fires across a restart.* A fire saved mid-burn (401 ticks of fire in the save) carried on after
+  the restart, and the brigade put it out on schedule.
+- *Logins.* Townstead's login sync (snapshots of towns, roads and land) takes 1-14 ms. Each hour
+  had four "can't keep up" warnings (2-4 s behind). Every one came within ten seconds of a client
+  logging in after its game had just started, or of Bob teleporting into terrain never generated.
+  Townstead used under 50 ms in those windows, and GC pauses stayed under 55 ms. A lone login on
+  the same world caused none. They come from vanilla world generation and chunk sending, on a
+  4-core machine that was also starting and software-rendering two clients.
+- *The fingerprint.* The model's cache key hashes enums, whose hash codes differ between JVMs. It
+  is only ever compared within one process, so it is fine as a cache key. The desync probe uses
+  its own stable hash.
+
+| Soak | Townstead, ms a tick (10 s averages) | Server tick | Desyncs | Errors |
+|---|---|---|---|---|
+| First hour (before the camera, catch-up and new-site fixes) | 0.14-0.93 | 13-33 ms | 0 in 2,870 samples | none from Townstead; 39 "moved too quickly" (planner camera), 4 "can't keep up" (logins) |
+| Follow-up, 15 min, fire and restart | 0.24-0.57 | 15-17 ms | 0 in 622 samples (with the stable hash) | none |
+| Final hour, all fixes | 0.13-0.85 | 14-29 ms | 0 in 2,846 samples | none from Townstead; 2 "moved too quickly" (Bob falling after a `/tp` into ungenerated land), 4 "can't keep up" (logins, new terrain) |
+
+A sample is one server line (every 5 s) per town per client. It is matched when the client held
+the same state within the next six seconds. Construction progress and the stock change with every
+block laid, so they're left out of the match and their gap is reported separately. No client ever
+went more than one sample (5 s) without matching.
+
+In the final hour, two fires were burning when the server restarted. One was still burning
+afterwards (2,101 ticks in); the other had been put out by its brigade.
+
+In the soak hours Bob's town had run out of land and wasn't building when he left, so a separate
+run tested logging out mid-build:
+- Bob knocked down four homes, and two new sites started.
+- He was logged out 75 seconds later, mid-build.
+- With his chunks unloaded, the sites went on through the catch-up (94 owed blocks placed in one
+  round). They paid from the storehouse, since a creative mayor builds free only while online.
+- Both homes were finished when he came back (95 people to 99). His client was in sync on every
+  sample, and there were no errors.
+
+The server's tick (usually 15-17 ms, up to 33 ms while clients start and terrain generates) is
+almost all vanilla work, on a 4-core machine that was also rendering both clients in software.
 
 ### Phase 11: onboarding and feel
 

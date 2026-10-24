@@ -168,6 +168,8 @@ The server setting `difficulty` picks **Relaxed**, **Normal** (default) or **Har
 pays a quarter more tax, costs a fifth less upkeep and land, imports at twice the selling price
 instead of three times, adds 10 to every demand bar, halves fires and builds 30% faster; Hard
 the reverse (tax ×0.85, costs ×1.2, imports ×4, demand −10, fires ×1.5, building ×0.8).
+The server setting `townTickBudget` (default 5 ms) caps how much of a server tick one town may
+use. Past it, the town's construction and its search for new sites wait for the next tick.
 
 20. **Milestones.** The town earns titles as it grows, as in Cities: Skylines. Each pays a
     purse of emeralds into the treasury, allows more land, and unlocks new things to build. The
@@ -257,8 +259,9 @@ the reverse (tax ×0.85, costs ×1.2, imports ×4, demand −10, fires ×1.5, bu
 33. **Co-mayors.** `/townstead comayor add <player>` lets a friend help run your town: they open
     the planner on it, build, zone, set policies and budgets, use the storehouse and get the town's
     news. Loans, the treasury, the town's name and co-mayors stay with you. `/townstead comayor
-    remove <name>` and `/townstead comayor` (list). Operators can hand the town they stand in to another
-    player with `/townstead transfer <player>` (for towns whose mayor is gone), and a prepared
+    remove <name>` and `/townstead comayor` (list). Operators can hand a town to another player with
+    `/townstead transfer <player> [town]`, for a town whose mayor is gone. Without a town name it
+    hands over the town you stand in, and the server console can name one. A prepared
     world's unclaimed town goes to the first player who joins without one.
 34. **Jungle and swamp towns.** Lots in jungles build in jungle and bamboo timber under bamboo
     roofs with mossy stone; lots in swamps and mangroves in mangrove timber on mud-brick footings.
@@ -293,7 +296,19 @@ the reverse (tax ×0.85, costs ×1.2, imports ×4, demand −10, fires ×1.5, bu
     Metropolis in under 11, never in debt (the design doc has the curve and what still slows a
     big town down).
 
-Breaking the Town Hall disbands the town. Next: Phase 10, multiplayer and server (see the roadmap).
+39. **Dedicated servers.** Phase 10 ran two scripted players (`tools/multiplayer`) on a dedicated server for an hour:
+    a shared town with a co-mayor, a separate town, a server restart during a fire, and a player
+    logging out mid-construction. Every edit a client sends is checked on the server: the sender
+    must be the town's mayor or a co-mayor and in its planner, and a Town Hall or storehouse
+    screen only works within reach. Each player has a rate limit, so a flood of packets is
+    dropped with a "slow down" note. `/townstead perf` (operators) shows the last ten seconds:
+    each town's milliseconds a tick, its worst tick, and where the time went (construction, new
+    sites, reviews, catching up on sites out of sight, the economy, fires, syncing). Big towns
+    are cheap: the 3,700-person test town takes under a millisecond a tick on average, its
+    model is worked out on a background thread, and chunks for sites out of sight load in the
+    background.
+
+Breaking the Town Hall disbands the town. Next: Phase 11, onboarding and feel (see the roadmap).
 
 ## Screenshots (from the headless playtests)
 

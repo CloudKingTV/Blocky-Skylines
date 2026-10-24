@@ -88,28 +88,39 @@ public final class TownGrowth {
         return PLANNED.computeIfAbsent(key(b), k -> plan(b).positions());
     }
 
-    /** Plans being worked out in the background for buildings about to level up, by plan key. */
+    /** Plans being worked out in the background (see {@link #planIfReady}), by plan key. */
     private static final Map<Long, java.util.concurrent.CompletableFuture<BuildingGenerator.Plan>> NEXT_PLANS = new HashMap<>();
 
-    /** The building's plan at its next level if it's ready; if not, it's started off the server thread and this is null. */
+    /** The building's plan at its next level if it's ready (and its present one); if not, they're started off the server thread and this is null. */
     private static BuildingGenerator.@Nullable Plan nextPlan(Building b) {
         Building next = b.copy();
         next.level++;
-        long k = key(next);
+        BuildingGenerator.Plan now = planIfReady(b), then = planIfReady(next);
+        return now == null ? null : then;
+    }
+
+    /**
+     * The building's plan if it's been worked out; if not, it's worked out off the server thread (generating a big
+     * building takes tens of milliseconds) and this is null until it's in. For work that can wait a little: a
+     * burning building's flames, an upgrade.
+     */
+    public static BuildingGenerator.@Nullable Plan planIfReady(Building b) {
+        long k = key(b);
         BuildingGenerator.Plan ready = PLANS.get(k);
         if (ready != null) return ready;
         var pending = NEXT_PLANS.get(k);
         if (pending == null) {
-            NEXT_PLANS.put(k, java.util.concurrent.CompletableFuture.supplyAsync(() -> BuildingGenerator.plan(next), com.cloudkingtv.townstead.Worker.EXECUTOR));
+            Building copy = b.copy();
+            NEXT_PLANS.put(k, java.util.concurrent.CompletableFuture.supplyAsync(() -> BuildingGenerator.plan(copy), com.cloudkingtv.townstead.Worker.EXECUTOR));
             return null;
         }
         if (!pending.isDone()) return null;
         NEXT_PLANS.remove(k);
         BuildingGenerator.Plan plan = pending.exceptionally(e -> {
-            Townstead.LOGGER.error("Planning building {} at level {} failed", next.id, next.level, e);
+            Townstead.LOGGER.error("Planning building {} at level {} failed", b.id, b.level, e);
             return null;
         }).join();
-        if (plan == null) plan = BuildingGenerator.plan(next);
+        if (plan == null) plan = BuildingGenerator.plan(b);
         PLANS.put(k, plan);
         return plan;
     }
