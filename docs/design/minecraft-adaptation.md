@@ -278,7 +278,7 @@ for weeks and keep their world. Details in §19.
 | **8. Self-sufficient towns** ✓ | Industry produces building materials into the storehouse: lumber yards (logs, planks), farms (hay, wool), a new Quarry specialisation (cobblestone, stone bricks, sandstone), workshops that process raw into finished goods (glass, bricks, lanterns, fences, workstations). Production view and storehouse flow readout; exports for emeralds | A survival town grows from Big Town onward with the player gathering nothing by hand |
 | **9. Balance and a real play-through** ✓ (Megalopolis in 10-15 h not yet: Metropolis at 10.6 h, §19) | A scripted "autoplayer" that plays like a person (roads, zoning, services, budgets) from hamlet up; tuning of demand, money, happiness, growth time and building cost from its data; difficulty presets | An unscripted-growth survival run reaches Megalopolis in a target of 10–15 real hours at default speed, never stuck, never broke for long |
 | **10. Multiplayer and server** ✓ | Dedicated-server soak with several towns and players, two-player co-mayor session, permission and packet-validation audit, chunk-loading edge cases, performance budget per town, admin commands | Two players on a dedicated server run a shared town and a separate one for an hour with no desync, errors or tick lag |
-| **11. Onboarding and feel** | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
+| **11. Onboarding and feel** ✓ | First-time advisor (step-by-step hints from Town Hall to Worthy Village), in-game guidebook, settings screen, a co-mayor list in the planner, colour-blind safe info views, visible smoke and service vehicles (fire carts, compost carts) | A new player founds a town and reaches Worthy Village without reading the README |
 | **12. Release** | Save versioning with migrations, upgrade tests from older saves, crash-free long soak, translation readiness, mod metadata, licence, icon, CI builds, changelog, Modrinth/CurseForge page text and screenshots | A 1.0 jar and page ready for the author to publish; worlds from 0.x load in 1.0 |
 
 ---
@@ -949,6 +949,125 @@ almost all vanilla work, on a 4-core machine that was also rendering both client
 - Smoke columns visible from the planner, fire and compost carts on the roads, a co-mayor list
   in the planner, colour-blind safe palettes for info views, a full controls pass at GUI scales
   1–4.
+
+#### Phase 11 as built
+
+**Getting started.**
+- **Welcome.** On a player's first login (an `ONBOARDING` attachment, kept through death) the
+  chat welcomes them and names the Town Hall's ingredients. They're given the **Townstead Guide**,
+  which can be turned off with the server setting `giveGuide`. The recipe book shows the Town
+  Hall once the player picks up logs, an emerald or a bell, and the storehouse once they have a
+  Town Hall or a barrel. The Guide (a book and a sapling) appears once they have a book or a
+  Town Hall.
+- **Hints outside the planner.** A line at the top of the screen, while it applies:
+  - where to put a Town Hall you're holding (open, fairly flat land);
+  - where a storehouse goes;
+  - which key opens the planner while you stand in your town and it has no roads.
+
+  The client setting `hudHints` turns them off.
+- **First steps.** Until the town is a Worthy Village, the planner advisor's first card is a
+  checklist: stock the storehouse (survival only), lay a road, zone homes, power and water, shops
+  and work, grow to 40 people. Each step is ticked from the town as it stands, not from what the
+  player clicked. The current step says which tool, which number key and what to click. The
+  tips the checklist already covers stay out of the "Next" list while it's up.
+  - **Hide steps** turns the checklist off (`firstSteps`).
+  - **Dismiss** puts any other tip away for good (`dismissedTips`).
+  - **×** hides the advisor (`showAdvisor`); **?** brings it back.
+  - All three are client settings, so they last between sessions.
+  - Where the card would cover the cell card or the top bar (GUI scale 4 on a small window), it
+    shrinks to the current step.
+
+**The Guide and settings.**
+- **The book.** `GuideScreen` uses the vanilla book texture. It has a contents page whose chapter
+  titles are links, then fourteen chapters, each starting on a new page: founding, the planner,
+  roads, zoning, utilities, services, money, materials, info views, milestones, districts,
+  traffic, fires, playing together.
+- **Text.** All of it comes from the language file (`guide.townstead.<chapter>.title/.text`), so
+  it can be translated.
+- **Navigation.** Page buttons, PgUp/PgDn, the arrow keys, the scroll wheel, and Home or
+  "« Contents" for the contents page. It reopens where it was left.
+- **From the planner.** Two icons after the town's name in the top bar:
+  - the Guide, opened at the chapter for the tool in hand;
+  - NeoForge's configuration screen for the mod's settings. Closing it returns to the planner.
+- **Old tips page.** The planner's own "how to build a good town" page (H twice) moved to
+  `tips.townstead.*` keys.
+
+**Feel.**
+- **Smoke.** A burning building draws a pulsing orange outline on its lot and a column of smoke
+  puffs in the planner. Each puff is two soft squares at 45° that rise, grow and fade.
+- **Fire carts.** A fire cart leaves the nearest fire station (or castle keep) for each fire,
+  along the road route the traffic model uses: two horses and a full cauldron. It parks at the
+  fire and goes when the fire is out.
+- **Compost carts.** Each compost yard sends a donkey cart with a composter round three of its
+  homes and back.
+- Both kinds of cart are client-side, like the rest of street life.
+- **Co-mayors.** `CitySummary` now carries the co-mayors' names (protocol 10). Hovering the
+  town's name in the planner shows the mayor and co-mayors.
+- **Colour-blind views.** The `colourBlind` client setting gives every info view a palette that
+  doesn't depend on red against green (`Palette`):
+  - blue (60,140,215) for good and orange (230,159,0) for bad, from the Okabe-Ito set;
+  - a dark blue → grey → yellow gradient for the scales;
+  - legend text to match (`.cb` keys).
+
+**GUI scales 1–4** (1920×1080 window; at scale 4 the GUI is 480×270).
+- The help overlay wraps into one or two columns that fit the screen.
+- The advisor, the hint line and the cursor's cell card stay out from behind the budget,
+  milestones and policies panels.
+- The Town Storehouse panel is sized to its materials list. It had outgrown its fixed height
+  at every scale since Phase 8 added materials.
+- The Town Hall panel is wide enough for its lines, and the policies footer wraps.
+- **Checked by screenshot and fine:** the milestone panel, the info legends, the road and
+  zoning bars, tooltips and the Guide.
+
+**Done: a newcomer reaches Worthy Village.** `NewcomerBot` (scratch, beside the autoplayer) plays
+a new world in survival as someone who has never read the README:
+- **Its rules.**
+  - It places the Town Hall the welcome tells it to craft, on the flattest dry ground for its
+    first 3×3 tiles, as the hint says.
+  - Then, every five seconds, it reads the advisor's first card as the planner works it out on
+    the client. It does what that card's text says, in the simplest way.
+  - Once on the last step ("grow") it also works through the cards behind "Next". Cards with no
+    concrete action (the milestone, the good-town page, unhappy buildings) it leaves alone.
+- **Its actions,** by card:
+  - **Stock the storehouse:** craft and place a storehouse, and bring 64 each of dirt,
+    cobblestone, logs and planks.
+  - **Lay a road:** a lane next to the hall, then the next one on.
+  - **Zone homes:** the lots beside it.
+  - **Power and water:** a windmill and a well beside a road.
+  - **Shops and work:** shops near the hall, industry farther out.
+  - **Grow:** zone whatever the RCIO bars ask for, and lay the next lane when no lot is free.
+  - **Waiting sites:** gather the material by hand, or buy a stack.
+  - **Money:** raise taxes a point.
+  - **More utilities:** another mill or well.
+  - **Services:** the named service among the homes it misses.
+- **Gathering.** It gathers by hand at the autoplayer's pace (1,500 blocks an hour after the
+  first 512) and buys the rest with emeralds.
+
+**Results.**
+- **First site** (976, −304; growth speed 20): **Worthy Village at 1.49 speed-1 hours** (45
+  people).
+  - It gathered 2,688 blocks by hand and bought 12 stacks (glass, terracotta, bricks, fences,
+    leaves, planks) for 61 emeralds.
+  - Buying kept the treasury low, down to about 5 emeralds at times.
+  - It went through every step in order and was never idle for more than a few rounds.
+  - The autoplayer, on levelled land with a much bigger starter kit, gets there in 0.6 hours.
+- **Second site** (−880, 912), at least 500 blocks from the first: **Worthy Village at 1.49
+  hours** again (41 people). It bought 8 stacks for 44 emeralds, and was never idle either.
+
+**What the newcomer runs changed.**
+- The first step said to store dirt, cobblestone, logs and planks. Every first building then
+  stopped at once for glass, stone bricks, terracotta or bricks. The step now says the first
+  buildings also need a little glass, stone bricks, bricks and wool. It also says how to tell
+  what a stopped site is short of, and where to buy it.
+- The older "utilities" tip said 2 places a well; 2 is the watermill and 3 the well.
+- An early try put the town where the autoplayer's site picker does (it levels the land
+  afterwards). That was a forested hillside, and 13 of 14 lots beside the first lane were too
+  steep. On land that steep a newcomer needs the "open, fairly flat land" hint.
+- The first lane, 48 blocks across open ground, needed about 420 dirt for its surface and fill.
+  The refusal says exactly how much is missing, and the bot (like a person) gathered it and
+  tried again.
+
+`tools/newcomer` has the bot, the probe it reads the advisor through, and how to run it.
 
 ### Phase 12: release
 

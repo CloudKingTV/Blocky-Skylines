@@ -4,7 +4,7 @@
 from above, and the town grows itself in the style of Minecraft villages. Then walk the streets
 you designed.
 
-**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 7 complete (districts and policies, specialisations, fires, monuments, co-mayors, jungle and swamp towns, milestones to Megalopolis)**
+**Minecraft 26.3 · NeoForge 26.3.0.90 · Java 25** · Status: **Phase 11 complete (first steps and an advisor, the Townstead Guide, settings from the planner, smoke and service carts, colour-blind info views)**
 
 ## Playing (current build)
 
@@ -142,7 +142,7 @@ for free, and the server config option `freeBuild` turns materials off for every
 
 17. **Money.** The treasury is in emeralds. Use the Town Hall with emeralds (or emerald blocks)
     in hand to put them in; use it empty-handed to see the treasury and take emeralds out. A new
-    town starts with a 25-emerald purse, which stays as a reserve, and you can't take out what's
+    town starts with a 50-emerald purse, which stays as a reserve, and you can't take out what's
     still owed on loans. Every half minute the town collects a slice of its daily taxes and pays a
     slice of its upkeep.
 18. **The budget** (**L**, or click the treasury in the top bar). Taxes per kind of building
@@ -308,9 +308,45 @@ use. Past it, the town's construction and its search for new sites wait for the 
     model is worked out on a background thread, and chunks for sites out of sight load in the
     background.
 
-Breaking the Town Hall disbands the town. Next: Phase 11, onboarding and feel (see the roadmap).
+40. **Getting started without this README.** A new player is welcomed in chat and given the
+    **Townstead Guide**, a book (craft another from a book and a sapling) with a contents page and
+    fourteen chapters: founding, the planner, roads, zoning, utilities, services, money,
+    materials, info views, milestones, districts, traffic, fires and playing together. Outside the
+    planner a line at the top of the screen says what to do next: where to put the Town Hall
+    you're holding, then which key opens the planner while your town has no roads. In the planner,
+    until the town is a Worthy Village, the advisor's first card is a checklist of **first steps**
+    (stock the storehouse, lay a road, zone homes, power and water, shops and work, grow to 40
+    people), ticked off as you go, with what to press for the current one. The tips behind
+    **Next** cover what comes up later (sites waiting for materials, money, services, demand,
+    traffic). **Dismiss** puts a tip away for good, **Hide steps** the checklist, and **×** the
+    whole advisor (**?** brings it back). The book and comparator icons by the town's name open the
+    Guide at the chapter for the tool in hand and the mod's settings.
+41. **Feel.** A burning building sends up a column of smoke you can see from the planner, and a
+    fire cart (two horses and a cauldron of water) drives from the nearest fire station and stands
+    by until the fire is out. Compost yards send a donkey cart round the homes they serve. Hover
+    the town's name for its mayor and co-mayors. The **colour-blind** setting swaps the info
+    views' red and green for blue and orange (and their gradients for blue to yellow), with the
+    legends to match. Every planner panel and screen fits at GUI scales 1 to 4.
+
+    A scripted newcomer (`tools/newcomer`) that does nothing but what the advisor's cards say
+    founds a survival town on open ground and reaches Worthy Village in about an hour and a half
+    at the default speed.
+
+Breaking the Town Hall disbands the town. Next: Phase 12, release (see the roadmap).
 
 ## Screenshots (from the headless playtests)
+
+Phase 11: a new player's welcome, the hint for the Town Hall they're holding and the recipe
+toast; the first steps in the planner; the Townstead Guide; smoke over a fire; the happiness view
+in the normal and colour-blind palettes; the mayor and co-mayors on the town's name; and the
+scripted newcomer's town reaching Worthy Village.
+
+| | |
+|---|---|
+| ![Welcome, the Town Hall hint and the recipe toast](docs/screenshots/phase11-welcome.png) | ![First steps: the storehouse is stocked, now lay a road](docs/screenshots/phase11-first-steps.png) |
+| ![The Townstead Guide's contents](docs/screenshots/phase11-guide.png) | ![Smoke rising from a burning building, seen from the planner](docs/screenshots/phase11-smoke.png) |
+| ![Happiness: red, yellow, green](docs/screenshots/phase11-happiness.png) | ![Happiness, colour-blind palette: orange, grey, blue](docs/screenshots/phase11-happiness-colourblind.png) |
+| ![The town's mayor and co-mayors](docs/screenshots/phase11-comayors.png) | ![The newcomer's town reaches Worthy Village](docs/screenshots/phase11-newcomer-worthy-village.png) |
 
 Phase 7: a district with its specialisation and policies, the town's policies, the budget's
 new Policies line, the milestone ladder, a fire seen from the planner and from the street, the
