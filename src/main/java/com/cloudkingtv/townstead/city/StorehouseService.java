@@ -23,8 +23,9 @@ public final class StorehouseService {
     /** The town whose storehouse is at pos, if the player may use it. */
     public static Optional<City> access(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.level();
+        // Reach first: a far-off position would load (or generate) its chunk just to read the block.
+        if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > REACH * REACH || !level.isLoaded(pos)) return Optional.empty();
         if (!level.getBlockState(pos).is(TownsteadRegistry.TOWN_STOREHOUSE.get())) return Optional.empty();
-        if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > REACH * REACH) return Optional.empty();
         Optional<City> city = CityManager.get(level.getServer()).at(level, pos);
         if (city.isEmpty() || !city.get().isMayor(player.getUUID())) {
             player.sendOverlayMessage(Component.translatable("message.townstead.storehouse.not_yours"));

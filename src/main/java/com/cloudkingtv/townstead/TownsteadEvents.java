@@ -42,6 +42,7 @@ public final class TownsteadEvents {
 
     @SubscribeEvent
     static void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        com.cloudkingtv.townstead.network.PayloadGuard.forget(event.getEntity().getUUID());
         if (event.getEntity() instanceof ServerPlayer player && PlannerService.isPlanning(player)) {
             PlannerService.restore(player, player.getData(TownsteadRegistry.PLANNER_RETURN));
         }
@@ -52,7 +53,6 @@ public final class TownsteadEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         PlannerService.exit(player);
         RoadEditor.syncTo(player);
-        PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
         PacketDistributor.sendToPlayer(player, LandSnapshotPayload.of(LandData.get(player.level())));
     }
 

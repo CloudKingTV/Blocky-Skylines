@@ -230,8 +230,8 @@ public final class TownEconomy {
     /** The town whose Town Hall is at pos, if the player stands near it. */
     public static java.util.Optional<City> townHall(ServerPlayer player, BlockPos pos) {
         ServerLevel level = player.level();
+        if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > 64 || !level.isLoaded(pos)) return java.util.Optional.empty();
         if (!level.getBlockState(pos).is(com.cloudkingtv.townstead.registry.TownsteadRegistry.TOWN_HALL.get())) return java.util.Optional.empty();
-        if (player.distanceToSqr(net.minecraft.world.phys.Vec3.atCenterOf(pos)) > 64) return java.util.Optional.empty();
         return CityManager.get(level.getServer()).byTownHall(level, pos);
     }
 
