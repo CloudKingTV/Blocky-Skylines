@@ -33,6 +33,7 @@ import net.neoforged.neoforge.client.network.event.RegisterClientPayloadHandlers
 public final class TownsteadClient {
     public TownsteadClient(ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        com.cloudkingtv.townstead.guide.GuideItem.open = () -> Minecraft.getInstance().gui.setScreen(new GuideScreen());
     }
 
     @SubscribeEvent

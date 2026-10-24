@@ -24,6 +24,26 @@ public final class TownsteadConfig {
             .translation("townstead.configuration.showAdvisor")
             .define("showAdvisor", true);
 
+    public static final ModConfigSpec.BooleanValue FIRST_STEPS = CLIENT
+            .comment("Show the first-steps checklist in the planner until a town reaches Worthy Village")
+            .translation("townstead.configuration.firstSteps")
+            .define("firstSteps", true);
+
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> DISMISSED_TIPS = CLIENT
+            .comment("Advisor tips you've dismissed (remove one to see it again)")
+            .translation("townstead.configuration.dismissedTips")
+            .defineListAllowEmpty("dismissedTips", java.util.List.of(), () -> "", o -> o instanceof String);
+
+    public static final ModConfigSpec.BooleanValue HUD_HINTS = CLIENT
+            .comment("Short hints on screen outside the planner: where to put the Town Hall, how to open the planner")
+            .translation("townstead.configuration.hudHints")
+            .define("hudHints", true);
+
+    public static final ModConfigSpec.BooleanValue COLOUR_BLIND = CLIENT
+            .comment("Info views in blue-to-yellow instead of red-to-green, readable with any colour vision")
+            .translation("townstead.configuration.colourBlind")
+            .define("colourBlind", false);
+
     public static final ModConfigSpec CLIENT_SPEC = CLIENT.build();
 
     private static final ModConfigSpec.Builder SERVER = new ModConfigSpec.Builder();
@@ -57,6 +77,11 @@ public final class TownsteadConfig {
             .comment("Milliseconds of each server tick a town may use; past it, construction and growth wait for the next tick (see /townstead perf)")
             .translation("townstead.configuration.townTickBudget")
             .defineInRange("townTickBudget", 5.0, 0.5, 50.0);
+
+    public static final ModConfigSpec.BooleanValue GIVE_GUIDE = SERVER
+            .comment("Give each player the Townstead Guide the first time they join")
+            .translation("townstead.configuration.giveGuide")
+            .define("giveGuide", true);
 
     public static final ModConfigSpec SERVER_SPEC = SERVER.build();
 

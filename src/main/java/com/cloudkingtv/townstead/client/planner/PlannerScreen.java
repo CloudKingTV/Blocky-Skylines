@@ -350,6 +350,8 @@ public class PlannerScreen extends Screen {
         if (button != InputConstants.MOUSE_BUTTON_LEFT) return super.mouseClicked(event, doubleClick);
         // Re-aim at the click itself: the cursor may have moved since the last frame drew.
         updateHover((int) event.x(), (int) event.y());
+        int topIcon = topIconAt(event.x(), event.y());
+        if (topIcon >= 0) { openTopIcon(topIcon); return true; }
         if (BudgetPanel.click(event.x(), event.y())) return true;
         if (MilestonePanel.contains(event.x(), event.y())) return true;
         if (PolicyPanel.click(event.x(), event.y())) return true;
@@ -743,6 +745,38 @@ public class PlannerScreen extends Screen {
 
     // ---------------------------------------------------------------- rename
 
+    private int iconsX = -100;
+
+    /** 0 over the guide's icon in the top bar, 1 over the settings', else -1. */
+    private int topIconAt(double x, double y) {
+        if (y >= TOP_BAR_H || renameBox != null) return -1;
+        for (int i = 0; i < 2; i++) if (x >= iconsX - 1 && x >= iconsX + i * 20 - 1 && x < iconsX + i * 20 + 17) return i;
+        return -1;
+    }
+
+    /** The guide (at the chapter for the tool in hand) or the mod's settings, over the planner; closing either comes back. */
+    private void openTopIcon(int icon) {
+        click(1.1f);
+        if (icon == 0) minecraft.gui.setScreen(new com.cloudkingtv.townstead.client.GuideScreen(guideChapter()));
+        else net.neoforged.fml.ModList.get().getModContainerById(com.cloudkingtv.townstead.Townstead.MODID).ifPresent(mod ->
+                minecraft.gui.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(mod, null)));
+    }
+
+    /** The guide chapter about the tool in hand (contents for Inspect). */
+    private @Nullable String guideChapter() {
+        return switch (selectedTool) {
+            case ROADS -> "roads";
+            case ZONING -> "zoning";
+            case UTILITIES -> "utilities";
+            case SERVICES, PARKS, LANDMARKS -> "services";
+            case TRANSPORT -> "traffic";
+            case LAND -> "milestones";
+            case INFO -> "info";
+            case DISTRICTS -> "districts";
+            default -> null;
+        };
+    }
+
     private boolean overName(double x, double y) {
         return PlannerClient.city().map(c -> y < TOP_BAR_H && x >= NAME_X - 20 && x <= NAME_X + font.width(c.name()) + 16)
                 .orElse(false);
@@ -894,7 +928,7 @@ public class PlannerScreen extends Screen {
             else drawCursorInfo(g, city);
         }
         drawFlash(g, subCount() > 0 ? subY() : barY);
-        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp && selectedTool != INFO) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, mouseX, mouseY);
+        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp && selectedTool != INFO) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, TOP_BAR_H + 44, mouseX, mouseY);
         if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
         drawPanel(g, mouseX, mouseY);
         drawDistrictNames(g, city);
@@ -918,6 +952,15 @@ public class PlannerScreen extends Screen {
             g.text(font, Component.literal(city.name()), NAME_X, y, hot ? 0xFFFFFFFF : 0xFFFFE9B0, true);
             // Pencil-ish quill marks the name as editable.
             g.item(new ItemStack(Items.WRITABLE_BOOK), NAME_X + font.width(city.name()) + 3, 3);
+            // The guide and the settings, beside the name.
+            iconsX = NAME_X + Math.max(font.width(city.name()) + 26, 66);
+            g.item(new ItemStack(com.cloudkingtv.townstead.registry.TownsteadRegistry.GUIDE.get()), iconsX, 3);
+            g.item(new ItemStack(Items.COMPARATOR), iconsX + 20, 3);
+            int icon = topIconAt(mouseX, mouseY);
+            if (icon >= 0) {
+                g.fill(iconsX + icon * 20 - 1, TOP_BAR_H - 3, iconsX + icon * 20 + 17, TOP_BAR_H - 2, 0xFFFFE9B0);
+                g.setTooltipForNextFrame(font, Component.translatable(icon == 0 ? "hud.townstead.open_guide" : "hud.townstead.open_settings"), mouseX, TOP_BAR_H + 14);
+            }
             // Anchor the tooltip under the bar so it never covers the name it describes.
             var reached = com.cloudkingtv.townstead.progress.Milestone.of(city.milestone());
             var next = reached.next();
@@ -1144,9 +1187,9 @@ public class PlannerScreen extends Screen {
     private void drawHints(GuiGraphicsExtractor g) {
         if (showHelp && helpPage == 2) {
             List<Component> lines = new ArrayList<>();
-            lines.add(Component.translatable("guide.townstead.title").withStyle(net.minecraft.ChatFormatting.GOLD));
-            for (int i = 1; i <= 12; i++) lines.add(Component.translatable("guide.townstead." + i));
-            lines.add(Component.translatable("guide.townstead.more").withStyle(net.minecraft.ChatFormatting.GRAY));
+            lines.add(Component.translatable("tips.townstead.title").withStyle(net.minecraft.ChatFormatting.GOLD));
+            for (int i = 1; i <= 12; i++) lines.add(Component.translatable("tips.townstead." + i));
+            lines.add(Component.translatable("tips.townstead.more").withStyle(net.minecraft.ChatFormatting.GRAY));
             List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
             for (Component c : lines) wrapped.addAll(font.split(c, 300));
             int w = 314, h = wrapped.size() * (font.lineHeight + 2) + 12;

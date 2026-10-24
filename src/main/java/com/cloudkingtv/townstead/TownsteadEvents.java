@@ -26,6 +26,7 @@ public final class TownsteadEvents {
         // Left mid-plan last session: put the body back where it was.
         PlannerReturn back = player.getData(TownsteadRegistry.PLANNER_RETURN);
         if (back.active()) PlannerService.restore(player, back);
+        com.cloudkingtv.townstead.guide.Onboarding.welcome(player);
         // A prepared world's town with no mayor yet goes to the first player who has none.
         CityManager cities = CityManager.get(player.level().getServer());
         if (cities.runBy(player.getUUID()).isEmpty()) {

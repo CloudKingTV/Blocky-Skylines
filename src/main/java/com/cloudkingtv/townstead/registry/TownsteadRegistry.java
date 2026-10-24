@@ -37,12 +37,16 @@ public final class TownsteadRegistry {
             p -> p.mapColor(MapColor.WOOD).strength(2.5f).sound(SoundType.WOOD));
     public static final DeferredItem<BlockItem> TOWN_STOREHOUSE_ITEM = ITEMS.registerSimpleBlockItem("town_storehouse", TOWN_STOREHOUSE);
 
+    public static final DeferredItem<com.cloudkingtv.townstead.guide.GuideItem> GUIDE = ITEMS.registerItem("guide",
+            com.cloudkingtv.townstead.guide.GuideItem::new, p -> p.stacksTo(1));
+
     public static final DeferredHolder<CreativeModeTab, CreativeModeTab> TAB = TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.translatable("itemGroup.townstead"))
             .icon(() -> TOWN_HALL_ITEM.get().getDefaultInstance())
             .displayItems((params, out) -> {
                 out.accept(TOWN_HALL_ITEM.get());
                 out.accept(TOWN_STOREHOUSE_ITEM.get());
+                out.accept(GUIDE.get());
             })
             .build());
 
@@ -54,6 +58,11 @@ public final class TownsteadRegistry {
     /** Where to put a player back when they leave the planner (persisted in case they log out mid-plan). */
     public static final Supplier<AttachmentType<PlannerReturn>> PLANNER_RETURN = ATTACHMENTS.register("planner_return",
             () -> AttachmentType.builder(() -> PlannerReturn.NONE).serialize(PlannerReturn.MAP_CODEC).build());
+
+    /** What a player's been given to get started: the guide, once. */
+    public static final Supplier<AttachmentType<com.cloudkingtv.townstead.guide.Onboarding>> ONBOARDING = ATTACHMENTS.register("onboarding",
+            () -> AttachmentType.builder(() -> com.cloudkingtv.townstead.guide.Onboarding.NONE)
+                    .serialize(com.cloudkingtv.townstead.guide.Onboarding.MAP_CODEC).copyOnDeath().build());
 
     public static void register(IEventBus modBus) {
         BLOCKS.register(modBus);
