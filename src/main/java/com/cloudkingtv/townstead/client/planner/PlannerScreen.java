@@ -925,11 +925,11 @@ public class PlannerScreen extends Screen {
             else if (selectedTool == TRANSPORT && LineTool.mode != 0) drawLineInfo(g, city, mouseX, mouseY);
             else if (placing()) drawPlaceInfo(g, city, mouseX, mouseY);
             else if (hovered != null) drawBuildingInfo(g, hovered, mouseX, mouseY);
-            else drawCursorInfo(g, city);
+            else if (!bigPanelOpen()) drawCursorInfo(g, city);
         }
         drawFlash(g, subCount() > 0 ? subY() : barY);
-        if (!BudgetPanel.open && !MilestonePanel.open && !showHelp && selectedTool != INFO) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, TOP_BAR_H + 44, mouseX, mouseY);
-        if (!BudgetPanel.open && !MilestonePanel.open) drawHints(g);
+        if (!bigPanelOpen() && !showHelp && selectedTool != INFO) Advisor.draw(g, font, (subCount() > 0 ? subY() : barY) - 4, TOP_BAR_H + 44, mouseX, mouseY);
+        if (!bigPanelOpen()) drawHints(g);
         drawPanel(g, mouseX, mouseY);
         drawDistrictNames(g, city);
         if (panelBuilding < 0 && !BudgetPanel.open && !MilestonePanel.open) {
@@ -1186,6 +1186,39 @@ public class PlannerScreen extends Screen {
         }
     }
 
+    /**
+     * Lines in a panel at the top right, at most {@code natural} wide: wrapped to fit the screen, and in two columns when
+     * one would run down past the toolbar (a small window or a big GUI scale).
+     */
+    /** The budget, milestones or town policies panel is open; the advisor, hints and cursor card stay out of its way. */
+    private static boolean bigPanelOpen() {
+        return BudgetPanel.open || MilestonePanel.open || PolicyPanel.townOpen;
+    }
+
+    private void helpPanel(GuiGraphicsExtractor g, List<Component> lines, int natural) {
+        int row = font.lineHeight + 2, top = TOP_BAR_H + 6;
+        int room = height - SLOT - TOOLBAR_PAD * 2 - 8 - top - 12;
+        int cols = 1, colW = Math.min(natural, width - 12);
+        List<net.minecraft.util.FormattedCharSequence> wrapped = wrapAll(lines, colW - 14);
+        if (wrapped.size() * row > room) {
+            cols = 2;
+            colW = Math.min(natural, (width - 12) / 2);
+            wrapped = wrapAll(lines, colW - 14);
+        }
+        int perCol = (wrapped.size() + cols - 1) / cols;
+        int w = colW * cols, h = perCol * row + 12, x = width - w - 6;
+        g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, top, w, h);
+        for (int i = 0; i < wrapped.size(); i++) {
+            g.text(font, wrapped.get(i), x + 7 + (i / perCol) * colW, top + 7 + (i % perCol) * row, 0xFFF2F2F2, true);
+        }
+    }
+
+    private List<net.minecraft.util.FormattedCharSequence> wrapAll(List<Component> lines, int width) {
+        List<net.minecraft.util.FormattedCharSequence> out = new ArrayList<>();
+        for (Component c : lines) out.addAll(font.split(c, width));
+        return out;
+    }
+
     /** One-line reminder that fades after a few seconds; H toggles the full control list. */
     private void drawHints(GuiGraphicsExtractor g) {
         if (showHelp && helpPage == 2) {
@@ -1193,12 +1226,7 @@ public class PlannerScreen extends Screen {
             lines.add(Component.translatable("tips.townstead.title").withStyle(net.minecraft.ChatFormatting.GOLD));
             for (int i = 1; i <= 12; i++) lines.add(Component.translatable("tips.townstead." + i));
             lines.add(Component.translatable("tips.townstead.more").withStyle(net.minecraft.ChatFormatting.GRAY));
-            List<net.minecraft.util.FormattedCharSequence> wrapped = new ArrayList<>();
-            for (Component c : lines) wrapped.addAll(font.split(c, 300));
-            int w = 314, h = wrapped.size() * (font.lineHeight + 2) + 12;
-            int x = width - w - 6, y = TOP_BAR_H + 6;
-            g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
-            for (int i = 0; i < wrapped.size(); i++) g.text(font, wrapped.get(i), x + 7, y + 7 + i * (font.lineHeight + 2), 0xFFF2F2F2, true);
+            helpPanel(g, lines, 314);
             return;
         }
         if (showHelp) {
@@ -1213,11 +1241,7 @@ public class PlannerScreen extends Screen {
                     Component.translatable("help.townstead.cancel"),
                     Component.translatable("help.townstead.rename"), Component.translatable("help.townstead.advisor"),
                     Component.translatable("help.townstead.next_page"), Component.translatable("help.townstead.exit"));
-            int w = lines.stream().mapToInt(font::width).max().orElse(100) + 14;
-            int h = lines.size() * (font.lineHeight + 2) + 12;
-            int x = width - w - 6, y = TOP_BAR_H + 6;
-            g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, w, h);
-            for (int i = 0; i < lines.size(); i++) g.text(font, lines.get(i), x + 7, y + 7 + i * (font.lineHeight + 2), 0xFFF2F2F2, true);
+            helpPanel(g, lines, lines.stream().mapToInt(font::width).max().orElse(100) + 14);
             return;
         }
         long age = Util.getMillis() - openedAt;

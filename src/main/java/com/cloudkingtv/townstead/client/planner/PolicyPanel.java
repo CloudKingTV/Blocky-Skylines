@@ -21,6 +21,7 @@ import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.FormattedCharSequence;
 import net.neoforged.neoforge.client.network.ClientPacketDistributor;
 import org.jspecify.annotations.Nullable;
 
@@ -61,8 +62,9 @@ final class PolicyPanel {
         List<Policy> shown = new ArrayList<>();
         for (Policy p : Policy.values()) if (district == null || p.local) shown.add(p);
         Set<Policy> on = district == null ? city.policies() : district.policies();
-        int rows = 1 + shown.size() + (district != null ? 4 : 1);
-        h = PAD * 2 + rows * ROW + 4;
+        // The town panel's footer hint wraps to the panel's width.
+        List<FormattedCharSequence> hint = district == null ? font.split(Component.translatable("policy.townstead.hint"), W - PAD * 2) : List.of();
+        h = PAD * 2 + (1 + shown.size()) * ROW + (district != null ? 4 * ROW : hint.size() * (font.lineHeight + 1)) + 4;
         left = 6;
         top = topBar + 4;
         g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, left, top, W, h);
@@ -128,7 +130,7 @@ final class PolicyPanel {
                 DistrictTool.selected = -1;
             }));
         } else {
-            g.text(font, Component.translatable("policy.townstead.hint"), x, y + 2, 0xFF8A8A8A, true);
+            for (int i = 0; i < hint.size(); i++) g.text(font, hint.get(i), x, y + 2 + i * (font.lineHeight + 1), 0xFF8A8A8A, true);
         }
         if (tip != null) g.setTooltipForNextFrame(font, font.split(tip, 220), mouseX, mouseY);
     }

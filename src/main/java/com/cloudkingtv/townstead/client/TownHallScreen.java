@@ -24,7 +24,7 @@ import net.neoforged.neoforge.client.network.ClientPacketDistributor;
  */
 public class TownHallScreen extends Screen {
     private static final Identifier PANEL = Townstead.id("planner/panel");
-    private static final int W = 230, H = 196;
+    private static final int W = 280, H = 196;
 
     private final UUID cityId;
     private final BlockPos pos;

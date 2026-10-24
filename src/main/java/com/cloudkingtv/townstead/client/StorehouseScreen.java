@@ -32,7 +32,9 @@ public class StorehouseScreen extends Screen {
     private static final Identifier PANEL = Townstead.id("planner/panel");
     private static final Identifier SLOT_SPRITE = Townstead.id("planner/button");
     private static final Identifier SLOT_HOVER = Townstead.id("planner/button_hover");
-    private static final int COLS = 9, ROWS = 4, CELL = 20, W = COLS * CELL + 16, H = 186;
+    private static final int COLS = 9, ROWS = 4, CELL = 20, W = COLS * CELL + 16;
+    /** Tall enough for the grid, the materials list (two columns) and the deposit button. */
+    private static final int H = 30 + ROWS * CELL + 6 + (Material.values().length + 1) / 2 * 10 + 6 + 28;
 
     private final UUID cityId;
     private final BlockPos pos;
