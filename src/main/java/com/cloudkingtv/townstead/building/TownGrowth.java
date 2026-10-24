@@ -226,6 +226,7 @@ public final class TownGrowth {
         Set<TilePos> tiles = city.tiles();
         List<ZoneType> order = new ArrayList<>(ZoneType.PAINTABLE);
         order.sort(Comparator.comparingInt((ZoneType z) -> demand.of(z)).reversed());
+        boolean loadedOne = false;
         for (ZoneType zone : order) {
             if (demand.of(zone) < Demand.GROWTH_THRESHOLD) continue;
             // Free zoned lots, nearest the Town Hall first: towns grow outward from their centre.
@@ -243,6 +244,12 @@ public final class TownGrowth {
             };
             for (long[] lot : lots) {
                 int cx = RoadRaster.keyX(lot[0]), cz = RoadRaster.keyZ(lot[0]);
+                Long until = UNSUITABLE.get(lot[0]);
+                if (until != null) {
+                    if (until > level.getGameTime()) continue;
+                    UNSUITABLE.remove(lot[0]);
+                }
+                boolean waiting = false;
                 Direction front = ZoneRules.frontage(cx, cz, roads, tiles);
                 if (front == null) continue;
                 // A lot shape for this zone (a cottage plot, a wide farmhouse plot, a deep yard...), then smaller ones.
@@ -251,15 +258,26 @@ public final class TownGrowth {
                         lot[0] * 31 + land.buildings().size())) {
                     if (!ZoneRules.lotFits(cx, cz, front, shape[0], shape[1], roads, tiles, free)) continue;
                     List<Long> cells = Building.lotCells(cx, cz, front, shape[0], shape[1]);
-                    for (long k : cells) level.getChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1); // towns grow while you're away
+                    // Towns grow while you're away, but reading chunks from disk is slow: one lot out of sight a search.
+                    boolean unloaded = false;
+                    for (long k : cells) unloaded |= !level.getChunkSource().hasChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1);
+                    if (unloaded && loadedOne) { waiting = true; continue; }
+                    loadedOne |= unloaded;
+                    for (long k : cells) level.getChunk(RoadRaster.keyX(k) >> 1, RoadRaster.keyZ(k) >> 1);
                     Integer baseY = siteHeight(level, cells, roads);
                     if (baseY == null) continue;
                     startSite(level, city, land, zone, "", cx, cz, front, shape[0], shape[1], baseY, roads);
                     return;
                 }
+                // No shape fits the ground here (too steep, wet, or something's in the way): look again in a while.
+                if (!waiting) UNSUITABLE.put(lot[0], level.getGameTime() + UNSUITABLE_FOR);
             }
         }
     }
+
+    /** Zoned lots the ground wouldn't take a building on, and until when growth passes them by. */
+    private static final Map<Long, Long> UNSUITABLE = new HashMap<>();
+    private static final int UNSUITABLE_FOR = 6000;
 
     /** Lot shapes ({wide, deep}) to try for a zone, the weighted pick first, then smaller ones down to a single cell. */
     static List<int[]> shapes(ZoneType zone, long seed) {
@@ -675,14 +693,44 @@ public final class TownGrowth {
         for (Building b : List.copyOf(land.buildings())) {
             if (b.owed <= 0 || b.state == Building.State.ACTIVE || b.state == Building.State.ABANDONED) continue;
             City city = cities.byId(b.city).orElse(null);
-            if (city == null) continue;
-            // Loading a site's chunks is slow: a town out of time this tick leaves the rest owed for the next round.
+            if (city == null || LOADING.contains(b.id)) continue;
             if (TownProfiler.over(city.id())) { TownProfiler.deferred(city.id()); continue; }
-            TownProfiler.begin(city.id(), TownProfiler.Section.CATCH_UP);
-            try {
-                catchUp(level, city, land, b);
-            } finally { TownProfiler.end(); }
+            // Reading a chunk from disk takes a while: the site's chunks are asked for in the background and its
+            // blocks placed once they're all in, on a later tick, so the tick never waits on the disk.
+            BuildingGenerator.Plan plan = plan(b);
+            List<java.util.concurrent.CompletableFuture<?>> loads = new ArrayList<>();
+            for (int x = plan.min().getX() >> 4; x <= plan.max().getX() >> 4; x++) {
+                for (int z = plan.min().getZ() >> 4; z <= plan.max().getZ() >> 4; z++) {
+                    if (!level.getChunkSource().hasChunk(x, z)) {
+                        loads.add(level.getChunkSource().getChunkFuture(x, z, net.minecraft.world.level.chunk.status.ChunkStatus.FULL, true));
+                    }
+                }
+            }
+            if (loads.isEmpty()) {
+                catchUpTimed(level, city, land, b);
+                continue;
+            }
+            LOADING.add(b.id);
+            int id = b.id;
+            java.util.concurrent.CompletableFuture.allOf(loads.toArray(java.util.concurrent.CompletableFuture[]::new)).whenCompleteAsync((done, error) -> {
+                LOADING.remove(id);
+                Building now = land.building(id);
+                City town = cities.byId(now == null ? b.city : now.city).orElse(null);
+                if (error != null || now == null || town == null || now.owed <= 0) return;
+                if (now.state == Building.State.ACTIVE || now.state == Building.State.ABANDONED) return;
+                catchUpTimed(level, town, land, now);
+            }, level.getServer());
         }
+    }
+
+    /** Sites whose chunks are being loaded for a catch-up. */
+    private static final Set<Integer> LOADING = new HashSet<>();
+
+    private static void catchUpTimed(ServerLevel level, City city, LandData land, Building b) {
+        TownProfiler.begin(city.id(), TownProfiler.Section.CATCH_UP);
+        try {
+            catchUp(level, city, land, b);
+        } finally { TownProfiler.end(); }
     }
 
     /** Loads a site's chunks and places the blocks it was owed while nobody was near. */

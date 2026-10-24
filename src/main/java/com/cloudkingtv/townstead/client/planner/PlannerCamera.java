@@ -37,8 +37,8 @@ public final class PlannerCamera {
         this.yaw = targetYaw = yaw;
         distance = targetDistance = 48f;
         tilt = targetTilt = 0f;
-        Minecraft mc = Minecraft.getInstance();
-        groundY = mc.level == null ? 64 : mc.level.getHeight(Heightmap.Types.WORLD_SURFACE, Mth.floor(x), Mth.floor(z));
+        // Worked out once the ground there has loaded (see tick): an unloaded column reads as the bottom of the world.
+        groundY = Double.NaN;
         lastEye = null;
         releaseAll();
     }
@@ -98,7 +98,11 @@ public final class PlannerCamera {
         yaw += (targetYaw - yaw) * ease;
         distance += (targetDistance - distance) * ease;
         tilt += (targetTilt - tilt) * ease;
+        // Until the ground under the focus has arrived from the server, the body stays where the server put it (a
+        // dedicated server turns back a player who moves ten blocks in a tick, and puts them back where they were).
+        if (!player.level().isLoaded(net.minecraft.core.BlockPos.containing(focusX, 64, focusZ))) return;
         int ground = player.level().getHeight(Heightmap.Types.WORLD_SURFACE, Mth.floor(focusX), Mth.floor(focusZ));
+        if (Double.isNaN(groundY)) groundY = ground;
         groundY += (ground - groundY) * 0.2;
 
         Vec3 look = Vec3.directionFromRotation(pitch(), yaw);
